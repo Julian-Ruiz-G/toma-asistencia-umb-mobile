@@ -24,6 +24,19 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "apiUrl": "https://rvf0u5jr9f.execute-api.us-east-2.amazonaws.com/Prod/recognize",
+      "eas": {
+        "projectId": "c8c31430-869c-4768-8493-89fc9a38f137"
+      }
+    },
+    "owner": "julianlucas",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/c8c31430-869c-4768-8493-89fc9a38f137"
     }
   }
 }
