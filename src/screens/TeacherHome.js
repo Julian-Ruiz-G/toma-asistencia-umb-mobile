@@ -631,10 +631,10 @@ const formatSchedule = (c) => {
                         Alert.alert('Error', err?.message || String(err));
                       }
                     }}
-                    style={[styles.actionBtn, { backgroundColor: '#F0FDF4' }]}
+                    style={[styles.actionBtn, { backgroundColor: '#FEF2F2' }]}
                   >
-                    <QrCode size={18} color="#16A34A" />
-                    <Text style={[styles.actionText, { color: '#16A34A' }]}>Ver QR</Text>
+                    <QrCode size={18} color="#EF4444" />
+                    <Text style={[styles.actionText, { color: '#EF4444' }]}>Ver QR</Text>
                   </Pressable>
 
                   <Pressable
