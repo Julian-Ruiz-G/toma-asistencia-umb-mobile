@@ -2,6 +2,7 @@
   "expo": {
     "name": "toma-asistencia-umb-mobile",
     "slug": "toma-asistencia-umb-mobile",
+    "scheme": "toma-asistencia-umb",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -20,7 +21,8 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.julianlucas.tomaasistenciaumbmobile"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -32,9 +34,7 @@
       }
     },
     "owner": "julianlucas",
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
+    "runtimeVersion": "1.0.0",
     "updates": {
       "url": "https://u.expo.dev/c8c31430-869c-4768-8493-89fc9a38f137"
     }

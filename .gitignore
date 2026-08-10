@@ -31,7 +31,21 @@ yarn-error.*
 *.pem
 
 # local env files
+.env
 .env*.local
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# AWS credentials
+credentials.json
+.aws/
+
+# Database URLs and secrets
+*.key
+*.pem
+secrets.json
 
 # typescript
 *.tsbuildinfo

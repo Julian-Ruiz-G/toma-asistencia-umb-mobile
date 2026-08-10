@@ -10,7 +10,8 @@ import { REGISTER_STUDENT_URL } from '../../config';
 
 export default function RegisterScreen({ navigation }) {
   const [formData, setFormData] = useState({
-    fullName: '',
+    firstName: '',
+    lastName: '',
     code: '',
     email: '',
     password: '',
@@ -25,12 +26,40 @@ export default function RegisterScreen({ navigation }) {
 
   const validate = () => {
     const e = {};
-    if (!formData.fullName.trim()) e.fullName = 'El nombre completo es requerido';
+    
+    // Validar nombre
+    if (!formData.firstName.trim()) {
+      e.firstName = 'El nombre es requerido';
+    } else if (formData.firstName.trim().length < 2) {
+      e.firstName = 'Mínimo 2 caracteres';
+    } else if (formData.firstName.trim().length > 50) {
+      e.firstName = 'Máximo 50 caracteres';
+    } else if (!/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$/.test(formData.firstName.trim())) {
+      e.firstName = 'Solo letras y espacios';
+    }
+    
+    // Validar apellidos
+    if (!formData.lastName.trim()) {
+      e.lastName = 'Los apellidos son requeridos';
+    } else if (formData.lastName.trim().length < 2) {
+      e.lastName = 'Mínimo 2 caracteres';
+    } else if (formData.lastName.trim().length > 50) {
+      e.lastName = 'Máximo 50 caracteres';
+    } else if (!/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$/.test(formData.lastName.trim())) {
+      e.lastName = 'Solo letras y espacios';
+    }
+    
     if (!formData.code.trim()) e.code = 'El código es requerido';
+    else if (formData.code.trim().length < 8) e.code = 'Mínimo 8 caracteres';
+    else if (formData.code.trim().length > 10) e.code = 'Máximo 10 caracteres';
     if (!formData.email.trim()) e.email = 'El correo es requerido';
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) e.email = 'Ingrese un correo válido';
+    else if (!formData.email.trim().toLowerCase().endsWith('@academia.umb.edu.co')) e.email = 'El correo debe terminar en @academia.umb.edu.co';
     if (!formData.password) e.password = 'La contraseña es requerida';
     else if (formData.password.length < 8) e.password = 'Mínimo 8 caracteres';
+    else if (!/[A-Z]/.test(formData.password)) e.password = 'Debe incluir al menos una mayúscula';
+    else if (!/[a-z]/.test(formData.password)) e.password = 'Debe incluir al menos una minúscula';
+    else if (!/[0-9]/.test(formData.password)) e.password = 'Debe incluir al menos un número';
+    else if (!/[!@#$%^&*(),.?":{}|<>]/.test(formData.password)) e.password = 'Debe incluir al menos un carácter especial';
     if (formData.password !== formData.confirmPassword) e.confirmPassword = 'Las contraseñas no coinciden';
     if (!formData.isNotRobot) e.isNotRobot = 'Verifique que no es un robot';
     if (formData.role === 'student' && !formData.consentBiometric) e.consentBiometric = 'Debe aceptar el consentimiento biométrico';
@@ -85,7 +114,8 @@ export default function RegisterScreen({ navigation }) {
         },
         body: JSON.stringify({
           studentCode: formData.code.trim(),
-          fullName: formData.fullName.trim(),
+          firstName: formData.firstName.trim(),
+          lastName: formData.lastName.trim(),
           email: formData.email.trim().toLowerCase(),
           password: formData.password,
           role: 'student',
@@ -106,7 +136,7 @@ export default function RegisterScreen({ navigation }) {
         throw new Error(msg);
       }
 
-      Alert.alert('Listo', 'Cuenta creada ✅');
+      Alert.alert('Listo', 'Cuenta creada');
       navigation.replace('Login');
     } catch (e) {
       Alert.alert('Error', e?.message || String(e));
@@ -129,11 +159,23 @@ export default function RegisterScreen({ navigation }) {
 
       <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
         <Input
-          label="Nombre Completo"
-          placeholder="Ingrese su nombre completo"
-          value={formData.fullName}
-          onChangeText={(v) => setFormData((p) => ({ ...p, fullName: v }))}
-          error={errors.fullName}
+          label="Nombres"
+          placeholder="Ingrese sus nombres"
+          value={formData.firstName}
+          onChangeText={(v) => setFormData((p) => ({ ...p, firstName: v }))}
+          error={errors.firstName}
+          autoCapitalize="words"
+        />
+
+        <View style={{ height: 14 }} />
+
+        <Input
+          label="Apellidos"
+          placeholder="Ingrese sus apellidos"
+          value={formData.lastName}
+          onChangeText={(v) => setFormData((p) => ({ ...p, lastName: v }))}
+          error={errors.lastName}
+          autoCapitalize="words"
         />
 
         <View style={{ height: 14 }} />
@@ -144,7 +186,7 @@ export default function RegisterScreen({ navigation }) {
           value={formData.code}
           onChangeText={(v) => setFormData((p) => ({ ...p, code: v }))}
           error={errors.code}
-          helperText="Código de 10 dígitos"
+          helperText="Código de 8 a 10 dígitos"
           autoCapitalize="none"
         />
 
@@ -152,7 +194,7 @@ export default function RegisterScreen({ navigation }) {
 
         <Input
           label="Correo Electrónico"
-          placeholder="correo@umb.edu.co"
+          placeholder="usuario@academia.umb.edu.co"
           value={formData.email}
           onChangeText={(v) => setFormData((p) => ({ ...p, email: v }))}
           error={errors.email}
@@ -164,7 +206,7 @@ export default function RegisterScreen({ navigation }) {
 
         <Input
           label="Contraseña"
-          placeholder="Mínimo 8 caracteres"
+          placeholder="Mínimo 8 caracteres, mayúscula, minúscula, número y carácter especial"
           value={formData.password}
           onChangeText={(v) => setFormData((p) => ({ ...p, password: v }))}
           error={errors.password}
@@ -196,7 +238,7 @@ export default function RegisterScreen({ navigation }) {
                 <CheckCircle2 size={32} color="#16A34A" />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.photoSuccessTitle}>Foto registrada ✅</Text>
+                <Text style={styles.photoSuccessTitle}>Foto registrada</Text>
                 <Text style={styles.photoSuccessHint}>Tu foto se usará para el reconocimiento facial</Text>
               </View>
               <Pressable onPress={takePhoto} style={styles.retakeBtn}>
