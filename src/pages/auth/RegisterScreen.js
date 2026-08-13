@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
 import { Alert, Image, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
-import { ArrowLeft, Bot, Camera, CheckCircle2 } from 'lucide-react-native';
+import { ArrowLeft, Bot, Camera, CheckCircle2, FileText, Shield } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 
 import { Button } from '../../components/Button';
 import { Input } from '../../components/Input';
 import { COLORS } from '../../ui/theme';
 import { REGISTER_STUDENT_URL } from '../../config';
+import TermsAndConditionsModal from '../../components/TermsAndConditions';
+import PrivacyPolicyModal from '../../components/PrivacyPolicy';
+import BiometricConsentModal from '../../components/BiometricConsent';
 
 export default function RegisterScreen({ navigation }) {
   const [formData, setFormData] = useState({
@@ -19,10 +22,15 @@ export default function RegisterScreen({ navigation }) {
     role: 'student',
     isNotRobot: false,
     consentBiometric: false,
+    acceptTerms: false,
+    acceptPrivacy: false,
   });
   const [errors, setErrors] = useState({});
   const [photoBase64, setPhotoBase64] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [showBiometricModal, setShowBiometricModal] = useState(false);
 
   const validate = () => {
     const e = {};
@@ -56,14 +64,20 @@ export default function RegisterScreen({ navigation }) {
     else if (!formData.email.trim().toLowerCase().endsWith('@academia.umb.edu.co')) e.email = 'El correo debe terminar en @academia.umb.edu.co';
     if (!formData.password) e.password = 'La contraseña es requerida';
     else if (formData.password.length < 8) e.password = 'Mínimo 8 caracteres';
-    else if (!/[A-Z]/.test(formData.password)) e.password = 'Debe incluir al menos una mayúscula';
-    else if (!/[a-z]/.test(formData.password)) e.password = 'Debe incluir al menos una minúscula';
-    else if (!/[0-9]/.test(formData.password)) e.password = 'Debe incluir al menos un número';
-    else if (!/[!@#$%^&*(),.?":{}|<>]/.test(formData.password)) e.password = 'Debe incluir al menos un carácter especial';
+    else if (!/[A-Z]/.test(formData.password)) e.password = 'Incluya mayúscula';
+    else if (!/[a-z]/.test(formData.password)) e.password = 'Incluya minúscula';
+    else if (!/[0-9]/.test(formData.password)) e.password = 'Incluya número';
+    else if (!/[!@#$%^&*(),.?":{}|<>]/.test(formData.password)) e.password = 'Incluya carácter especial';
     if (formData.password !== formData.confirmPassword) e.confirmPassword = 'Las contraseñas no coinciden';
-    if (!formData.isNotRobot) e.isNotRobot = 'Verifique que no es un robot';
-    if (formData.role === 'student' && !formData.consentBiometric) e.consentBiometric = 'Debe aceptar el consentimiento biométrico';
-    if (formData.role === 'student' && !photoBase64) e.photo = 'Debe tomar una foto para registrarse';
+    if (!formData.isNotRobot) e.isNotRobot = 'Debe confirmar que no es un robot';
+    if (!formData.acceptTerms) e.acceptTerms = 'Debe aceptar los Términos y Condiciones';
+    if (!formData.acceptPrivacy) e.acceptPrivacy = 'Debe aceptar la Política de Privacidad';
+    if (formData.consentBiometric) {
+      // Si acepta datos biométricos, requiere aceptar política de privacidad
+      if (!formData.acceptPrivacy) e.acceptPrivacy = 'Debe aceptar la Política de Privacidad para datos biométricos';
+    }
+    if (!photoBase64) e.photo = 'La foto es requerida';
+
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -120,6 +134,9 @@ export default function RegisterScreen({ navigation }) {
           password: formData.password,
           role: 'student',
           imageBase64: photoBase64,
+          acceptTerms: formData.acceptTerms,
+          acceptPrivacy: formData.acceptPrivacy,
+          consentBiometric: formData.consentBiometric,
         }),
       });
 
@@ -283,18 +300,51 @@ export default function RegisterScreen({ navigation }) {
 
         <View style={styles.checkRow}>
           <Text style={styles.consentText}>
-            Acepto el{' '}
-            <Text style={styles.consentLink} onPress={() => Alert.alert('Consentimiento', 'Pendiente mostrar consentimiento biométrico')}>
-              consentimiento biométrico
-            </Text>{' '}
-            para el uso de reconocimiento facial en el sistema de asistencia
+            He leído y acepto los{' '}
+            <Text style={styles.consentLink} onPress={() => setShowTermsModal(true)}>
+              Términos y Condiciones
+            </Text>
+          </Text>
+          <Switch
+            value={!!formData.acceptTerms}
+            onValueChange={(v) => setFormData((p) => ({ ...p, acceptTerms: v }))}
+          />
+        </View>
+        {errors.acceptTerms ? <Text style={styles.errorText}>{errors.acceptTerms}</Text> : null}
+
+        <View style={{ height: 12 }} />
+
+        <View style={styles.checkRow}>
+          <Text style={styles.consentText}>
+            He leído y acepto la{' '}
+            <Text style={styles.consentLink} onPress={() => setShowPrivacyModal(true)}>
+              Política de Privacidad
+            </Text>
+          </Text>
+          <Switch
+            value={!!formData.acceptPrivacy}
+            onValueChange={(v) => setFormData((p) => ({ ...p, acceptPrivacy: v }))}
+          />
+        </View>
+        {errors.acceptPrivacy ? <Text style={styles.errorText}>{errors.acceptPrivacy}</Text> : null}
+
+        <View style={{ height: 12 }} />
+
+        <View style={styles.checkRow}>
+          <Text style={styles.consentText}>
+            Autorizo el tratamiento de mis datos biométricos{' '}
+            <Text style={styles.consentLink} onPress={() => setShowBiometricModal(true)}>
+              (ver detalles)
+            </Text>
           </Text>
           <Switch
             value={!!formData.consentBiometric}
             onValueChange={(v) => setFormData((p) => ({ ...p, consentBiometric: v }))}
           />
         </View>
-        {errors.consentBiometric ? <Text style={styles.errorText}>{errors.consentBiometric}</Text> : null}
+        <Text style={styles.consentHint}>
+          Los datos biométricos son sensibles. No está obligado a autorizar su tratamiento.
+        </Text>
 
         <View style={{ height: 18 }} />
       </ScrollView>
@@ -310,6 +360,33 @@ export default function RegisterScreen({ navigation }) {
           </Text>
         </Text>
       </View>
+
+      <TermsAndConditionsModal
+        visible={showTermsModal}
+        onClose={() => setShowTermsModal(false)}
+        onAccept={() => {
+          setFormData((p) => ({ ...p, acceptTerms: true }));
+          setShowTermsModal(false);
+        }}
+      />
+
+      <PrivacyPolicyModal
+        visible={showPrivacyModal}
+        onClose={() => setShowPrivacyModal(false)}
+        onAccept={() => {
+          setFormData((p) => ({ ...p, acceptPrivacy: true }));
+          setShowPrivacyModal(false);
+        }}
+      />
+
+      <BiometricConsentModal
+        visible={showBiometricModal}
+        onClose={() => setShowBiometricModal(false)}
+        onAccept={() => {
+          setFormData((p) => ({ ...p, consentBiometric: true }));
+          setShowBiometricModal(false);
+        }}
+      />
     </View>
   );
 }
@@ -348,6 +425,7 @@ const styles = StyleSheet.create({
   checkLabelText: { color: '#374151', fontWeight: '700' },
   consentText: { flex: 1, color: '#374151', fontSize: 14, lineHeight: 20 },
   consentLink: { color: COLORS.primary, fontWeight: '800' },
+  consentHint: { marginTop: 4, color: '#6B7280', fontSize: 12, fontStyle: 'italic' },
   errorText: { marginTop: 6, color: '#EF4444' },
   footer: {
     paddingHorizontal: 24,

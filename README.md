@@ -224,41 +224,32 @@ eas update --branch preview --message "Descripción del cambio"
 **Estado:** En desarrollo activo
 
 ### Funcionalidades Implementadas
-- ✅ Autenticación de usuarios (estudiantes, docentes, admin)
-- ✅ Registro de estudiantes con validación de datos
-- ✅ Escaneo de códigos QR
-- ✅ Reconocimiento facial con AWS Rekognition
-- ✅ Gestión de clases (crear, actualizar, eliminar)
-- ✅ Marcado de asistencia con QR y rostro
-- ✅ Historial de asistencia
-- ✅ Dashboard para docentes y administradores
-- ✅ Reportes de asistencia
-- ✅ Validación de duplicados (rostros y códigos)
-- ✅ Actualizaciones OTA con EAS Update
-- ✅ GitHub Actions para CI/CD
+- Autenticación de usuarios (estudiantes, docentes, admin)
+- Registro de estudiantes con validación de datos
+- Escaneo de códigos QR
+- Reconocimiento facial con AWS Rekognition
+- Gestión de clases (crear, actualizar, eliminar)
+- Marcado de asistencia con QR y rostro
+- Historial de asistencia
+- Dashboard para docentes y administradores
+- Reportes de asistencia
+- Validación de duplicados (rostros y códigos)
+- Actualizaciones OTA con EAS Update
+- GitHub Actions para CI/CD
 
 ### Funcionalidades Pendientes
-- ⏳ Recuperación de contraseña
-- ⏳ Almacenamiento de imágenes en S3
-- ⏳ Notificaciones push
-- ⏳ Modo offline
-- ⏳ Optimización de rendimiento
-- ⏳ Pruebas unitarias y E2E
+- Recuperación de contraseña
+- Almacenamiento de imágenes en S3
+- Notificaciones push
+- Modo offline
+- Optimización de rendimiento
+- Pruebas unitarias y E2E
 
 ### Problemas Conocidos
-- ⚠️ El escaneo QR en Android requiere build nativo con permisos de cámara
-- ⚠️ El reconocimiento facial puede fallar con condiciones de luz pobres
-- ⚠️ Los builds de EAS pueden tardar 20-40 minutos
+- El escaneo QR en Android requiere build nativo con permisos de cámara
+- El reconocimiento facial puede fallar con condiciones de luz pobres
+- Los builds de EAS pueden tardar 20-40 minutos
 
-## Contribución
-
-Este proyecto es desarrollado para la Universidad Manuela Beltrán. Para contribuir:
-
-1. Fork el repositorio
-2. Crea una rama para tu feature (`git checkout -b feature/NuevaFuncionalidad`)
-3. Commit tus cambios (`git commit -m 'Agrega nueva funcionalidad'`)
-4. Push a la rama (`git push origin feature/NuevaFuncionalidad`)
-5. Abre un Pull Request
 
 ## Licencia
 
@@ -270,5 +261,3 @@ Para preguntas o soporte, contacta al equipo de desarrollo de la UMB.
 
 ---
 
-**Última actualización:** Agosto 2026
-**Versión:** 1.0.0
