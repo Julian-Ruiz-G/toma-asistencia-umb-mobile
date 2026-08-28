@@ -1,64 +1,46 @@
-# Sistema de Toma de Asistencia Académica - App Móvil
+# Sistema de Toma de Asistencia Académica
 
-## ¿Qué es?
+**Toma Asistencia UMB — Aplicación móvil para el control de asistencia universitaria**
 
-Una aplicación móvil desarrollada para la Universidad Manuela Beltrán que permite controlar la asistencia académica de estudiantes mediante reconocimiento facial y códigos QR. El sistema automatiza el registro de asistencia, reduce errores manuales y proporciona reportes en tiempo real para docentes y administradores.
+Toma Asistencia UMB es una aplicación móvil desarrollada para la Universidad Manuela Beltrán. Permite registrar la asistencia académica de los estudiantes mediante códigos QR y reconocimiento facial, con paneles diferenciados para estudiantes, docentes y administradores, y un backend serverless en AWS.
 
-## ¿Qué problema resuelve?
+## Demo
 
-El sistema resuelve el problema tradicional de controlar asistencia académica mediante métodos manuales (listas en papel, firmas manuales), que son:
+`[Add live demo URL]`
 
-- **Propensos a errores:** Listas perdidas, nombres mal escritos, asistencia falsificada
-- **Ineficientes:** Requieren tiempo para procesar y digitalizar
-- **Difíciles de auditar:** No hay registro visual de quién asistió realmente
-- **Limitados:** No permiten análisis en tiempo real ni reportes automáticos
+## Descripción general
 
-## Funcionalidades
+Toma Asistencia UMB es una aplicación móvil diseñada para automatizar el registro de asistencia en clases universitarias, desde el ingreso del estudiante hasta la consulta de reportes por parte de docentes y administradores.
 
-### Autenticación
-- Login para estudiantes, docentes y administradores
-- Registro de estudiantes con validación de datos
-- Verificación de credenciales mediante tokens JWT
-- Recuperación de contraseña (pendiente)
+El proyecto busca reemplazar los métodos tradicionales de control de asistencia (listas en papel, firmas manuales o registros poco auditables) por un flujo digital más confiable. Los estudiantes pueden unirse a una clase, escanear un código QR y confirmar su presencia. Los docentes pueden crear clases, generar sesiones de asistencia, consultar el registro en tiempo real y exportar reportes. Los administradores gestionan usuarios, auditoría, consentimientos de datos y la operación general del sistema.
 
-### Identificación y Registro
-- **Escaneo QR:** Generación y escaneo de códigos QR para unirse a clases y marcar asistencia
-- **Reconocimiento Facial:** Captura y comparación de rostros usando AWS Rekognition
-- **Detección de duplicados:** Verificación de rostros y códigos estudiantiles ya registrados
+La aplicación fue desarrollada como cliente móvil con Expo y React Native. Se comunica con una API REST desplegada en Amazon API Gateway y AWS Lambda, utiliza DynamoDB como base de datos y AWS Rekognition para la verificación facial.
 
-### Gestión de Asistencia
-- **Para Estudiantes:**
-  - Escanear QR para marcar asistencia
-  - Ver historial de asistencia
-  - Ver horario de clases
-  - Recibir notificaciones de asistencia
+## Características
 
-- **Para Docentes:**
-  - Crear y gestionar clases
-  - Generar códigos QR de clase
-  - Ver asistencia en tiempo real
-  - Correcciones manuales de asistencia
-  - Ver historial de sesiones
-  - Reportes de asistencia
+- **Autenticación por roles:** Estudiantes, docentes y administradores inician sesión en un mismo formulario. El sistema valida las credenciales contra endpoints distintos y redirige a cada panel según el rol, usando tokens JWT.
+- **Registro de estudiantes:** Los estudiantes pueden crear una cuenta con validación de datos y captura de foto de perfil para el reconocimiento facial.
+- **Escaneo de códigos QR:** Los estudiantes se unen a clases y marcan asistencia escaneando el QR generado por el docente. Los docentes pueden regenerar el QR de la clase cuando sea necesario.
+- **Reconocimiento facial:** El sistema compara el rostro capturado con AWS Rekognition para confirmar la identidad y reducir suplantaciones o registros duplicados.
+- **Gestión de clases:** Los docentes pueden crear, actualizar y eliminar clases, definir horarios y administrar la lista de estudiantes inscritos.
+- **Asistencia en tiempo real:** Durante una sesión, el docente visualiza quién ya marcó asistencia y puede aplicar correcciones manuales.
+- **Historial y horario del estudiante:** Los estudiantes consultan su horario, el historial de asistencia, notificaciones y su perfil.
+- **Panel de administración:** Los administradores gestionan estudiantes y docentes, realizan carga masiva, revisan logs, auditorías y consentimientos, y generan un QR institucional.
+- **Reportes de asistencia:** El sistema permite previsualizar, exportar e historiar reportes de sesiones en formatos como CSV, Excel y PDF.
+- **Actualizaciones OTA:** La aplicación se puede actualizar de forma remota con EAS Update, sin necesidad de republicar en las tiendas.
 
-- **Para Administradores:**
-  - Gestión de estudiantes y docentes
-  - Auditoría de logs del sistema
-  - Gestión de consentimientos de datos
-  - Carga masiva de estudiantes
-  - Dashboard con estadísticas
-  - Generación de QR institucional
+## Screenshots
 
-### Captura de Imágenes
-- Captura de fotos de perfil para estudiantes
-- Captura de fotos durante el reconocimiento facial
-- Validación de calidad de imágenes (sin gafas, pose correcta)
+Add screenshots in this section when available.
 
-### Reportes
-- Exportación de reportes de asistencia
-- Historial de asistencia por estudiante
-- Estadísticas de asistencia por clase
-- Auditoría de cambios en el sistema
+```text
+[Add login screenshot]
+[Add student home screenshot]
+[Add QR scanner screenshot]
+[Add teacher dashboard screenshot]
+[Add live attendance screenshot]
+[Add admin dashboard screenshot]
+```
 
 ## Tecnologías
 
@@ -80,10 +62,18 @@ El sistema resuelve el problema tradicional de controlar asistencia académica m
 - **AWS Rekognition:** Reconocimiento facial
 - **AWS S3:** Almacenamiento de imágenes (pendiente)
 
-### DevOps
-- **EAS CLI:** Build y actualizaciones de Expo
-- **GitHub Actions:** CI/CD para actualizaciones automáticas
-- **Git:** Control de versiones
+### Base de datos
+
+- **Amazon DynamoDB:** Base de datos NoSQL utilizada para usuarios, clases, sesiones, asistencia, logs y consentimientos.
+- **Amazon S3:** Almacenamiento previsto para imágenes de perfil y evidencias de asistencia.
+
+### Herramientas / Librerías / Servicios
+
+- **npm:** Gestor de paquetes del cliente móvil.
+- **Expo Go:** Utilizado para pruebas locales en dispositivos físicos durante el desarrollo.
+- **EAS CLI:** Utilizado para builds nativos y actualizaciones OTA.
+- **xlsx:** Permite exportar reportes de asistencia en formato Excel.
+- **Git:** Control de versiones del repositorio.
 
 ## Arquitectura
 
@@ -126,138 +116,130 @@ El sistema resuelve el problema tradicional de controlar asistencia académica m
 3. **Marcado de Asistencia:** App (escanea QR) → API Gateway → Lambda (verifica QR + rostro) → DynamoDB
 4. **Reportes:** App → API Gateway → Lambda (consulta datos) → DynamoDB → App
 
-## Instalación
+## Requisitos e instalación
 
-### Requisitos Previos
+## Requisitos
 
-- Node.js 18+ 
-- npm o yarn
-- Expo CLI
-- Cuenta de AWS (para backend)
-- Git
+* Node.js 18 o superior y npm
+* Expo Go compatible con SDK 54, o un emulador Android / simulador iOS
+* Acceso a la API de AWS configurada en `app.json`
+* Cuenta de Expo (opcional, necesaria para builds con EAS)
 
-### Pasos de Instalación
+## Instalación rápida
 
-1. **Clonar el repositorio:**
-```bash
-git clone <URL_DEL_REPOSITORIO>
+```powershell
+# 1. Clonar el repositorio
+git clone https://github.com/Julian-Ruiz-G/toma-asistencia-umb-mobile.git
 cd toma-asistencia-umb-mobile
-```
 
-2. **Instalar dependencias:**
-```bash
+# 2. Instalar dependencias
 npm install
+
+# 3. Iniciar la aplicación
+npx expo start --lan --clear
 ```
 
-3. **Configurar variables de entorno:**
-   - Editar `app.json` y configurar `extra.apiUrl` con la URL de tu API Gateway
-   - Asegúrate de que `extra.eas.projectId` esté configurado correctamente
+> Para Expo Go, el dispositivo y el computador deben estar en la misma red local.
+> En Android, escanea el código QR desde la app Expo Go. En iOS, puedes usar la cámara del dispositivo.
 
-4. **Iniciar el servidor de desarrollo:**
-```bash
-npx expo start
+Comprueba que la API esté configurada en `app.json` → `expo.extra.apiUrl`.
+
+## Variables de entorno
+
+La URL del backend se configura en `app.json`, no en un archivo `.env`. El cliente lee ese valor mediante `expo-constants` y construye el resto de endpoints en `src/config.js`.
+
+| Variable           | Descripción                                                                 |
+| ------------------ | --------------------------------------------------------------------------- |
+| `expo.extra.apiUrl` | URL base del API Gateway. Debe apuntar al recurso `/recognize` del backend |
+| `expo.extra.eas.projectId` | Identificador del proyecto en Expo, requerido para EAS Build y EAS Update |
+
+Ejemplo:
+
+```json
+"extra": {
+  "apiUrl": "https://tu-api.execute-api.us-east-2.amazonaws.com/Prod/recognize"
+}
 ```
 
-5. **Ejecutar en dispositivo:**
-   - **Android:** Instala Expo Go desde Google Play y escanea el QR de la terminal
-   - **iOS:** Usa la app Expo o escanea el QR con la cámara
-   - **Web:** Presiona `w` en la terminal para abrir en el navegador
+## Despliegue
 
-### Build para Producción
+El backend ya se encuentra desplegado en AWS (API Gateway + Lambda). Este repositorio corresponde al cliente móvil.
 
-**Para Android:**
-```bash
+Para generar un binario de producción:
+
+```powershell
+# Android
 eas build --platform android --profile production
-```
 
-**Para iOS:**
-```bash
+# iOS
 eas build --platform ios --profile production
 ```
 
-### Actualizaciones OTA (Over-The-Air)
+Para publicar una actualización OTA sin reconstruir la app nativa:
 
-```bash
+```powershell
 eas update --branch preview --message "Descripción del cambio"
 ```
 
-## Capturas de Pantalla
+Actualmente no hay una demo web pública. La aplicación está pensada para ejecutarse en Expo Go o en un build nativo.
 
-*(Nota: Agrega capturas de pantalla reales de tu aplicación)*
+## Uso del sistema
 
-### Login
-- Pantalla de inicio de sesión para estudiantes, docentes y administradores
-- Validación de credenciales
+El sistema contempla diferentes flujos según el rol del usuario:
 
-### Pantalla Principal (Estudiante)
-- Vista de horario de clases
-- Acceso a escaneo QR
-- Historial de asistencia
+1. La aplicación muestra la pantalla inicial y permite iniciar sesión o registrar un estudiante.
+2. El usuario ingresa sus credenciales. El cliente intenta autenticarse como administrador, estudiante o docente y guarda el token JWT junto con el rol.
+3. El estudiante puede consultar su horario, unirse a una clase escaneando un QR y marcar asistencia durante una sesión activa.
+4. Al marcar asistencia, la aplicación valida el código QR de la sesión y puede solicitar una captura facial para confirmar la identidad.
+5. El docente crea o gestiona sus clases, genera el QR de la sesión y abre el tablero de asistencia en vivo.
+6. Desde el tablero, el docente revisa quién ya asistió, aplica correcciones manuales y consulta el historial de sesiones.
+7. El docente o administrador genera reportes de asistencia, los previsualiza y los exporta.
+8. El administrador gestiona estudiantes y docentes, realiza cargas masivas, revisa logs y auditorías, y administra los consentimientos de tratamiento de datos.
 
-### Pantalla Principal (Docente)
-- Lista de clases asignadas
-- Creación de nuevas clases
-- Generación de códigos QR
+## Estructura del proyecto
 
-### Escaneo QR
-- Interfaz de cámara para escanear códigos QR
-- Validación de códigos de clase
-- Marcado automático de asistencia
+```text
+toma-asistencia-umb-mobile/
+├── assets/                      # iconos, splash y recursos visuales de Expo
+├── src/
+│   ├── screens/
+│   │   ├── auth/                # splash, bienvenida, login y registro
+│   │   ├── student/             # inicio, QR, horario, perfil e historial
+│   │   ├── teacher/             # clases, sesiones, QR y asistencia en vivo
+│   │   ├── admin/               # usuarios, auditoría, logs y consentimientos
+│   │   └── reports/             # dashboard, previsualización e historial de reportes
+│   ├── components/              # Button, Card e Input reutilizables
+│   ├── navigation/              # stack navigator de la aplicación
+│   ├── state/                   # contexto de autenticación y sesión
+│   ├── utils/                   # horarios y exportación de reportes
+│   ├── config.js                # construcción de endpoints de la API
+│   └── theme.js                 # paleta de colores institucional
+├── App.js                       # punto de entrada de la UI (Auth + navegación)
+├── index.js                     # registro del componente raíz de Expo
+├── app.json                     # configuración de Expo y URL de la API
+├── eas.json                     # perfiles de build y envío
+├── metro.config.js              # configuración de Metro y NativeWind
+└── README.md
+```
 
-### Reconocimiento Facial
-- Captura de foto de perfil
-- Validación de calidad de imagen
-- Detección de rostros duplicados
 
-### Registro de Asistencia
-- Vista en tiempo real de asistencia
-- Lista de estudiantes presentes/ausentes
-- Correcciones manuales
+## Licencia
+Este proyecto es propiedad de la Universidad Manuela Beltrán.
 
-### Reportes
-- Exportación de reportes de asistencia
-- Estadísticas por clase
-- Historial de sesiones
+## Autores
 
-## Estado del Proyecto
+**Julian Aya Orozco**
+[GitHub](https://github.com/JulianAyaO)
 
-**Estado:** En desarrollo activo
+**Julian Ruiz**
+[GitHub](https://github.com/Julian-Ruiz-G)
 
-### Funcionalidades Implementadas
-- Autenticación de usuarios (estudiantes, docentes, admin)
-- Registro de estudiantes con validación de datos
-- Escaneo de códigos QR
-- Reconocimiento facial con AWS Rekognition
-- Gestión de clases (crear, actualizar, eliminar)
-- Marcado de asistencia con QR y rostro
-- Historial de asistencia
-- Dashboard para docentes y administradores
-- Reportes de asistencia
-- Validación de duplicados (rostros y códigos)
-- Actualizaciones OTA con EAS Update
-- GitHub Actions para CI/CD
-
-### Funcionalidades Pendientes
-- Recuperación de contraseña
-- Almacenamiento de imágenes en S3
-- Notificaciones push
-- Modo offline
-- Optimización de rendimiento
-- Pruebas unitarias y E2E
-
-### Problemas Conocidos
-- El escaneo QR en Android requiere build nativo con permisos de cámara
-- El reconocimiento facial puede fallar con condiciones de luz pobres
-- Los builds de EAS pueden tardar 20-40 minutos
-
+**Marlon Perez**
+[GitHub](https://github.com/MarlonPerezR)
 
 ## Licencia
 
 Este proyecto es propiedad de la Universidad Manuela Beltrán.
-
-## Contacto
-
-Para preguntas o soporte, contacta al equipo de desarrollo de la UMB.
 
 ---
 
