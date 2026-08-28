@@ -15,7 +15,7 @@ Aplicación móvil para el control de asistencia en la Universidad Manuela Beltr
 
 ## Tecnologías
 
-**Móvil:** React Native, Expo SDK 54, React Navigation, NativeWind, Expo Camera, Expo Updates.
+**Frontend (Móvil)** React Native, Expo SDK 54, React Navigation, NativeWind, Expo Camera, Expo Updates.
 
 **Backend:** AWS Lambda (Python 3.12), API Gateway, DynamoDB, Rekognition. S3 está previsto para imágenes de perfil y evidencias.
 
@@ -24,17 +24,35 @@ Aplicación móvil para el control de asistencia en la Universidad Manuela Beltr
 ## Arquitectura
 
 ```
-Aplicación móvil (Expo)
-        │
-        ▼
-Amazon API Gateway
-        │
-        ▼
-AWS Lambda (Auth, Classes, Attendance, Reports)
-        │
-        ├── DynamoDB
-        ├── AWS Rekognition
-        └── AWS S3 (imágenes)
+┌─────────────────────────────────────────────────────────────┐
+│                    Aplicación Móvil                         │
+│              (React Native + Expo)                          │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐   │
+│  │Estudiante│  │ Docente  │  │ Admin    │  │  QR      │   │
+│  └──────────┘  └──────────┘  └──────────┘  └──────────┘   │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│                  Amazon API Gateway                         │
+│              (https://rvf0u5jr9f.execute-api...)             │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    AWS Lambda Functions                      │
+│                    (Python 3.12)                             │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐   │
+│  │ Auth     │  │ Classes  │  │Attendance│  │ Reports  │   │
+│  └──────────┘  └──────────┘  └──────────┘  └──────────┘   │
+└─────────────────────────────────────────────────────────────┘
+                            │
+            ┌───────────────┼───────────────┐
+            ▼               ▼               ▼
+┌──────────────────┐ ┌──────────────┐ ┌──────────────┐
+│  DynamoDB        │ │ AWS          │ │  AWS S3      │
+│  (face_recognition)│ Rekognition  │ │ (Imágenes)   │
+└──────────────────┘ └──────────────┘ └──────────────┘
 ```
 
 1. **Auth:** App → API → Lambda → DynamoDB → JWT  
@@ -85,23 +103,6 @@ eas update --branch preview --message "Descripción del cambio"
 
 No hay demo web pública: se usa Expo Go o un build nativo.
 
-## Estructura
-
-```text
-toma-asistencia-umb-mobile/
-├── assets/
-├── src/
-│   ├── screens/          # auth, student, teacher, admin, reports
-│   ├── components/
-│   ├── navigation/
-│   ├── state/            # contexto de autenticación
-│   ├── utils/
-│   ├── config.js         # endpoints de la API
-│   └── theme.js
-├── App.js
-├── app.json              # Expo y URL de la API
-└── eas.json
-```
 
 ## Autores
 
