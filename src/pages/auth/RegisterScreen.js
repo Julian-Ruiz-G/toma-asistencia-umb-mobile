@@ -69,9 +69,9 @@ export default function RegisterScreen({ navigation }) {
     else if (!/[0-9]/.test(formData.password)) e.password = 'Incluya número';
     else if (!/[!@#$%^&*(),.?":{}|<>]/.test(formData.password)) e.password = 'Incluya carácter especial';
     if (formData.password !== formData.confirmPassword) e.confirmPassword = 'Las contraseñas no coinciden';
-    if (!formData.isNotRobot) e.isNotRobot = 'Debe confirmar que no es un robot';
     if (!formData.acceptTerms) e.acceptTerms = 'Debe aceptar los Términos y Condiciones';
     if (!formData.acceptPrivacy) e.acceptPrivacy = 'Debe aceptar la Política de Privacidad';
+    if (!formData.consentBiometric) e.consentBiometric = 'Debe autorizar el tratamiento de datos biométricos';
     if (formData.consentBiometric) {
       // Si acepta datos biométricos, requiere aceptar política de privacidad
       if (!formData.acceptPrivacy) e.acceptPrivacy = 'Debe aceptar la Política de Privacidad para datos biométricos';
