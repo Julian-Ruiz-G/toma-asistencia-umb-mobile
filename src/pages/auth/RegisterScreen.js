@@ -72,10 +72,6 @@ export default function RegisterScreen({ navigation }) {
     if (!formData.acceptTerms) e.acceptTerms = 'Debe aceptar los Términos y Condiciones';
     if (!formData.acceptPrivacy) e.acceptPrivacy = 'Debe aceptar la Política de Privacidad';
     if (!formData.consentBiometric) e.consentBiometric = 'Debe autorizar el tratamiento de datos biométricos';
-    if (formData.consentBiometric) {
-      // Si acepta datos biométricos, requiere aceptar política de privacidad
-      if (!formData.acceptPrivacy) e.acceptPrivacy = 'Debe aceptar la Política de Privacidad para datos biométricos';
-    }
     if (!photoBase64) e.photo = 'La foto es requerida';
 
     setErrors(e);
@@ -245,45 +241,6 @@ export default function RegisterScreen({ navigation }) {
 
         <View style={{ height: 14 }} />
 
-        {/* ── Foto biométrica ── */}
-        <View style={styles.photoSection}>
-          <Text style={styles.photoLabel}>Foto para reconocimiento facial *</Text>
-          {photoBase64 ? (
-            /* Estado: foto tomada */
-            <View style={styles.photoSuccess}>
-              <View style={styles.photoSuccessIcon}>
-                <CheckCircle2 size={32} color="#16A34A" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.photoSuccessTitle}>Foto registrada</Text>
-                <Text style={styles.photoSuccessHint}>Tu foto se usará para el reconocimiento facial</Text>
-              </View>
-              <Pressable onPress={takePhoto} style={styles.retakeBtn}>
-                <Camera size={16} color={COLORS.primary} />
-                <Text style={styles.retakeBtnText}>Cambiar</Text>
-              </Pressable>
-            </View>
-          ) : (
-            /* Estado: sin foto */
-            <Pressable style={styles.photoEmpty} onPress={takePhoto}>
-              <View style={styles.photoEmptyIcon}>
-                <Camera size={36} color={COLORS.primary} />
-              </View>
-              <Text style={styles.photoEmptyTitle}>Tomar foto</Text>
-              <Text style={styles.photoEmptyHint}>
-                Necesitas una foto clara de tu rostro{'\n'}para registrarte en el sistema biométrico
-              </Text>
-              <View style={styles.photoEmptyBtn}>
-                <Camera size={16} color="#fff" />
-                <Text style={styles.photoEmptyBtnText}>Abrir cámara</Text>
-              </View>
-            </Pressable>
-          )}
-          {errors.photo ? <Text style={styles.errorText}>{errors.photo}</Text> : null}
-        </View>
-
-        <View style={styles.sectionDivider} />
-
         <View style={styles.checkRow}>
           <View style={styles.checkLabelRow}>
             <Bot size={16} color={COLORS.blue} />
@@ -342,9 +299,49 @@ export default function RegisterScreen({ navigation }) {
             onValueChange={(v) => setFormData((p) => ({ ...p, consentBiometric: v }))}
           />
         </View>
+        {errors.consentBiometric ? <Text style={styles.errorText}>{errors.consentBiometric}</Text> : null}
         <Text style={styles.consentHint}>
-          Los datos biométricos son sensibles. No está obligado a autorizar su tratamiento.
+          Obligatorio. Los datos biométricos son sensibles y se usan solo para verificar tu identidad en asistencia.
         </Text>
+
+        <View style={{ height: 14 }} />
+
+        {/* ── Foto biométrica ── */}
+        <View style={styles.photoSection}>
+          <Text style={styles.photoLabel}>Foto para reconocimiento facial *</Text>
+          {photoBase64 ? (
+            /* Estado: foto tomada */
+            <View style={styles.photoSuccess}>
+              <View style={styles.photoSuccessIcon}>
+                <CheckCircle2 size={32} color="#16A34A" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.photoSuccessTitle}>Foto registrada</Text>
+                <Text style={styles.photoSuccessHint}>Tu foto se usará para el reconocimiento facial</Text>
+              </View>
+              <Pressable onPress={takePhoto} style={styles.retakeBtn}>
+                <Camera size={16} color={COLORS.primary} />
+                <Text style={styles.retakeBtnText}>Cambiar</Text>
+              </Pressable>
+            </View>
+          ) : (
+            /* Estado: sin foto */
+            <Pressable style={styles.photoEmpty} onPress={takePhoto}>
+              <View style={styles.photoEmptyIcon}>
+                <Camera size={36} color={COLORS.primary} />
+              </View>
+              <Text style={styles.photoEmptyTitle}>Tomar foto</Text>
+              <Text style={styles.photoEmptyHint}>
+                Necesitas una foto clara de tu rostro{'\n'}para registrarte en el sistema biométrico
+              </Text>
+              <View style={styles.photoEmptyBtn}>
+                <Camera size={16} color="#fff" />
+                <Text style={styles.photoEmptyBtnText}>Abrir cámara</Text>
+              </View>
+            </Pressable>
+          )}
+          {errors.photo ? <Text style={styles.errorText}>{errors.photo}</Text> : null}
+        </View>
 
         <View style={{ height: 18 }} />
       </ScrollView>

@@ -34,9 +34,13 @@
       }
     },
     "owner": "julianlucas",
-    "runtimeVersion": "1.0.0",
+    "runtimeVersion": "57.0.0",
     "updates": {
       "url": "https://u.expo.dev/c8c31430-869c-4768-8493-89fc9a38f137"
-    }
+    },
+    "plugins": [
+      "expo-sharing",
+      "expo-status-bar"
+    ]
   }
 }
