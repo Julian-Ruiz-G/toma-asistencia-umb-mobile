@@ -1,0 +1,12 @@
+version = 0.1
+
+[default.deploy.parameters]
+stack_name = "sam-app"
+resolve_s3 = true
+s3_prefix = "sam-app"
+region = "us-east-2"
+capabilities = "CAPABILITY_IAM"
+disable_rollback = true
+parameter_overrides = "CollectionName=\"recoEstu\" AdminToken=\"PON_AQUI_EL_TOKEN\" DDBTableName=\"face_recognition\" FaceMatchThreshold=\"70\" MaxMatches=\"5\""
+image_repositories = []
+confirm_changeset = true

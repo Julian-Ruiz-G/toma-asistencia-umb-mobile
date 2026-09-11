@@ -1,0 +1,35 @@
+# Dependencies and builds
+node_modules/
+.aws-sam/
+.expo/
+dist/
+web-build/
+__pycache__/
+*.pyc
+
+# Old nested git from apps/mobile (do not upload)
+.git-mobile-old/
+
+# Local leftovers / backups (not source)
+_backups/
+test/
+backend/archive/
+scripts/debug_faces/
+
+# Secrets and local AWS deploy config (no subir tokens)
+backend/samconfig.toml
+.env
+.env*.local
+credentials.json
+secrets.json
+.aws/
+*.pem
+*.key
+
+# Tooling
+.metro-health-check*
+expo-env.d.ts
+.DS_Store
+npm-debug.*
+yarn-debug.*
+yarn-error.*

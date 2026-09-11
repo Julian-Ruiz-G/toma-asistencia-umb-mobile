@@ -1,0 +1,92 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Serverless Face Recognition API for mobile app uploads
+
+Parameters:
+  CollectionName:
+    Type: String
+    Default: recoEstu
+    Description: Rekognition collection ID
+  AuthSecret:
+    Type: String
+    Default: ""
+    Description: HMAC secret for auth tokens (Bearer). If empty, ADMIN_TOKEN is used.
+  AdminToken:
+    Type: String
+    Default: ""
+    Description: Admin token for /register-teacher (sent via x-admin-token)
+  DDBTableName:
+    Type: String
+    Default: face_recognition
+    Description: DynamoDB table with RekognitionId (PK) and FullName (S)
+  FaceMatchThreshold:
+    Type: Number
+    Default: 70
+  MaxMatches:
+    Type: Number
+    Default: 5
+
+Globals:
+  Function:
+    Timeout: 20
+    MemorySize: 512
+    Runtime: python3.12
+  Api:
+    Auth:
+      DefaultAuthorizer: NONE
+    Cors:
+      AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+      AllowHeaders: "'Content-Type,Authorization,X-Requested-With'"
+      AllowOrigin: "'*'"
+
+Resources:
+  FaceApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      Handler: lambda_handler.lambda_handler
+      Description: Recognize faces from uploaded image
+      Environment:
+        Variables:
+          REGION: !Ref AWS::Region
+          COLLECTION: !Ref CollectionName
+          DDB_TABLE: !Ref DDBTableName
+          FACE_MATCH_THRESHOLD: !Ref FaceMatchThreshold
+          MAX_MATCHES: !Ref MaxMatches
+          ADMIN_TOKEN: !Ref AdminToken
+          AUTH_SECRET: !Ref AuthSecret
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - Statement:
+            - Effect: Allow
+              Action:
+                - rekognition:DetectFaces
+                - rekognition:IndexFaces
+                - rekognition:SearchFacesByImage
+                - rekognition:DeleteFaces
+              Resource: "*"
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:PutItem
+                - dynamodb:DeleteItem
+                - dynamodb:UpdateItem
+                - dynamodb:Scan
+              Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${DDBTableName}
+      Events:
+        ApiRootAny:
+          Type: Api
+          Properties:
+            Path: /
+            Method: any
+
+        ApiProxyAny:
+          Type: Api
+          Properties:
+            Path: /{proxy+}
+            Method: any
+
+Outputs:
+  ApiUrl:
+    Description: POST URL for face recognition
+    Value: !Sub https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/recognize
