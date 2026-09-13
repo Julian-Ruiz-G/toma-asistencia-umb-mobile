@@ -1,9 +1,9 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import * as XLSX from 'xlsx';
 
 import { ATTENDANCE_REPORT_URL } from '../config';
+import { csvToHtmlTable, csvToXlsxBase64 } from './workbookFromCsv';
 
 function ensureApi() {
   if (!ATTENDANCE_REPORT_URL) {
@@ -88,17 +88,10 @@ export async function exportAttendanceReport(authToken, sessionId, format, optio
     return uri;
   }
 
-  const wb = XLSX.read(csvText, { type: 'string', raw: true });
-  const sheetName = wb.SheetNames[0] || 'Reporte';
-  const ws = wb.Sheets[sheetName];
-  if (!ws) {
-    throw new Error('No se pudo leer el contenido del informe');
-  }
-
   if (format === 'xlsx') {
     const name = `reporte_asistencia_${fileKey}.xlsx`;
     const uri = `${baseDir}${name}`;
-    const wbout = XLSX.write(wb, { type: 'base64', bookType: 'xlsx' });
+    const wbout = csvToXlsxBase64(csvText);
     await FileSystem.writeAsStringAsync(uri, wbout, { encoding: FileSystem.EncodingType.Base64 });
     await shareLocalFile(
       uri,
@@ -108,7 +101,7 @@ export async function exportAttendanceReport(authToken, sessionId, format, optio
   }
 
   if (format === 'pdf') {
-    const tableHtml = XLSX.utils.sheet_to_html(ws, { editable: false });
+    const tableHtml = csvToHtmlTable(csvText);
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <style>
