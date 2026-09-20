@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { appAlert } from '../../ui/appNotice';
 import { useFocusEffect } from '@react-navigation/native';
 import { ArrowLeft, Bell, Clock, Pencil, Plus, Trash2 } from 'lucide-react-native';
 
@@ -190,18 +191,18 @@ export default function RemindersScreen({ navigation }) {
   const handleSave = async () => {
     const name = String(title || '').trim();
     if (!name) {
-      Alert.alert('Falta el nombre', 'Escribe qué quieres recordar.');
+      appAlert('Falta el nombre', 'Escribe qué quieres recordar.');
       return;
     }
     if (!selectedDates.length) {
-      Alert.alert('Elige un día', 'Marca al menos un día para el aviso.');
+      appAlert('Elige un día', 'Marca al menos un día para el aviso.');
       return;
     }
     const time = `${hour}:${minute}`;
     const draft = { dates: selectedDates, time };
     const future = reminderOccurrences(draft).filter((o) => o.when.getTime() > Date.now() + 15000);
     if (!future.length) {
-      Alert.alert('Hora pasada', 'Elige al menos un día y una hora posteriores a ahora.');
+      appAlert('Hora pasada', 'Elige al menos un día y una hora posteriores a ahora.');
       return;
     }
 
@@ -211,7 +212,7 @@ export default function RemindersScreen({ navigation }) {
       if (!isExpoGo) {
         allowed = await ensureNotificationPermission();
         if (!allowed) {
-          Alert.alert(
+          appAlert(
             'Sin avisos en el celular',
             'Puedes guardar el recordatorio, pero para que suene a esa hora activa las notificaciones en Ajustes.'
           );
@@ -245,19 +246,19 @@ export default function RemindersScreen({ navigation }) {
       await saveReminders(email, next);
       setItems(next);
       resetForm();
-      Alert.alert(
+      appAlert(
         previous ? 'Recordatorio actualizado' : 'Recordatorio guardado',
         `Te avisaremos a las ${time} ${selectedDates.length > 1 ? 'en los días que marcaste' : 'ese día'}.`
       );
     } catch (e) {
-      Alert.alert('Error', e?.message || String(e));
+      appAlert('Error', e?.message || String(e));
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = (item) => {
-    Alert.alert(item.title || 'Recordatorio', '¿Quieres eliminarlo?', [
+    appAlert(item.title || 'Recordatorio', '¿Quieres eliminarlo?', [
       { text: 'Cancelar', style: 'cancel' },
       {
         text: 'Eliminar',

@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { appAlert } from '../../ui/appNotice';
 import { useFocusEffect } from '@react-navigation/native';
 import { ArrowLeft, BookOpen, Clock, Pencil, QrCode, Users } from 'lucide-react-native';
 import QRCode from 'react-native-qrcode-svg';
@@ -38,7 +39,7 @@ export default function ClassDetails({ navigation, route }) {
       }
       setDetails(json);
     } catch (e) {
-      Alert.alert('Error', e?.message || String(e));
+      appAlert('Error', e?.message || String(e));
     } finally {
       setLoading(false);
     }

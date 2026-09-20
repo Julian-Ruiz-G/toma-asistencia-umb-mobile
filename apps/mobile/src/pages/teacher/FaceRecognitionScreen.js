@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Animated, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { appAlert } from '../../ui/appNotice';
 import * as ImagePicker from 'expo-image-picker';
 import {
   ArrowLeft,
@@ -37,7 +38,8 @@ export default function FaceRecognitionScreen({ navigation, route }) {
   useEffect(() => {
     Animated.timing(progressAnim, {
       toValue: recognitionProgress / 100,
-      duration: 120,
+      duration: 180,
+      easing: Easing.out(Easing.quad),
       useNativeDriver: false,
     }).start();
   }, [recognitionProgress, progressAnim]);
@@ -119,7 +121,7 @@ export default function FaceRecognitionScreen({ navigation, route }) {
       const facesDetected = Number(result?.facesDetected || 0);
       const presentCount = Number(result?.presentCount || 0);
 
-      Alert.alert(
+      appAlert(
         'Reconocimiento finalizado',
         `Personas detectadas en la foto: ${facesDetected}\nPersonas identificadas: ${presentCount}`,
         [
@@ -135,7 +137,7 @@ export default function FaceRecognitionScreen({ navigation, route }) {
       );
     } catch (e) {
       if (String(e?.message || '') !== 'HOURS_NOTICE') {
-        Alert.alert('Error', e?.message || String(e));
+        appAlert('Error', e?.message || String(e));
       }
     } finally {
       clearInterval(interval);
@@ -146,7 +148,7 @@ export default function FaceRecognitionScreen({ navigation, route }) {
   const handleCapture = async () => {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
     if (perm.status !== 'granted') {
-      Alert.alert('Error', 'Permiso de cámara denegado');
+      appAlert('Permiso de cámara', 'Activa la cámara en Ajustes para tomar la foto de asistencia.');
       return;
     }
 
@@ -162,7 +164,7 @@ export default function FaceRecognitionScreen({ navigation, route }) {
   const handlePickFromGallery = async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (perm.status !== 'granted') {
-      Alert.alert('Error', 'Permiso de galería denegado');
+      appAlert('Permiso de galería', 'Activa el acceso a tus fotos en Ajustes para elegir una imagen.');
       return;
     }
 

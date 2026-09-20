@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { appAlert } from '../../ui/appNotice';
 import { useFocusEffect } from '@react-navigation/native';
 import { ArrowLeft, BookOpen, Clock, User, Users } from 'lucide-react-native';
 
@@ -39,15 +40,15 @@ export default function StudentClassDetails({ navigation, route }) {
 
   const load = useCallback(async () => {
     if (!CLASS_DETAILS_URL) {
-      Alert.alert('API no configurada', 'Configura extra.apiUrl en app.json');
+      appAlert('API no configurada', 'Configura extra.apiUrl en app.json');
       return;
     }
     if (!authToken) {
-      Alert.alert('Sesión inválida', 'Vuelve a iniciar sesión.');
+      appAlert('Sesión inválida', 'Vuelve a iniciar sesión.');
       return;
     }
     if (!classId) {
-      Alert.alert('Error', 'No se encontró la clase.');
+      appAlert('Error', 'No se encontró la clase.');
       return;
     }
     setLoading(true);
@@ -73,7 +74,7 @@ export default function StudentClassDetails({ navigation, route }) {
       }
       setDetails(json);
     } catch (e) {
-      Alert.alert('Error', e?.message || String(e));
+      appAlert('Error', e?.message || String(e));
     } finally {
       setLoading(false);
     }

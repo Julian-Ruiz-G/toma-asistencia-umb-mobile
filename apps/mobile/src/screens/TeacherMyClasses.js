@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, FlatList, Text, TouchableOpacity, View } from 'react-native';
+import { FlatList, Text, TouchableOpacity, View } from 'react-native';
+import { appAlert } from '../ui/appNotice';
 import { Card, PrimaryButton, Screen } from '../ui/components';
 import { MY_CLASSES_URL } from '../config';
 import { useAuth } from '../state/auth';
@@ -11,11 +12,11 @@ export default function TeacherMyClasses({ navigation }) {
 
   const load = async () => {
     if (!MY_CLASSES_URL) {
-      Alert.alert('API no configurada', 'Configura extra.apiUrl en app.json');
+      appAlert('API no configurada', 'Configura extra.apiUrl en app.json');
       return;
     }
     if (!authToken) {
-      Alert.alert('Sesión inválida', 'Vuelve a iniciar sesión.');
+      appAlert('Sesión inválida', 'Vuelve a iniciar sesión.');
       return;
     }
 
@@ -38,7 +39,7 @@ export default function TeacherMyClasses({ navigation }) {
       }
       setClasses(json?.classes || []);
     } catch (e) {
-      Alert.alert('Error', e?.message || String(e));
+      appAlert('Error', e?.message || String(e));
     } finally {
       setLoading(false);
     }

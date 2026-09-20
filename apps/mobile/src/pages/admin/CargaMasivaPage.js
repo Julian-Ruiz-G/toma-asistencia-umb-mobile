@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { appAlert } from '../../ui/appNotice';
 import {
   AlertCircle,
   ArrowLeft,
@@ -115,7 +116,7 @@ export default function CargaMasivaPage({ navigation }) {
             ))}
 
             <View style={styles.listFooter}>
-              <Button fullWidth onPress={() => Alert.alert('Mock', 'Iniciar carga')}>Iniciar carga</Button>
+              <Button fullWidth onPress={() => appAlert('Carga masiva', 'Esta función de prueba aún no inicia una carga real.')}>Iniciar carga</Button>
             </View>
           </View>
         ) : null}

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { appAlert } from '../../ui/appNotice';
 import {
   AlertCircle,
   ArrowLeft,
@@ -76,7 +77,7 @@ export default function AttendanceHistory({ navigation, route }) {
           markedAt: r?.markedAt ?? null,
         })));
       } catch (e) {
-        Alert.alert('Error', e?.message || String(e));
+        appAlert('Error', e?.message || String(e));
         setAttendanceData([]);
       } finally {
         setLoading(false);

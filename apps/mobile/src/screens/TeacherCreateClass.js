@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Alert, View } from 'react-native';
+import { View } from 'react-native';
+import { appAlert } from '../ui/appNotice';
 import { Card, Input, Label, PrimaryButton, Screen } from '../ui/components';
 import { CREATE_CLASS_URL } from '../config';
 import { useAuth } from '../state/auth';
@@ -15,22 +16,22 @@ export default function TeacherCreateClass({ navigation }) {
 
   const submit = async () => {
     if (!CREATE_CLASS_URL) {
-      Alert.alert('API no configurada', 'Configura extra.apiUrl en app.json');
+      appAlert('API no configurada', 'Configura extra.apiUrl en app.json');
       return;
     }
     if (!authToken) {
-      Alert.alert('Sesión inválida', 'Vuelve a iniciar sesión.');
+      appAlert('Sesión inválida', 'Vuelve a iniciar sesión.');
       return;
     }
     if (!className.trim() || !group.trim() || !scheduleText.trim()) {
-      Alert.alert('Faltan datos', 'Completa: nombre, grupo, horario.');
+      appAlert('Faltan datos', 'Completa: nombre, grupo, horario.');
       return;
     }
 
     const schedule = parseScheduleText(scheduleText);
     const derived = deriveStartEndFromSchedule(schedule);
     if (!derived.startTime || !derived.endTime) {
-      Alert.alert('Horario inválido', 'Ej: Lunes 08:00-10:00');
+      appAlert('Horario inválido', 'Ej: Lunes 08:00-10:00');
       return;
     }
 
@@ -60,14 +61,14 @@ export default function TeacherCreateClass({ navigation }) {
       }
 
       const createdClassId = json?.classId || json?.id || json?.class?.classId || json?.class?.id || '';
-      Alert.alert('Listo', 'Clase creada ✅');
+      appAlert('Clase creada', 'El curso ya está listo.');
       if (createdClassId) {
         navigation.replace('TeacherClassQRScreen', { classId: String(createdClassId) });
       } else {
         navigation.goBack();
       }
     } catch (e) {
-      Alert.alert('Error', e?.message || String(e));
+      appAlert('Error', e?.message || String(e));
     }
   };
 

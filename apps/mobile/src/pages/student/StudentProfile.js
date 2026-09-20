@@ -1,14 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import {
-  Alert,
-  Image,
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { appAlert } from '../../ui/appNotice';
 import * as ImagePicker from 'expo-image-picker';
 import {
   ArrowLeft,
@@ -65,7 +57,6 @@ export default function StudentProfile({ navigation, route }) {
     setPhotoUri,
   } = useAuth();
 
-  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [showPrivacyMenu, setShowPrivacyMenu] = useState(false);
   const [legalDoc, setLegalDoc] = useState(null);
@@ -104,7 +95,6 @@ export default function StudentProfile({ navigation, route }) {
   const displayName = personDisplayName(fullName, 'Estudiante');
 
   const handleLogout = () => {
-    setShowLogoutConfirm(false);
     logout();
     navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] });
   };
@@ -119,7 +109,7 @@ export default function StudentProfile({ navigation, route }) {
     try {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!perm.granted) {
-        Alert.alert('Permiso requerido', 'Autoriza el acceso a la galería para elegir una foto local.');
+        appAlert('Permiso requerido', 'Autoriza el acceso a la galería para elegir una foto local.');
         return;
       }
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -135,11 +125,9 @@ export default function StudentProfile({ navigation, route }) {
       const finalUri = dest || uri;
       setPhotoUri(finalUri);
       await saveLocalProfile(email, { photoUri: finalUri });
-      Alert.alert(
-        'Foto actualizada',
-      );
+      appAlert('Foto actualizada', 'Tu foto de perfil se guardó en este dispositivo.');
     } catch (e) {
-      Alert.alert('Error', e?.message || String(e));
+      appAlert('Error', e?.message || String(e));
     }
   };
 
@@ -156,7 +144,7 @@ export default function StudentProfile({ navigation, route }) {
         semester: nextSemester,
         phone: nextPhone,
       });
-      Alert.alert('Datos obligatorios', `Llena estos campos: ${missing.join(', ')}.`);
+      appAlert('Datos obligatorios', `Llena estos campos: ${missing.join(', ')}.`);
       return;
     }
 
@@ -204,9 +192,9 @@ export default function StudentProfile({ navigation, route }) {
         phone: nextPhone,
       });
       setShowEdit(false);
-      Alert.alert('Perfil actualizado', 'Tus datos académicos se guardaron. El correo y el código no se pueden cambiar aquí.');
+      appAlert('Perfil actualizado', 'Tus datos académicos se guardaron. El correo y el código no se pueden cambiar aquí.');
     } catch (e) {
-      Alert.alert('Error', e?.message || String(e));
+      appAlert('Error', e?.message || String(e));
     } finally {
       setSaving(false);
     }
@@ -333,7 +321,17 @@ export default function StudentProfile({ navigation, route }) {
 
         <View style={{ height: 14 }} />
 
-        <Pressable onPress={() => setShowLogoutConfirm(true)} style={[styles.card, styles.logoutCard]}>
+        <Pressable
+          onPress={() => appAlert(
+            'Cerrar sesión',
+            '¿Seguro que quieres salir de tu cuenta en este dispositivo?',
+            [
+              { text: 'Cancelar', style: 'cancel' },
+              { text: 'Sí, cerrar', style: 'destructive', onPress: handleLogout },
+            ]
+          )}
+          style={[styles.card, styles.logoutCard]}
+        >
           <LogOut size={20} color="#DC2626" />
           <Text style={styles.logoutText}>Cerrar Sesión</Text>
         </Pressable>
@@ -341,28 +339,6 @@ export default function StudentProfile({ navigation, route }) {
         <Text style={styles.versionText}>Toma Asistencia UMB · v1.0.0</Text>
         <View style={{ height: 20 }} />
       </ScrollView>
-
-      <Modal visible={showLogoutConfirm} transparent animationType="fade" onRequestClose={() => setShowLogoutConfirm(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <View style={styles.modalIcon}>
-              <LogOut size={28} color="#DC2626" />
-            </View>
-            <Text style={styles.modalTitle}>¿Cerrar Sesión?</Text>
-            <Text style={styles.modalText}>¿Estás seguro de que deseas cerrar tu sesión?</Text>
-            <View style={{ height: 14 }} />
-            <View style={styles.modalButtons}>
-              <Button fullWidth variant="outline" onPress={() => setShowLogoutConfirm(false)}>
-                Cancelar
-              </Button>
-              <View style={{ height: 10 }} />
-              <Button fullWidth onPress={handleLogout}>
-                Sí, cerrar
-              </Button>
-            </View>
-          </View>
-        </View>
-      </Modal>
 
       <Modal
         visible={showEdit}

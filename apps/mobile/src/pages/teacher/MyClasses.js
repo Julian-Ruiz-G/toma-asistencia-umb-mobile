@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { appAlert } from '../../ui/appNotice';
 import { useFocusEffect } from '@react-navigation/native';
 import { ArrowLeft, BookOpen, ChevronRight, Clock, Plus } from 'lucide-react-native';
 
@@ -35,7 +36,7 @@ export default function MyClasses({ navigation }) {
       }
       setClasses(Array.isArray(json?.classes) ? json.classes : []);
     } catch (e) {
-      Alert.alert('Error', e?.message || String(e));
+      appAlert('Error', e?.message || String(e));
     } finally {
       setLoading(false);
     }

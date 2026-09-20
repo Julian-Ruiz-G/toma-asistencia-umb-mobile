@@ -1,15 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { appAlert } from '../../ui/appNotice';
 import {
   ArrowLeft,
   ChevronRight,
@@ -149,7 +140,7 @@ export default function ReportPreview({ navigation, route }) {
         corte: corte || undefined,
       });
     } catch (e) {
-      Alert.alert('Error al exportar', e?.message || String(e));
+      appAlert('Error al exportar', e?.message || String(e));
     } finally {
       setIsDownloading(false);
       setPreviewFormat(null);

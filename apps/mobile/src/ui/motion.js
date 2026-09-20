@@ -1,8 +1,6 @@
 import React, { useEffect } from 'react';
 import Animated, {
   Easing,
-  FadeIn,
-  FadeInDown,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
@@ -12,27 +10,25 @@ import Animated, {
 
 export default Animated;
 
-export function enterDown(delay = 0, duration = 420) {
-  return FadeInDown.delay(delay)
-    .duration(duration)
-    .easing(Easing.out(Easing.cubic));
+export function enterDown() {
+  return undefined;
 }
 
-export function enterFade(delay = 0, duration = 380) {
-  return FadeIn.delay(delay).duration(duration);
+export function enterFade() {
+  return undefined;
 }
 
-export function listEnter(index, step = 45, cap = 10) {
-  return enterDown(step * Math.min(index, cap), 380);
+export function listEnter() {
+  return undefined;
 }
 
 export function PulseGlow({
   style,
   fromScale = 1,
-  toScale = 1.07,
+  toScale = 1.05,
   fromOpacity = 0.1,
   toOpacity = 0.18,
-  duration = 1800,
+  duration = 2000,
 }) {
   const scale = useSharedValue(fromScale);
   const opacity = useSharedValue(fromOpacity);

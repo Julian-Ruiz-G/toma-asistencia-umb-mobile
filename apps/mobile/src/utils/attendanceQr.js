@@ -1,21 +1,14 @@
-import React, { useEffect, useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import { CalendarOff, Clock, Info } from 'lucide-react-native';
+import { showAppNotice } from '../ui/appNotice';
 
-import { COLORS } from '../ui/theme';
-
-let showFn = null;
-
-export function bindHoursNotice(fn) {
-  showFn = fn;
-}
+export { AppNoticeHost as HoursNoticeHost } from '../ui/appNotice';
 
 export function showHoursNotice(notice) {
-  if (typeof showFn === 'function') {
-    showFn(notice);
-    return true;
-  }
-  return false;
+  if (!notice) return false;
+  return showAppNotice({
+    ...notice,
+    kicker: 'Aviso de horario',
+    primaryLabel: 'Entendido',
+  });
 }
 
 const DAY_ES = {
@@ -85,90 +78,3 @@ export function alertClassHoursError(json) {
 export function alertAttendanceQrError(json) {
   return alertClassHoursError(json);
 }
-
-const ICONS = {
-  offday: CalendarOff,
-  early: Clock,
-  late: Clock,
-};
-
-export function HoursNoticeHost() {
-  const [notice, setNotice] = useState(null);
-  useEffect(() => {
-    bindHoursNotice(setNotice);
-    return () => bindHoursNotice(null);
-  }, []);
-  const Icon = ICONS[notice?.kind] || Info;
-  return (
-    <Modal visible={!!notice} transparent animationType="fade" onRequestClose={() => setNotice(null)}>
-      <View style={styles.backdrop}>
-        <View style={styles.card}>
-          <Text style={styles.kicker}>Aviso de horario</Text>
-          <View style={styles.iconWrap}>
-            <Icon size={28} color={COLORS.primary} />
-          </View>
-          <Text style={styles.title}>{notice?.title}</Text>
-          {notice?.subtitle ? <Text style={styles.subtitle}>{notice.subtitle}</Text> : null}
-          <View style={styles.points}>
-            {(notice?.points || []).map((p) => (
-              <View key={p} style={styles.pointRow}>
-                <View style={styles.dot} />
-                <Text style={styles.point}>{p}</Text>
-              </View>
-            ))}
-          </View>
-          <Pressable onPress={() => setNotice(null)} style={styles.btn}>
-            <Text style={styles.btnText}>Entendido</Text>
-          </Pressable>
-        </View>
-      </View>
-    </Modal>
-  );
-}
-
-const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(17,24,39,0.5)',
-    justifyContent: 'center',
-    padding: 22,
-  },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 24,
-    padding: 22,
-  },
-  kicker: {
-    textAlign: 'center',
-    fontSize: 11,
-    fontWeight: '800',
-    color: COLORS.primary,
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-    marginBottom: 10,
-  },
-  iconWrap: {
-    width: 56,
-    height: 56,
-    borderRadius: 18,
-    backgroundColor: 'rgba(185,28,28,0.10)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    alignSelf: 'center',
-    marginBottom: 12,
-  },
-  title: { fontSize: 20, fontWeight: '900', color: '#111827', textAlign: 'center' },
-  subtitle: { marginTop: 8, fontSize: 14, color: '#6B7280', textAlign: 'center', lineHeight: 20 },
-  points: { marginTop: 16, gap: 10 },
-  pointRow: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
-  dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: COLORS.primary, marginTop: 6 },
-  point: { flex: 1, color: '#374151', fontSize: 13, lineHeight: 19, fontWeight: '600' },
-  btn: {
-    marginTop: 18,
-    backgroundColor: COLORS.primary,
-    borderRadius: 14,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  btnText: { color: '#fff', fontWeight: '900', fontSize: 15 },
-});

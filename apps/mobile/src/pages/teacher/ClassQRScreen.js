@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
+import { appAlert } from '../../ui/appNotice';
 import {
   ArrowLeft,
   Clock,
@@ -72,15 +73,15 @@ export default function ClassQRScreen({ navigation, route }) {
 
   const load = async () => {
     if (!CLASS_DETAILS_URL) {
-      Alert.alert('API no configurada', 'Configura extra.apiUrl en app.json');
+      appAlert('API no configurada', 'Configura extra.apiUrl en app.json');
       return;
     }
     if (!authToken) {
-      Alert.alert('Sesión inválida', 'Vuelve a iniciar sesión.');
+      appAlert('Sesión inválida', 'Vuelve a iniciar sesión.');
       return;
     }
     if (!classId) {
-      Alert.alert('Error', 'classId inválido');
+      appAlert('Error', 'classId inválido');
       return;
     }
 
@@ -124,7 +125,7 @@ export default function ClassQRScreen({ navigation, route }) {
         }
       }
     } catch (e) {
-      Alert.alert('Error', e?.message || String(e));
+      appAlert('Error', e?.message || String(e));
     } finally {
       setLoading(false);
     }
@@ -132,7 +133,7 @@ export default function ClassQRScreen({ navigation, route }) {
 
   const createAttendanceQr = async () => {
     if (!CREATE_ATTENDANCE_QR_URL) {
-      Alert.alert('No disponible', 'Endpoint de asistencia no configurado');
+      appAlert('No disponible', 'Endpoint de asistencia no configurado');
       return;
     }
     if (!authToken || !classId) return;
@@ -166,7 +167,7 @@ export default function ClassQRScreen({ navigation, route }) {
         json;
       navigation.navigate('TeacherAttendanceQr', { attendance: attendancePayload });
     } catch (e) {
-      Alert.alert('Error', e?.message || String(e));
+      appAlert('Error', e?.message || String(e));
     } finally {
       setCreatingAttendance(false);
     }
@@ -174,7 +175,7 @@ export default function ClassQRScreen({ navigation, route }) {
 
   const regenerateQr = async () => {
     if (!REGENERATE_CLASS_QR_URL) {
-      Alert.alert('No disponible', 'Endpoint de regeneración no configurado');
+      appAlert('No disponible', 'Endpoint de regeneración no configurado');
       return;
     }
     if (!authToken || !classId) return;
@@ -206,7 +207,7 @@ export default function ClassQRScreen({ navigation, route }) {
       await load();
       setTimeLeft(300);
     } catch (e) {
-      Alert.alert('Error', e?.message || String(e));
+      appAlert('Error', e?.message || String(e));
     }
   };
 
@@ -218,7 +219,8 @@ export default function ClassQRScreen({ navigation, route }) {
   useEffect(() => {
     Animated.timing(progressAnim, {
       toValue: timeLeft / 300,
-      duration: 250,
+      duration: 280,
+      easing: Easing.out(Easing.quad),
       useNativeDriver: false,
     }).start();
   }, [timeLeft, progressAnim]);
@@ -354,7 +356,7 @@ export default function ClassQRScreen({ navigation, route }) {
             disabled={inProgress}
             onPress={() => {
               if (inProgress) {
-                Alert.alert('No disponible', 'El QR de registro solo se puede generar fuera del horario de clase.');
+                appAlert('No disponible', 'El QR de registro solo se puede generar fuera del horario de clase.');
                 return;
               }
               regenerateQr();

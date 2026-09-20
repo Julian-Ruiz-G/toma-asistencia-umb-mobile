@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { appAlert } from '../../ui/appNotice';
 import { useFocusEffect } from '@react-navigation/native';
 import { ArrowLeft, Bell, Calendar, Clock, MapPin, RefreshCw, Users } from 'lucide-react-native';
 import { API_BASE, MY_CLASSES_URL } from '../../config';
@@ -57,11 +58,11 @@ export default function ScheduleScreen({ navigation }) {
 
   const load = async () => {
     if (!API_BASE) {
-      Alert.alert('API no configurada', 'Configura extra.apiUrl en app.json');
+      appAlert('API no configurada', 'Configura extra.apiUrl en app.json');
       return;
     }
     if (!authToken) {
-      Alert.alert('Sesión inválida', 'Vuelve a iniciar sesión.');
+      appAlert('Sesión inválida', 'Vuelve a iniciar sesión.');
       return;
     }
 
@@ -103,7 +104,7 @@ export default function ScheduleScreen({ navigation }) {
       const list = Array.isArray(r.json?.classes) ? r.json.classes : [];
       setClasses(list);
     } catch (e) {
-      Alert.alert('Error', e?.message || String(e));
+      appAlert('Error', e?.message || String(e));
     } finally {
       setLoading(false);
     }

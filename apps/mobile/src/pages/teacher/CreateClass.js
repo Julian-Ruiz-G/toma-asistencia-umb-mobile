@@ -1,14 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import {
-  Alert,
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { appAlert } from '../../ui/appNotice';
 import {
   ArrowLeft,
   Calendar,
@@ -330,7 +322,7 @@ export default function CreateClass({ navigation, route }) {
           })));
         }
       } catch (e) {
-        Alert.alert('Error', e?.message || String(e));
+        appAlert('Error', e?.message || String(e));
       }
     })();
   }, [authToken, editClassId, isEdit]);
@@ -346,20 +338,20 @@ export default function CreateClass({ navigation, route }) {
 
   const submit = async () => {
     const url = isEdit ? UPDATE_CLASS_URL : CREATE_CLASS_URL;
-    if (!url) { Alert.alert('API no configurada', 'Revisa extra.apiUrl en app.json'); return; }
-    if (!authToken) { Alert.alert('Sesión inválida', 'Vuelve a iniciar sesión.'); return; }
-    if (!className.trim()) { Alert.alert('Faltan datos', 'Ingresa el nombre de la clase.'); return; }
-    if (!group) { Alert.alert('Faltan datos', 'Selecciona el grupo.'); return; }
+    if (!url) { appAlert('API no configurada', 'Revisa extra.apiUrl en app.json'); return; }
+    if (!authToken) { appAlert('Sesión inválida', 'Vuelve a iniciar sesión.'); return; }
+    if (!className.trim()) { appAlert('Faltan datos', 'Ingresa el nombre de la clase.'); return; }
+    if (!group) { appAlert('Faltan datos', 'Selecciona el grupo.'); return; }
 
     // Validar bloques
     const validBlocks = scheduleBlocks.filter((b) => b.day && b.startTime && b.endTime);
     if (validBlocks.length === 0) {
-      Alert.alert('Horario incompleto', 'Agrega al menos un bloque con día, hora inicio y hora fin.');
+      appAlert('Horario incompleto', 'Agrega al menos un bloque con día, hora inicio y hora fin.');
       return;
     }
     for (const b of validBlocks) {
       if (b.startTime >= b.endTime) {
-        Alert.alert(
+        appAlert(
           'Horario inválido',
           `En el bloque del ${DAY_LABEL[b.day] || b.day}, la hora de inicio debe ser menor a la hora de fin.`
         );
@@ -391,11 +383,11 @@ export default function CreateClass({ navigation, route }) {
       if (!resp.ok) throw new Error((json?.error || json?.message || json?.details) ?? `HTTP ${resp.status}`);
 
       if (isEdit) {
-        Alert.alert('Listo', 'Clase actualizada ✅');
+        appAlert('Clase actualizada', 'Los cambios del curso ya están guardados.');
         navigation.goBack();
       } else {
         const createdId = json?.classId || json?.id || json?.class?.classId || '';
-        Alert.alert('Listo', 'Clase creada ✅');
+        appAlert('Clase creada', 'El curso ya está listo. Los estudiantes pueden inscribirse con el QR.');
         if (createdId) {
           navigation.replace('TeacherClassQRScreen', { classId: String(createdId) });
         } else {
@@ -403,7 +395,7 @@ export default function CreateClass({ navigation, route }) {
         }
       }
     } catch (e) {
-      Alert.alert('Error', e?.message || String(e));
+      appAlert('Error', e?.message || String(e));
     } finally {
       setIsSubmitting(false);
     }

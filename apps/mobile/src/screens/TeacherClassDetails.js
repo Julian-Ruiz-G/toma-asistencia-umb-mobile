@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
+import { appAlert } from '../ui/appNotice';
 import { Card, PrimaryButton, Screen, SecondaryButton } from '../ui/components';
 import { CLASS_DETAILS_URL, CREATE_ATTENDANCE_QR_URL, REGENERATE_CLASS_QR_URL } from '../config';
 import { useAuth } from '../state/auth';
@@ -13,15 +14,15 @@ export default function TeacherClassDetails({ navigation, route }) {
 
   const load = async () => {
     if (!CLASS_DETAILS_URL) {
-      Alert.alert('API no configurada', 'Configura extra.apiUrl en app.json');
+      appAlert('API no configurada', 'Configura extra.apiUrl en app.json');
       return;
     }
     if (!authToken) {
-      Alert.alert('Sesión inválida', 'Vuelve a iniciar sesión.');
+      appAlert('Sesión inválida', 'Vuelve a iniciar sesión.');
       return;
     }
     if (!classId) {
-      Alert.alert('Error', 'classId inválido');
+      appAlert('Error', 'classId inválido');
       return;
     }
 
@@ -43,7 +44,7 @@ export default function TeacherClassDetails({ navigation, route }) {
       }
       setDetails(json);
     } catch (e) {
-      Alert.alert('Error', e?.message || String(e));
+      appAlert('Error', e?.message || String(e));
     }
   };
 
@@ -63,9 +64,9 @@ export default function TeacherClassDetails({ navigation, route }) {
       try { json = JSON.parse(text); } catch { json = null; }
       if (!resp.ok) throw new Error((json && (json.error || json.message || json.details)) || text);
       await load();
-      Alert.alert('Listo', 'QR regenerado ✅');
+      appAlert('QR actualizado', 'Se generó un código nuevo para inscribir estudiantes.');
     } catch (e) {
-      Alert.alert('Error', e?.message || String(e));
+      appAlert('Error', e?.message || String(e));
     }
   };
 
@@ -85,7 +86,7 @@ export default function TeacherClassDetails({ navigation, route }) {
       try { json = JSON.parse(text); } catch { json = null; }
       if (!resp.ok) {
         if (json?.error === 'NotScheduledToday' || json?.error === 'TooEarlyForQR' || json?.error === 'TooLateForQR') {
-          Alert.alert('Fuera de horario', json?.message || `Hoy es ${json?.today || ''}.`);
+          appAlert('Fuera de horario', json?.message || `Hoy es ${json?.today || ''}.`);
           return;
         }
         throw new Error((json && (json.error || json.message || json.details)) || text);
@@ -98,7 +99,7 @@ export default function TeacherClassDetails({ navigation, route }) {
         json;
       navigation.navigate('TeacherAttendanceQr', { attendance: attendancePayload });
     } catch (e) {
-      Alert.alert('Error', e?.message || String(e));
+      appAlert('Error', e?.message || String(e));
     }
   };
 

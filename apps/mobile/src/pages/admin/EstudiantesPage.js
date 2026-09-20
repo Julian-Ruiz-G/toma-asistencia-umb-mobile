@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { appAlert } from '../../ui/appNotice';
 import {
   ArrowLeft,
   CheckCircle,
@@ -117,7 +118,7 @@ export default function EstudiantesPage({ navigation }) {
 
   const deleteStudent = (s) => {
     const name = `${s.firstName || ''} ${s.lastName || ''}`.trim() || s.email;
-    Alert.alert(
+    appAlert(
       'Eliminar estudiante',
       `Se eliminará a ${name} (${s.email}).\n\nEsto borra su cuenta en DynamoDB, su rostro de la colección biométrica y sus inscripciones a clases.\n\nEsta acción no se puede deshacer.`,
       [
@@ -153,12 +154,12 @@ export default function EstudiantesPage({ navigation }) {
                 throw new Error(msg);
               }
               setStudents((prev) => prev.filter((x) => x.id !== s.id));
-              Alert.alert(
+              appAlert(
                 'Estudiante eliminado',
                 'Se quitó el registro y el rostro de la colección de reconocimiento.'
               );
             } catch (e) {
-              Alert.alert('No se pudo eliminar', e?.message || String(e));
+              appAlert('No se pudo eliminar', e?.message || String(e));
             } finally {
               setDeletingId('');
             }
@@ -408,7 +409,7 @@ export default function EstudiantesPage({ navigation }) {
                     return { ...s, firstName, lastName, code: payload.studentCode || s.code };
                   }));
                 } catch (e) {
-                  Alert.alert('Error', e?.message || String(e));
+                  appAlert('Error', e?.message || String(e));
                 }
               }}
             >

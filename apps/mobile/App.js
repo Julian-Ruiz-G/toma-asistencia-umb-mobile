@@ -8,7 +8,7 @@ import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-cont
 import { AuthProvider } from './src/state/auth';
 import { COLORS } from './src/ui/theme';
 import { setupLocalNotifications, subscribeNotificationResponses } from './src/utils/localNotify';
-import { HoursNoticeHost } from './src/utils/attendanceQr';
+import { AppNoticeHost } from './src/ui/appNotice';
 
 import SplashScreen from './src/pages/auth/SplashScreen';
 import WelcomeScreen from './src/pages/auth/WelcomeScreen';
@@ -59,7 +59,12 @@ function AppStack() {
     <View style={{ flex: 1, paddingBottom: bottomPad, backgroundColor: COLORS.background }}>
       <StatusBar style="auto" />
       <Stack.Navigator
-        screenOptions={{ headerShown: false, animation: 'fade_from_bottom', animationDuration: 280 }}
+        screenOptions={{
+          headerShown: false,
+          animation: 'slide_from_right',
+          animationDuration: 280,
+          animationTypeForReplace: 'push',
+        }}
         initialRouteName="Splash"
       >
           <Stack.Screen name="Splash" component={SplashScreen} />
@@ -141,7 +146,7 @@ export default function App() {
     <SafeAreaProvider>
       <AuthProvider>
         <View style={{ flex: 1 }}>
-          <HoursNoticeHost />
+          <AppNoticeHost />
           <NavigationContainer ref={navRef}>
             <AppStack />
           </NavigationContainer>

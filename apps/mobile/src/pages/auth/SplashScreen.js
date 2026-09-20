@@ -36,11 +36,11 @@ export default function SplashScreen({ navigation }) {
         fromOpacity={0.12}
         toOpacity={0.22}
         fromScale={1}
-        toScale={1.08}
-        duration={1600}
+        toScale={1.05}
+        duration={2000}
       />
-      <Animated.View entering={enterFade(0, 500)} style={styles.hero}>
-        <Animated.View entering={enterDown(80)}>
+      <Animated.View entering={enterFade(0, 320)} style={styles.hero}>
+        <Animated.View entering={enterDown(40)}>
           <View style={styles.logoWrap}>
             <Image
               source={require('../../../assets/escudo_umb.png')}
@@ -49,13 +49,13 @@ export default function SplashScreen({ navigation }) {
           </View>
         </Animated.View>
 
-        <Animated.View entering={enterDown(180)} style={styles.center}>
+        <Animated.View entering={enterDown(100)} style={styles.center}>
           <Text style={styles.title}>Toma Asistencia UMB</Text>
           <Text style={styles.subtitle}>Universidad Manuela Beltrán</Text>
         </Animated.View>
       </Animated.View>
 
-      <Animated.View entering={enterDown(280)} style={styles.progressWrap}>
+      <Animated.View entering={enterDown(160)} style={styles.progressWrap}>
         <View style={styles.progressBg}>
           <View style={[styles.progressFill, { width: `${progress}%` }]} />
         </View>

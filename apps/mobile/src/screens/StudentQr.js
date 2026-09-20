@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
+import { appAlert } from '../ui/appNotice';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Card, Screen } from '../ui/components';
 
@@ -36,7 +37,7 @@ export default function StudentQr({ navigation }) {
             onBarcodeScanned={(res) => {
               if (!enabled) return;
               setEnabled(false);
-              Alert.alert('QR leído', String(res?.data || ''), [
+              appAlert('QR leído', String(res?.data || ''), [
                 { text: 'OK', onPress: () => setEnabled(true) }
               ]);
             }}

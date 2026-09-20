@@ -1,6 +1,7 @@
 // Importaciones necesarias para el componente de historial de sesiones
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { appAlert } from '../../ui/appNotice';
 // Importación de íconos desde lucide-react-native
 import {
   ArrowLeft,
@@ -153,12 +154,12 @@ export default function SessionHistory({ navigation, route }) {
     // Validaciones previas
     if (!classId) {
       console.log('❌ DEBUG: No classId proporcionado');
-      Alert.alert('Error', 'No se proporcionó ID de clase');
+      appAlert('Error', 'No se proporcionó ID de clase');
       return;
     }
     if (!authToken) {
       console.log('❌ DEBUG: No authToken proporcionado');
-      Alert.alert('Error', 'Sesión inválida');
+      appAlert('Error', 'Sesión inválida');
       return;
     }
 
@@ -286,7 +287,7 @@ export default function SessionHistory({ navigation, route }) {
       console.log('📊 DEBUG: Sessions finales:', sessionsWithStats.map(s => ({ id: s.sessionId, date: s.sessionDate, status: s.status })));
     } catch (e) {
       console.log('❌ Error cargando historial:', e);
-      Alert.alert('Error', e?.message || String(e));
+      appAlert('Error', e?.message || String(e));
     } finally {
       setLoadingSessions(false);
       setRefreshing(false);
@@ -318,10 +319,10 @@ export default function SessionHistory({ navigation, route }) {
   const handleGenerateQR = (session) => {
     if (session.status === 'active') {
       // Para sesión activa, navegar a pantalla de QR
-      Alert.alert('QR de Sesión Activa', 'Esta sesión ya está activa. Usa el botón "Ver QR" desde la página principal.');
+      appAlert('QR de Sesión Activa', 'Esta sesión ya está activa. Usa el botón "Ver QR" desde la página principal.');
     } else {
       // Para sesiones completadas, mostrar mensaje
-      Alert.alert('QR de Sesión', `Esta sesión ya finalizó. No se puede generar QR para sesiones anteriores.`);
+      appAlert('QR de Sesión', `Esta sesión ya finalizó. No se puede generar QR para sesiones anteriores.`);
     }
   };
 
@@ -329,7 +330,7 @@ export default function SessionHistory({ navigation, route }) {
   const handleDownloadReport = (session) => {
     const sid = session?.sessionId || session?.id || '';
     if (!sid) {
-      Alert.alert('Reporte', 'Esta sesión no tiene identificador válido.');
+      appAlert('Reporte', 'Esta sesión no tiene identificador válido.');
       return;
     }
     navigation.navigate('ReportActions', {

@@ -1,14 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { appAlert } from '../../ui/appNotice';
 import {
   ArrowLeft,
   Camera,
@@ -174,7 +166,7 @@ export default function RegisterScreen({ navigation }) {
     try {
       const perm = await ImagePicker.requestCameraPermissionsAsync();
       if (perm.status !== 'granted') {
-        Alert.alert('Cámara', 'Necesitamos permiso de cámara para tomar tu foto de registro.');
+        appAlert('Cámara', 'Necesitamos permiso de cámara para tomar tu foto de registro.');
         return;
       }
 
@@ -190,14 +182,14 @@ export default function RegisterScreen({ navigation }) {
       const asset = Array.isArray(result.assets) ? result.assets[0] : null;
       const b64 = asset?.base64 ? String(asset.base64) : '';
       if (!b64) {
-        Alert.alert('Foto', 'No se pudo leer la imagen. Intenta otra vez.');
+        appAlert('Foto', 'No se pudo leer la imagen. Intenta otra vez.');
         return;
       }
 
       const w = Number(asset?.width || 0);
       const h = Number(asset?.height || 0);
       if ((w && w < 240) || (h && h < 240)) {
-        Alert.alert(
+        appAlert(
           'Foto demasiado pequeña',
           'La imagen no tiene suficiente resolución. Acércate, usa buena luz y toma otra foto.'
         );
@@ -236,7 +228,7 @@ export default function RegisterScreen({ navigation }) {
             delete next.photo;
             return next;
           });
-          Alert.alert(
+          appAlert(
             'Foto guardada',
             'No se pudo revisar el rostro ahora. Al registrar se volverá a comprobar que la cara esté completa.'
           );
@@ -248,7 +240,7 @@ export default function RegisterScreen({ navigation }) {
           const detail = issues.length
             ? issues.map((item, i) => `${i + 1}. ${item}`).join('\n\n')
             : formatRegisterError(json, raw, resp.status);
-          Alert.alert(
+          appAlert(
             'Esta foto no sirve para el registro',
             `${detail}\n\nConsejo: encuadra toda la cara (frente, ojos, nariz y mentón), de frente y con buena luz.`
           );
@@ -267,7 +259,7 @@ export default function RegisterScreen({ navigation }) {
       }
     } catch (e) {
       setIsCheckingPhoto(false);
-      Alert.alert('Error al tomar la foto', e?.message || String(e));
+      appAlert('Error al tomar la foto', e?.message || String(e));
     }
   };
 
@@ -313,8 +305,16 @@ export default function RegisterScreen({ navigation }) {
       if (!resp.ok) {
         const msg = formatRegisterError(json, text, resp.status);
         setFormAlert(msg);
+        const code = String(json?.error || '');
+        if (code === 'FaceAlreadyRegistered') {
+          appAlert(
+            'Rostro ya registrado',
+            `${msg}.\n\nSi esa es tu cuenta, inicia sesión.\nSi no, toma otra foto de frente, con buena luz.`
+          );
+          return;
+        }
         if (Array.isArray(json?.issues) && json.issues.length) {
-          Alert.alert(
+          appAlert(
             'La foto no cumple los requisitos',
             json.issues.map((item, i) => `${i + 1}. ${item}`).join('\n\n')
           );
@@ -322,7 +322,7 @@ export default function RegisterScreen({ navigation }) {
         return;
       }
 
-      Alert.alert('Cuenta creada', 'Ya puedes iniciar sesión con tu correo y contraseña.');
+      appAlert('Cuenta creada', 'Ya puedes iniciar sesión con tu correo y contraseña.');
       navigation.replace('Login');
     } catch (e) {
       setFormAlert(e?.message || 'No hay conexión. Intenta de nuevo.');
@@ -396,7 +396,7 @@ export default function RegisterScreen({ navigation }) {
         <View style={{ height: 14 }} />
 
         <Input
-          label="Correo Electrónico"
+          label="Correo electrónico institucional"
           placeholder="usuario@academia.umb.edu.co"
           value={formData.email}
           onChangeText={(v) => {
@@ -404,6 +404,7 @@ export default function RegisterScreen({ navigation }) {
             setErrors((p) => ({ ...p, email: undefined }));
           }}
           error={errors.email}
+          helperText="Debe ser tu correo institucional UMB (@academia.umb.edu.co)"
           autoCapitalize="none"
           keyboardType="email-address"
         />
@@ -521,9 +522,9 @@ export default function RegisterScreen({ navigation }) {
 
         <View style={[styles.checkRow, errors.consentBiometric ? styles.checkRowError : null]}>
           <Text style={styles.consentText}>
-            Autorizo el tratamiento de mis datos biométricos{' '}
-            <Text style={styles.consentLink} onPress={() => setShowBiometricModal(true)}>
-              (ver detalles)
+            Autorizo el tratamiento de mis{' '}
+            <Text style={styles.biometricLink} onPress={() => setShowBiometricModal(true)}>
+              datos biométricos
             </Text>
           </Text>
           <Switch
@@ -728,6 +729,11 @@ const styles = StyleSheet.create({
   checkLabelText: { color: '#374151', fontWeight: '700' },
   consentText: { flex: 1, color: '#374151', fontSize: 14, lineHeight: 20 },
   consentLink: { color: COLORS.primary, fontWeight: '800' },
+  biometricLink: {
+    color: '#B91C1C',
+    fontWeight: '800',
+    textDecorationLine: 'underline',
+  },
   consentHint: { marginTop: 4, color: '#6B7280', fontSize: 12, fontStyle: 'italic' },
   footer: {
     paddingHorizontal: 24,

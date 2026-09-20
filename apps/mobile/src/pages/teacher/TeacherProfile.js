@@ -1,14 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import {
-  Alert,
-  Image,
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { appAlert } from '../../ui/appNotice';
 import * as ImagePicker from 'expo-image-picker';
 import {
   ArrowLeft,
@@ -38,7 +30,6 @@ import {
 
 export default function TeacherProfile({ navigation }) {
   const { email, logout, teacherCode, fullName, photoUri, setPhotoUri } = useAuth();
-  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showPrivacyMenu, setShowPrivacyMenu] = useState(false);
   const [legalDoc, setLegalDoc] = useState(null);
 
@@ -55,7 +46,7 @@ export default function TeacherProfile({ navigation }) {
     try {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!perm.granted) {
-        Alert.alert('Permiso requerido', 'Autoriza el acceso a la galería para elegir una foto.');
+        appAlert('Permiso requerido', 'Autoriza el acceso a la galería para elegir una foto.');
         return;
       }
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -72,12 +63,11 @@ export default function TeacherProfile({ navigation }) {
       setPhotoUri(finalUri);
       await saveLocalProfile(email, { photoUri: finalUri });
     } catch (e) {
-      Alert.alert('Error', e?.message || String(e));
+      appAlert('Error', e?.message || String(e));
     }
   };
 
   const handleLogout = () => {
-    setShowLogoutConfirm(false);
     logout();
     navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] });
   };
@@ -157,25 +147,22 @@ export default function TeacherProfile({ navigation }) {
 
         <View style={{ height: 14 }} />
 
-        <Pressable onPress={() => setShowLogoutConfirm(true)} style={[styles.card, styles.logoutCard]}>
+        <Pressable
+          onPress={() => appAlert(
+            'Cerrar sesión',
+            '¿Seguro que quieres salir de tu cuenta en este dispositivo?',
+            [
+              { text: 'Cancelar', style: 'cancel' },
+              { text: 'Sí, cerrar', style: 'destructive', onPress: handleLogout },
+            ]
+          )}
+          style={[styles.card, styles.logoutCard]}
+        >
           <LogOut size={20} color="#DC2626" />
           <Text style={styles.logoutText}>Cerrar Sesión</Text>
         </Pressable>
         <View style={{ height: 24 }} />
       </ScrollView>
-
-      <Modal visible={showLogoutConfirm} transparent animationType="fade" onRequestClose={() => setShowLogoutConfirm(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>¿Cerrar sesión?</Text>
-            <Text style={styles.modalText}>¿Estás seguro de que deseas salir?</Text>
-            <View style={{ height: 14 }} />
-            <Button fullWidth variant="outline" onPress={() => setShowLogoutConfirm(false)}>Cancelar</Button>
-            <View style={{ height: 10 }} />
-            <Button fullWidth onPress={handleLogout}>Sí, cerrar</Button>
-          </View>
-        </View>
-      </Modal>
 
       <Modal visible={showPrivacyMenu} transparent animationType="fade" onRequestClose={() => setShowPrivacyMenu(false)}>
         <View style={styles.modalOverlay}>

@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { appAlert } from '../../ui/appNotice';
 import { ArrowLeft, Eye, FileSpreadsheet } from 'lucide-react-native';
 
 import { Button } from '../../components/Button';
@@ -30,7 +31,7 @@ export default function ReportActions({ navigation, route }) {
 
   const handleGenerate = () => {
     if (!sessionId) {
-      Alert.alert('Sin sesión', 'Abre el informe desde Mis clases → Informe o Historial.');
+      appAlert('Sin sesión', 'Abre el informe desde Mis clases → Informe o Historial.');
       return;
     }
     setIsGenerating(true);
@@ -45,11 +46,11 @@ export default function ReportActions({ navigation, route }) {
   };
 
   const handleDownload = async () => {
-    if (!sessionId) { Alert.alert('Sin sesión', 'Necesitas un sessionId válido.'); return; }
-    if (!authToken) { Alert.alert('Sesión', 'Inicia sesión como docente.'); return; }
+    if (!sessionId) { appAlert('Sin sesión', 'Necesitas un sessionId válido.'); return; }
+    if (!authToken) { appAlert('Sesión', 'Inicia sesión como docente.'); return; }
     setIsDownloading(true);
     try { await exportAttendanceReport(authToken, sessionId, selectedFormat); }
-    catch (e) { Alert.alert('Error al exportar', e?.message || String(e)); }
+    catch (e) { appAlert('Error al exportar', e?.message || String(e)); }
     finally { setIsDownloading(false); }
   };
 

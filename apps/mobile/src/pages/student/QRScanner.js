@@ -1,6 +1,6 @@
 // Importaciones necesarias para el componente de escaneo QR
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated as RNAnimated, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated as RNAnimated, Easing, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 // Importación de íconos desde lucide-react-native
 import {
@@ -69,12 +69,14 @@ export default function QRScanner({ navigation }) {
       RNAnimated.sequence([
         RNAnimated.timing(lineAnim, {
           toValue: 1,
-          duration: 2000,
+          duration: 1800,
+          easing: Easing.inOut(Easing.quad),
           useNativeDriver: true,
         }),
         RNAnimated.timing(lineAnim, {
           toValue: 0,
-          duration: 2000,
+          duration: 1800,
+          easing: Easing.inOut(Easing.quad),
           useNativeDriver: true,
         }),
       ])

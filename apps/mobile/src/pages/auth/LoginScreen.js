@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Alert, Image, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { appAlert } from '../../ui/appNotice';
 import { ArrowLeft, CircleAlert, KeyRound } from 'lucide-react-native';
 
 import { Button } from '../../components/Button';
@@ -47,7 +48,7 @@ export default function LoginScreen({ navigation }) {
 
     const e = String(formData.email || '').trim().toLowerCase();
     if (!LOGIN_STUDENT_URL || !LOGIN_TEACHER_URL) {
-      Alert.alert('API no configurada', 'Configura extra.apiUrl en app.json');
+      appAlert('API no configurada', 'Configura extra.apiUrl en app.json');
       return;
     }
 
@@ -224,7 +225,7 @@ export default function LoginScreen({ navigation }) {
               <Text style={styles.rememberText}>Recordar sesión</Text>
             </View>
 
-            <Pressable onPress={() => Alert.alert('Pendiente', 'Recuperación de contraseña')}>
+            <Pressable onPress={() => appAlert('Recuperación de contraseña', 'Esta función aún no está disponible. Si no puedes entrar, pide ayuda en tu facultad.')}>
               <Text style={styles.forgot}>¿Olvidó su contraseña?</Text>
             </Pressable>
           </View>

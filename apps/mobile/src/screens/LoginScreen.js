@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Alert, View } from 'react-native';
+import { View } from 'react-native';
+import { appAlert } from '../ui/appNotice';
 import { Card, Input, Label, PrimaryButton, Screen, SecondaryButton } from '../ui/components';
 import { useAuth } from '../state/auth';
 import { LOGIN_TEACHER_URL, LOGIN_STUDENT_URL } from '../config';
@@ -15,14 +16,14 @@ export default function LoginScreen({ navigation }) {
   const submit = async () => {
     const e = email.trim().toLowerCase();
     if (!e || !password.trim()) {
-      Alert.alert('Faltan datos', 'Ingresa correo y contraseña.');
+      appAlert('Faltan datos', 'Ingresa correo y contraseña.');
       return;
     }
 
     const isTeacher = loginRole === 'teacher';
     const url = isTeacher ? LOGIN_TEACHER_URL : LOGIN_STUDENT_URL;
     if (!url) {
-      Alert.alert('API no configurada', 'Configura extra.apiUrl en app.json');
+      appAlert('API no configurada', 'Configura extra.apiUrl en app.json');
       return;
     }
 
@@ -61,7 +62,7 @@ export default function LoginScreen({ navigation }) {
 
       navigation.reset({ index: 0, routes: [{ name: role === 'teacher' ? 'TeacherHome' : 'StudentHome' }] });
     } catch (err) {
-      Alert.alert('Error', err?.message || String(err));
+      appAlert('Error', err?.message || String(err));
     }
   };
 

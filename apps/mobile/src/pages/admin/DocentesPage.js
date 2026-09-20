@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { appAlert } from '../../ui/appNotice';
 import {
   ArrowLeft,
   CheckCircle,
@@ -218,7 +219,7 @@ export default function DocentesPage({ navigation }) {
                   <Pressable
                     style={styles.iconAction}
                     onPress={() => {
-                      Alert.alert(
+                      appAlert(
                         'Confirmar',
                         `¿Eliminar docente ${t.email || ''}?`,
                         [
@@ -247,7 +248,7 @@ export default function DocentesPage({ navigation }) {
                                 }
                                 setTeachers((prev) => prev.filter((x) => x.id !== t.id));
                               } catch (e) {
-                                Alert.alert('Error', e?.message || String(e));
+                                appAlert('Error', e?.message || String(e));
                               }
                             }
                           }
@@ -378,7 +379,7 @@ export default function DocentesPage({ navigation }) {
                   setShowModal(false);
                   await loadTeachers();
                 } catch (e) {
-                  Alert.alert('Error', e?.message || String(e));
+                  appAlert('Error', e?.message || String(e));
                 }
               }}
             >
@@ -464,7 +465,7 @@ export default function DocentesPage({ navigation }) {
                   setShowEdit(false);
                   await loadTeachers();
                 } catch (e) {
-                  Alert.alert('Error', e?.message || String(e));
+                  appAlert('Error', e?.message || String(e));
                 }
               }}
             >

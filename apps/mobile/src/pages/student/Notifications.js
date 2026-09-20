@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { appAlert } from '../../ui/appNotice';
 import {
   ArrowLeft,
   Bell,
@@ -92,7 +93,7 @@ export default function Notifications({ navigation }) {
         }
       } catch (e) {
         if (!silent && !cancelled) {
-          Alert.alert('Error', e?.message || String(e));
+          appAlert('Error', e?.message || String(e));
           setNotifications([]);
         }
       } finally {

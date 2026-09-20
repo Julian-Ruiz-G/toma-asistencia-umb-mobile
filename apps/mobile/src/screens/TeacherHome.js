@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { appAlert } from '../ui/appNotice';
 import {
   AlertCircle,
   BarChart3,
@@ -36,15 +37,15 @@ export default function TeacherHome({ navigation }) {
 
   const createAttendanceSession = async (classId) => {
     if (!CREATE_ATTENDANCE_QR_URL) {
-      Alert.alert('API no configurada', 'Falta CREATE_ATTENDANCE_QR_URL');
+      appAlert('API no configurada', 'Falta CREATE_ATTENDANCE_QR_URL');
       return null;
     }
     if (!authToken) {
-      Alert.alert('Sesión inválida', 'Vuelve a iniciar sesión.');
+      appAlert('Sesión inválida', 'Vuelve a iniciar sesión.');
       return null;
     }
     if (!classId) {
-      Alert.alert('Error', 'classId inválido');
+      appAlert('Error', 'classId inválido');
       return null;
     }
 
@@ -72,7 +73,7 @@ export default function TeacherHome({ navigation }) {
       return json;
     } catch (err) {
       if (String(err?.message || '') !== 'HOURS_NOTICE') {
-        Alert.alert('Error', err?.message || String(err));
+        appAlert('Error', err?.message || String(err));
       }
       return null;
     }
@@ -177,11 +178,11 @@ export default function TeacherHome({ navigation }) {
 
   const loadClasses = async () => {
     if (!MY_CLASSES_URL) {
-      Alert.alert('API no configurada', 'Configura extra.apiUrl en app.json');
+      appAlert('API no configurada', 'Configura extra.apiUrl en app.json');
       return;
     }
     if (!authToken) {
-      Alert.alert('Sesión inválida', 'Vuelve a iniciar sesión.');
+      appAlert('Sesión inválida', 'Vuelve a iniciar sesión.');
       return;
     }
 
@@ -210,7 +211,7 @@ export default function TeacherHome({ navigation }) {
 
       setClasses(json?.classes || json?.myClasses || json || []);
     } catch (e) {
-      Alert.alert('Error', e?.message || String(e));
+      appAlert('Error', e?.message || String(e));
     } finally {
       setLoadingClasses(false);
     }
@@ -390,7 +391,7 @@ export default function TeacherHome({ navigation }) {
                           autoCapture: true
                         });
                       } catch (err) {
-                        Alert.alert('Error', err?.message || String(err));
+                        appAlert('Error', err?.message || String(err));
                       }
                     }}
                     style={[styles.actionBtn, { backgroundColor: '#F3E8FF' }]}
@@ -408,7 +409,7 @@ export default function TeacherHome({ navigation }) {
                         if (!session) return;
                         navigation.navigate('TeacherClassQRScreen', { classId, attendanceSession: session, classMeta: { title, group, room } });
                       } catch (err) {
-                        Alert.alert('Error', err?.message || String(err));
+                        appAlert('Error', err?.message || String(err));
                       }
                     }}
                     style={[styles.actionBtn, { backgroundColor: '#FEF2F2' }]}
@@ -433,7 +434,7 @@ export default function TeacherHome({ navigation }) {
                           classMeta: { title, group, room } 
                         });
                       } catch (err) {
-                        Alert.alert('Error', err?.message || String(err));
+                        appAlert('Error', err?.message || String(err));
                       }
                     }}
                     style={[styles.actionBtn, { backgroundColor: '#E0F2FE' }]}
@@ -445,7 +446,7 @@ export default function TeacherHome({ navigation }) {
                   <Pressable
                     onPress={async (e) => {
                       e?.stopPropagation?.();
-                      Alert.alert(
+                      appAlert(
                         'Eliminar Clase',
                         `¿Estás seguro que quieres eliminar la clase "${title}"?\n\nEsta acción eliminará:\n• Todos los estudiantes inscritos\n• Todas las sesiones de asistencia\n• Todos los registros de asistencia\n\nEsta acción no se puede deshacer.`,
                         [
@@ -461,7 +462,7 @@ export default function TeacherHome({ navigation }) {
                                 console.log('🔍 DEBUG: Eliminando clase - DELETE_CLASS_URL:', DELETE_CLASS_URL);
                                 
                                 if (!DELETE_CLASS_URL || !authToken) {
-                                  Alert.alert('Error', 'Configuración no disponible');
+                                  appAlert('Error', 'Configuración no disponible');
                                   return;
                                 }
 
@@ -490,13 +491,13 @@ export default function TeacherHome({ navigation }) {
                                   throw new Error(msg);
                                 }
 
-                                Alert.alert(
+                                appAlert(
                                   'Clase Eliminada',
                                   json?.message || 'La clase fue eliminada exitosamente',
                                   [{ text: 'OK', onPress: () => loadClasses() }]
                                 );
                               } catch (err) {
-                                Alert.alert('Error', err?.message || String(err));
+                                appAlert('Error', err?.message || String(err));
                               }
                             }
                           }

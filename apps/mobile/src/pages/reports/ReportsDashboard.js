@@ -1,13 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { appAlert } from '../../ui/appNotice';
 import {
   ArrowLeft,
   FileSpreadsheet,
@@ -87,7 +80,7 @@ export default function ReportsDashboard({ navigation }) {
       setClasses(arr);
       setSelectedClassId((prev) => prev || String(arr[0]?.classId || ''));
     } catch (e) {
-      Alert.alert('Error', e?.message || String(e));
+      appAlert('Error', e?.message || String(e));
       setClasses([]);
     } finally {
       setLoading(false);
@@ -107,7 +100,7 @@ export default function ReportsDashboard({ navigation }) {
 
   const handleGenerate = () => {
     if (!selectedClassId) {
-      Alert.alert('Elige una clase', 'Selecciona una de tus clases para generar el informe.');
+      appAlert('Elige una clase', 'Selecciona una de tus clases para generar el informe.');
       return;
     }
     setGenerating(true);

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import { Card, PrimaryButton, Screen } from '../ui/components';
 import QRCode from 'react-native-qrcode-svg';
 

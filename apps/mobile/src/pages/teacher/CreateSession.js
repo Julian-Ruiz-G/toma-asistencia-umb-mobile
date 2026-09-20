@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { appAlert } from '../../ui/appNotice';
 import { ArrowLeft, BookOpen, QrCode, RefreshCw } from 'lucide-react-native';
 
 import { Button } from '../../components/Button';
@@ -17,11 +18,11 @@ export default function CreateSession({ navigation }) {
 
   const loadClasses = async () => {
     if (!MY_CLASSES_URL) {
-      Alert.alert('API no configurada', 'Configura extra.apiUrl en app.json');
+      appAlert('API no configurada', 'Configura extra.apiUrl en app.json');
       return;
     }
     if (!authToken) {
-      Alert.alert('Sesión inválida', 'Vuelve a iniciar sesión.');
+      appAlert('Sesión inválida', 'Vuelve a iniciar sesión.');
       return;
     }
 
@@ -54,7 +55,7 @@ export default function CreateSession({ navigation }) {
         if (firstId) setSelectedClassId(firstId);
       }
     } catch (e) {
-      Alert.alert('Error', e?.message || String(e));
+      appAlert('Error', e?.message || String(e));
     } finally {
       setLoadingClasses(false);
     }
@@ -71,15 +72,15 @@ export default function CreateSession({ navigation }) {
 
   const handleCreate = async () => {
     if (!CREATE_ATTENDANCE_QR_URL) {
-      Alert.alert('API no configurada', 'Falta CREATE_ATTENDANCE_QR_URL');
+      appAlert('API no configurada', 'Falta CREATE_ATTENDANCE_QR_URL');
       return;
     }
     if (!authToken) {
-      Alert.alert('Sesión inválida', 'Vuelve a iniciar sesión.');
+      appAlert('Sesión inválida', 'Vuelve a iniciar sesión.');
       return;
     }
     if (!selectedClassId) {
-      Alert.alert('Falta clase', 'Selecciona una clase');
+      appAlert('Falta clase', 'Selecciona una clase');
       return;
     }
 
@@ -108,7 +109,7 @@ export default function CreateSession({ navigation }) {
 
       navigation.navigate('TeacherAttendanceQr', { attendance: json });
     } catch (e) {
-      Alert.alert('Error', e?.message || String(e));
+      appAlert('Error', e?.message || String(e));
     } finally {
       setCreating(false);
     }

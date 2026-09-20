@@ -1,14 +1,7 @@
 // Importaciones necesarias para el componente
 import React, { useEffect, useMemo, useState } from 'react';
-import {
-  Alert,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { appAlert } from '../../ui/appNotice';
 // Importación de íconos desde lucide-react-native
 import {
   ArrowLeft,
@@ -58,7 +51,7 @@ export default function LiveAttendanceDashboard({ navigation, route }) {
 
   const updateStatus = async (studentEmail, newStatus) => {
     if (!SET_ATTENDANCE_STATUS_URL || !authToken || !sessionId) {
-      Alert.alert('Error', 'No se puede actualizar la asistencia ahora.');
+      appAlert('Error', 'No se puede actualizar la asistencia ahora.');
       return;
     }
     const key = `${studentEmail}:${newStatus}`;
@@ -87,13 +80,13 @@ export default function LiveAttendanceDashboard({ navigation, route }) {
         if (alertClassHoursError(json, json?.message || 'No se pudo cambiar la asistencia.')) {
           return;
         }
-        Alert.alert('Error', json?.message || json?.error || text || `HTTP ${resp.status}`);
+        appAlert('Error', json?.message || json?.error || text || `HTTP ${resp.status}`);
         return;
       }
       setLastUpdated(new Date());
       await loadRemote();
     } catch (e) {
-      Alert.alert('Error', e?.message || String(e));
+      appAlert('Error', e?.message || String(e));
     } finally {
       setSavingStatus(null);
     }
@@ -101,11 +94,11 @@ export default function LiveAttendanceDashboard({ navigation, route }) {
 
   const removeStudent = async (studentId, studentName) => {
     if (!REMOVE_STUDENT_FROM_CLASS_URL || !authToken) {
-      Alert.alert('Error', 'Configuración no disponible');
+      appAlert('Error', 'Configuración no disponible');
       return;
     }
 
-    Alert.alert(
+    appAlert(
       'Eliminar Estudiante',
       `¿Estás seguro que quieres eliminar a "${studentName}" de la clase?\n\nEsta acción eliminará:\n• La inscripción del estudiante\n• Todos sus registros de asistencia\n\nEsta acción no se puede deshacer.`,
       [
@@ -119,7 +112,7 @@ export default function LiveAttendanceDashboard({ navigation, route }) {
               const studentEmail = studentId.includes('@') ? studentId : '';
               
               if (!studentEmail) {
-                Alert.alert('Error', 'No se puede identificar el email del estudiante');
+                appAlert('Error', 'No se puede identificar el email del estudiante');
                 return;
               }
 
@@ -148,13 +141,13 @@ export default function LiveAttendanceDashboard({ navigation, route }) {
                 throw new Error(msg);
               }
 
-              Alert.alert(
+              appAlert(
                 'Estudiante Eliminado',
                 json?.message || `${studentName} fue eliminado exitosamente`,
                 [{ text: 'OK', onPress: () => loadRemote() }]
               );
             } catch (err) {
-              Alert.alert('Error', err?.message || String(err));
+              appAlert('Error', err?.message || String(err));
             }
           }
         }
@@ -200,7 +193,7 @@ export default function LiveAttendanceDashboard({ navigation, route }) {
       setRemoteDetails(json);
     } catch (e) {
       // Mostrar alerta en caso de error
-      Alert.alert('Error', e?.message || String(e));
+      appAlert('Error', e?.message || String(e));
     } finally {
       // Finalizar estado de carga
       setLoadingRemote(false);

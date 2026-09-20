@@ -1,6 +1,7 @@
 // Importaciones necesarias para el componente de inicio del estudiante
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { appAlert } from '../../ui/appNotice';
 import { useFocusEffect } from '@react-navigation/native';
 // Importación de íconos desde lucide-react-native
 import {
@@ -76,7 +77,7 @@ export default function StudentHome({ navigation }) {
       syncClassSoonNotifications(email, arr).catch(() => {});
     } catch (e) {
       // Mostrar alerta en caso de error
-      Alert.alert('Error', e?.message || String(e));
+      appAlert('Error', e?.message || String(e));
     } finally {
       // Finalizar estado de carga
       setLoadingClasses(false);
@@ -240,7 +241,7 @@ export default function StudentHome({ navigation }) {
           phone: nextPhone,
         };
         if (isStudentProfileComplete(profile)) return;
-        Alert.alert(
+        appAlert(
           'Completa tu perfil',
           studentProfileIncompleteMessage(profile),
           [

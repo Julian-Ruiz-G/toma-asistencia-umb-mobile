@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Alert, View } from 'react-native';
+import { View } from 'react-native';
+import { appAlert } from '../ui/appNotice';
 import { Card, Input, Label, PrimaryButton, Screen } from '../ui/components';
 
 export default function RegisterScreen({ navigation }) {
@@ -9,10 +10,10 @@ export default function RegisterScreen({ navigation }) {
 
   const submit = async () => {
     if (!fullName.trim() || !email.trim() || !password.trim()) {
-      Alert.alert('Faltan datos', 'Completa nombre, correo y contraseña.');
+      appAlert('Faltan datos', 'Completa nombre, correo y contraseña.');
       return;
     }
-    Alert.alert('Listo', 'Registro UI (pendiente conectar al backend)');
+    appAlert('Listo', 'Registro UI (pendiente conectar al backend)');
     navigation.navigate('Login');
   };
 
