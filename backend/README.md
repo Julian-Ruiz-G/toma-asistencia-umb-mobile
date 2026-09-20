@@ -7,7 +7,6 @@ Backend serverless (AWS Lambda + API Gateway) para la app de asistencia UMB. Usa
 - `src/lambda_handler.py`: punto de entrada SAM (`lambda_handler.lambda_handler`).
 - `src/`: módulos de rutas y utilidades.
 - `template.yaml`: plantilla SAM.
-- `../scripts/rekognition_probe.py`: script local de referencia para Rekognition.
 
 ## Requisitos previos
 

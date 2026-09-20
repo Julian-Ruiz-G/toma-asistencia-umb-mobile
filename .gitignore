@@ -15,6 +15,11 @@ _backups/
 test/
 backend/archive/
 scripts/debug_faces/
+scripts/*.jpg
+scripts/*.jpeg
+scripts/*.png
+scripts/*.webp
+scripts/rekognition_probe.py
 
 # Secrets and local AWS deploy config (no subir tokens)
 backend/samconfig.toml
