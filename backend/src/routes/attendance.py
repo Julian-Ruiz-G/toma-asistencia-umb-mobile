@@ -228,7 +228,7 @@ def handle_mark_attendance(event, body):
     provided_name = (body.get('studentName') or '').strip()
     provided_code = (body.get('studentCode') or '').strip()
 
-    student_name = provided_name or None
+    student_name = None
     student_code = provided_code or None
     try:
         scan_resp = dynamodb.scan(
@@ -241,10 +241,12 @@ def handle_mark_attendance(event, body):
         items = (scan_resp or {}).get('Items') or []
         if items:
             it = items[0]
-            student_name = student_name or (_ddb_s(it, 'FullName') or None)
+            student_name = _display_person_name(_ddb_s(it, 'FullName'), provided_name) or None
             student_code = student_code or (_ddb_s(it, 'StudentCode') or None)
+        else:
+            student_name = _display_person_name(provided_name) or None
     except Exception:
-        pass
+        student_name = _display_person_name(provided_name) or None
 
     att_pk = f"ATTEND#{session_id}#{student_email}".lower()
     att_item = {
@@ -353,6 +355,8 @@ def handle_attendance_details(event, body):
             'studentName': _ddb_s(en, 'StudentName') or None,
             'studentCode': _ddb_s(en, 'StudentCode') or None,
         }
+
+    _hydrate_roster_names(roster_by_email)
 
     try:
         att_scan = dynamodb.scan(
@@ -966,6 +970,8 @@ def handle_attendance_report(event, body):
                 'studentCode': _ddb_s(en, 'StudentCode') or '',
             }
 
+        _hydrate_roster_names(roster_by_email)
+
         sessions = []
         for it in sess_items:
             sid = (_ddb_s(it, 'SessionId') or '').strip()
@@ -973,11 +979,18 @@ def handle_attendance_report(event, body):
                 continue
             sessions.append({
                 'sessionId': sid,
-                'sessionDate': _ddb_s(it, 'SessionDate') or '',
+                'sessionDate': _session_ymd(
+                    _ddb_s(it, 'SessionDate'),
+                    sid,
+                    _ddb_n(it, 'ScheduledStartEpoch'),
+                    _ddb_schedule(class_item, 'Schedule'),
+                ),
                 'corte': _ddb_s(it, 'Corte') or corte_override,
                 'epoch': int((_ddb_n(it, 'ScheduledStartEpoch') or '0') or '0'),
             })
         sessions.sort(key=lambda s: (s.get('sessionDate') or '', s.get('epoch') or 0, s.get('sessionId') or ''))
+        if corte_override:
+            sessions = [s for s in sessions if str(s.get('corte') or '').strip() == corte_override]
 
         att_by_sess_email = {}
         for it in att_items:
@@ -1138,6 +1151,8 @@ def handle_attendance_report(event, body):
             'studentName': _ddb_s(en, 'StudentName') or None,
             'studentCode': _ddb_s(en, 'StudentCode') or None,
         }
+
+    _hydrate_roster_names(roster_by_email)
 
     # Build attendance lookup
     try:
@@ -1453,12 +1468,12 @@ def handle_student_notifications(event, body):
             if mins is None:
                 continue
             diff = mins - now_min
-            if 0 <= diff <= 30:
+            if 1 <= diff <= 5:
                 _add_notif(_upsert_student_notification(
                     student_email,
                     f'NOTIF#soon#{cid}#{session_date}'.lower(),
                     'Clase por comenzar',
-                    f'{class_name} empieza a las {st}. Quedan {diff} min.',
+                    f'{class_name} empieza a las {st}. Faltan 5 minutos.',
                     'info',
                     now,
                     extra={'ClassId': cid, 'ClassName': class_name},
@@ -1662,15 +1677,18 @@ def handle_student_attendance_history(event, body):
         }})
 
     months_es = ('Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic')
+    weekdays_es = ('lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo')
 
     def _fmt_date_es(ymd: str) -> str:
-        parts = str(ymd or '').split('-')
+        key = _session_ymd(ymd, '')
+        parts = str(key or '').split('-')
         if len(parts) != 3:
             return str(ymd or '')
         try:
-            y, m, d = parts[0], int(parts[1]), int(parts[2])
+            y, m, d = int(parts[0]), int(parts[1]), int(parts[2])
             if 1 <= m <= 12:
-                return f'{d:02d} {months_es[m - 1]} {y}'
+                wd = weekdays_es[datetime.date(y, m, d).weekday()]
+                return f'{wd}, {d:02d} {months_es[m - 1]} {y}'
         except Exception:
             return str(ymd or '')
         return str(ymd or '')
@@ -1726,7 +1744,6 @@ def handle_student_attendance_history(event, body):
     for s in sess_items:
         class_id = (_ddb_s(s, 'ClassId') or '').strip()
         session_id = (_ddb_s(s, 'SessionId') or '').strip()
-        session_date = (_ddb_s(s, 'SessionDate') or '').strip()
         if not class_id or not session_id:
             continue
 
@@ -1734,6 +1751,7 @@ def handle_student_attendance_history(event, body):
             class_name = None
             teacher_email = (_ddb_s(s, 'TeacherEmail') or '').strip().lower()
             start_time = None
+            schedule = []
             try:
                 class_resp = dynamodb.get_item(
                     TableName=DDB_TABLE,
@@ -1744,18 +1762,26 @@ def handle_student_attendance_history(event, body):
                     class_name = _ddb_s(class_item, 'ClassName') or None
                     teacher_email = (_ddb_s(class_item, 'TeacherEmail') or teacher_email).strip().lower()
                     start_time = _ddb_s(class_item, 'StartTime') or None
+                    schedule = _ddb_schedule(class_item, 'Schedule')
             except Exception:
                 class_item = None
             class_cache[class_id] = {
                 'className': class_name,
                 'teacherEmail': teacher_email,
                 'startTime': start_time,
+                'schedule': schedule,
             }
         class_info = class_cache[class_id]
+        session_date = _session_ymd(
+            _ddb_s(s, 'SessionDate'),
+            session_id,
+            _ddb_n(s, 'ScheduledStartEpoch'),
+            class_info.get('schedule'),
+        )
         teacher_email = class_info.get('teacherEmail') or ''
 
         if teacher_email and teacher_email not in teacher_cache:
-            tname = teacher_email
+            tname = ''
             try:
                 t_resp = dynamodb.get_item(
                     TableName=DDB_TABLE,
@@ -1763,11 +1789,20 @@ def handle_student_attendance_history(event, body):
                 )
                 t_item = (t_resp or {}).get('Item')
                 if t_item:
-                    tname = _ddb_s(t_item, 'FullName') or teacher_email
+                    tname = _display_person_name(_ddb_s(t_item, 'FullName'))
             except Exception:
-                tname = teacher_email
-            teacher_cache[teacher_email] = tname
-        teacher_name = teacher_cache.get(teacher_email) or teacher_email or 'Docente'
+                tname = ''
+            teacher_cache[teacher_email] = tname or teacher_email
+        teacher_name = _display_person_name(teacher_cache.get(teacher_email), teacher_email) or 'Docente'
+
+        day_key = _weekday_key_from_ymd(session_date)
+        session_start = ''
+        for block in class_info.get('schedule') or []:
+            if str(block.get('day') or '').strip().upper() == day_key:
+                session_start = str(block.get('startTime') or '')
+                break
+        if not session_start:
+            session_start = class_info.get('startTime') or ''
 
         status_raw = 'inasistencia'
         marked_at = None
@@ -1793,7 +1828,7 @@ def handle_student_attendance_history(event, body):
             'professor': teacher_name,
             'date': _fmt_date_es(session_date),
             'dateRaw': session_date,
-            'time': _fmt_time(class_info.get('startTime') or ''),
+            'time': _fmt_time(session_start),
             'status': ui_status,
             'statusRaw': status_raw,
             'markedAt': int(marked_at) if str(marked_at or '').isdigit() else None,

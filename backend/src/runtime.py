@@ -369,6 +369,120 @@ def _normalize_weekday_name(day: str) -> str:
         return ''
 
 
+def _display_person_name(*candidates) -> str:
+    for c in candidates:
+        s = str(c or '').strip()
+        if s and '@' not in s:
+            return s
+    return ''
+
+
+def _session_ymd(session_date: str = '', session_id: str = '', epoch=None, schedule=None) -> str:
+    sid = str(session_id or '').strip()
+    tail = re.search(r'_(20\d{2}-\d{2}-\d{2})$', sid)
+    from_id = tail.group(1) if tail else ''
+    field = str(session_date or '').strip()
+    field_m = re.search(r'(20\d{2}-\d{2}-\d{2})', field)
+    from_field = field_m.group(1) if field_m else ''
+    from_epoch = ''
+    try:
+        n = int(str(epoch or '0') or '0')
+        if n > 10**12:
+            n = n // 1000
+        if n > 0:
+            from_epoch = time.strftime('%Y-%m-%d', time.gmtime(n + CO_TZ_OFFSET_SECONDS))
+    except Exception:
+        from_epoch = ''
+
+    candidates = []
+    for y in (from_id, from_field, from_epoch):
+        if y and y not in candidates:
+            candidates.append(y)
+    if not candidates:
+        return from_field or from_id or str(session_date or '').strip()
+
+    scheduled = set()
+    if isinstance(schedule, list):
+        for b in schedule:
+            if isinstance(b, dict):
+                d = _normalize_weekday_name(b.get('day') or '')
+                if d:
+                    scheduled.add(d)
+
+    def _ok(ymd: str) -> bool:
+        if not scheduled:
+            return True
+        return _weekday_key_from_ymd(ymd) in scheduled
+
+    for ymd in candidates:
+        if _ok(ymd):
+            return ymd
+
+    origin = candidates[0]
+    if not scheduled:
+        return origin
+    m = re.match(r'^(20\d{2})-(\d{2})-(\d{2})$', origin)
+    if not m:
+        return origin
+    try:
+        base = datetime.date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+    except Exception:
+        return origin
+    best = origin
+    best_dist = 99
+    for delta in range(-6, 7):
+        cand = base + datetime.timedelta(days=delta)
+        ymd = cand.isoformat()
+        if _weekday_key_from_ymd(ymd) in scheduled and abs(delta) < best_dist:
+            best = ymd
+            best_dist = abs(delta)
+    return best
+
+
+def _weekday_key_from_ymd(ymd: str) -> str:
+    m = re.match(r'^(20\d{2})-(\d{2})-(\d{2})$', str(ymd or '').strip())
+    if not m:
+        return ''
+    try:
+        dt = datetime.date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+        names = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY']
+        return names[int(dt.weekday())]
+    except Exception:
+        return ''
+
+
+def _hydrate_roster_names(roster_by_email: dict) -> None:
+    if not isinstance(roster_by_email, dict) or not roster_by_email:
+        return
+    profiles = {}
+    try:
+        items = _ddb_scan_all(
+            '#R = :r',
+            {'#R': 'Role'},
+            {':r': {'S': 'student'}},
+            limit_per_page=500,
+            max_pages=4,
+        )
+        for it in items:
+            e = (_ddb_s(it, 'Email') or '').strip().lower()
+            if not e:
+                continue
+            profiles[e] = {
+                'name': _ddb_s(it, 'FullName') or '',
+                'code': _ddb_s(it, 'StudentCode') or '',
+            }
+    except Exception:
+        return
+    for se, row in roster_by_email.items():
+        if not isinstance(row, dict):
+            continue
+        prof = profiles.get(str(se or '').strip().lower()) or {}
+        name = _display_person_name(prof.get('name'), row.get('studentName'))
+        row['studentName'] = name or None
+        if not str(row.get('studentCode') or '').strip():
+            row['studentCode'] = prof.get('code') or row.get('studentCode')
+
+
 def _parse_schedule_list(schedule_val) -> list:
     try:
         if not isinstance(schedule_val, list):
@@ -876,9 +990,9 @@ def _attendance_qr_schedule_gate(class_item: dict, now: int, action: str = 'qr')
         blocks = [s for s in schedule_list if str(s.get('day') or '').strip().upper() == today]
         if not blocks:
             msg = (
-                f'Hoy ({today}) esta clase no tiene horario. No se puede cambiar la asistencia a mano.'
+                'Hoy no hay sesión de esta materia. La asistencia manual solo se cambia el día en que está programada.'
                 if is_manual
-                else f'Hoy ({today}) esta clase no tiene horario. El QR solo se crea en el día y hora de clase.'
+                else 'Hoy no hay esta clase en el horario. La foto y el QR de asistencia se usan el día y la hora programados.'
             )
             return False, 'NotScheduledToday', {'today': today, 'message': msg}, None
     else:

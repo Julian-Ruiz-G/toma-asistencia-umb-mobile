@@ -310,8 +310,7 @@ def handle_join_class(event, body):
     provided_name = (body.get('studentName') or body.get('fullName') or '').strip()
     provided_code = (body.get('studentCode') or '').strip()
 
-    # Fetch student profile (optional)
-    student_name = provided_name or None
+    student_name = None
     student_code = provided_code or None
     try:
         scan_resp = dynamodb.scan(
@@ -324,12 +323,13 @@ def handle_join_class(event, body):
         items = (scan_resp or {}).get('Items') or []
         if items:
             it = items[0]
-            if not student_name:
-                student_name = _ddb_s(it, 'FullName') or None
+            student_name = _display_person_name(_ddb_s(it, 'FullName'), provided_name) or None
             if not student_code:
                 student_code = _ddb_s(it, 'StudentCode') or None
+        else:
+            student_name = _display_person_name(provided_name) or None
     except Exception:
-        student_name = student_name
+        student_name = _display_person_name(provided_name) or None
         student_code = student_code
 
     enroll_pk = f"ENROLL#{class_id}#{student_email}"
@@ -453,23 +453,33 @@ def handle_my_classes(event, body):
             })
 
     if role == 'student':
+        enrolls = []
+        last_key = None
         try:
-            scan_resp = dynamodb.scan(
-                TableName=DDB_TABLE,
-                FilterExpression='#T = :t AND #SE = :e',
-                ExpressionAttributeNames={'#T': 'Type', '#SE': 'StudentEmail'},
-                ExpressionAttributeValues={':t': {'S': 'Enrollment'}, ':e': {'S': email}},
-                Limit=200,
-            )
+            for _page in range(0, 20):
+                scan_kwargs = {
+                    'TableName': DDB_TABLE,
+                    'FilterExpression': '#T = :t AND #SE = :e',
+                    'ExpressionAttributeNames': {'#T': 'Type', '#SE': 'StudentEmail'},
+                    'ExpressionAttributeValues': {':t': {'S': 'Enrollment'}, ':e': {'S': email}},
+                    'Limit': 200,
+                }
+                if last_key:
+                    scan_kwargs['ExclusiveStartKey'] = last_key
+                scan_resp = dynamodb.scan(**scan_kwargs)
+                enrolls.extend((scan_resp or {}).get('Items') or [])
+                last_key = (scan_resp or {}).get('LastEvaluatedKey')
+                if not last_key:
+                    break
         except Exception as e:
             logger.exception('DynamoDB scan failed (my-classes student)')
             return _response(500, {'error': 'DynamoDBScanFailed', 'details': str(e)})
-
-        enrolls = (scan_resp or {}).get('Items') or []
+        seen_cids = set()
         for en in enrolls:
             cid = _ddb_s(en, 'ClassId')
-            if not cid:
+            if not cid or cid in seen_cids:
                 continue
+            seen_cids.add(cid)
             try:
                 class_resp = dynamodb.get_item(
                     TableName=DDB_TABLE,
@@ -532,7 +542,19 @@ def handle_class_details(event, body):
     if not class_item:
         return _response(404, {'error': 'ClassNotFound'})
 
-    teacher_email = _ddb_s(class_item, 'TeacherEmail')
+    teacher_email = (_ddb_s(class_item, 'TeacherEmail') or '').strip().lower()
+    teacher_name = ''
+    if teacher_email:
+        try:
+            t_resp = dynamodb.get_item(
+                TableName=DDB_TABLE,
+                Key={'RekognitionId': {'S': f'USER#{teacher_email}'}},
+            )
+            t_item = (t_resp or {}).get('Item')
+            if t_item:
+                teacher_name = _ddb_s(t_item, 'FullName') or ''
+        except Exception:
+            teacher_name = ''
 
     if role == 'teacher' and teacher_email and teacher_email != email:
         return _response(403, {'error': 'Forbidden'})
@@ -550,6 +572,7 @@ def handle_class_details(event, body):
         return _response(500, {'error': 'DynamoDBScanFailed', 'details': str(e)})
 
     enroll_items = (scan_resp or {}).get('Items') or []
+    class_schedule = _ddb_schedule(class_item, 'Schedule')
 
     # Buscar sesión activa del día para esta clase
     attendance_session = None
@@ -576,10 +599,15 @@ def handle_class_details(event, body):
             attendance_session = {
                 'sessionId': _ddb_s(session_item, 'SessionId'),
                 'classId': _ddb_s(session_item, 'ClassId'),
-                'sessionDate': _ddb_s(session_item, 'SessionDate'),
+                'sessionDate': _session_ymd(
+                    _ddb_s(session_item, 'SessionDate'),
+                    _ddb_s(session_item, 'SessionId'),
+                    _ddb_n(session_item, 'ScheduledStartEpoch'),
+                    class_schedule,
+                ),
                 'scheduledStartEpoch': _ddb_n(session_item, 'ScheduledStartEpoch'),
                 'lateAfterSeconds': _ddb_n(session_item, 'LateAfterSeconds'),
-                'createdAt': _ddb_s(session_item, 'CreatedAt'),
+                'createdAt': _ddb_n(session_item, 'CreatedAt'),
             }
     except Exception as e:
         logger.exception('DynamoDB scan failed (class-details attendance session)')
@@ -612,9 +640,15 @@ def handle_class_details(event, body):
                     attendance_sessions_full.append({
                         'sessionId': sid,
                         'classId': _ddb_s(it, 'ClassId'),
-                        'sessionDate': _ddb_s(it, 'SessionDate'),
+                        'sessionDate': _session_ymd(
+                            _ddb_s(it, 'SessionDate'),
+                            sid,
+                            _ddb_n(it, 'ScheduledStartEpoch'),
+                            class_schedule,
+                        ),
                         'scheduledStartEpoch': _ddb_n(it, 'ScheduledStartEpoch'),
                         'lateAfterSeconds': _ddb_n(it, 'LateAfterSeconds'),
+                        'createdAt': _ddb_n(it, 'CreatedAt'),
                         'corte': _ddb_s(it, 'Corte') or None,
                     })
                 last_key_sessions = (sess_resp or {}).get('LastEvaluatedKey')
@@ -652,11 +686,7 @@ def handle_class_details(event, body):
 
     student_profile_by_email = {}
     try:
-        needs_profiles = False
-        for en in enroll_items:
-            if not _ddb_s(en, 'StudentName') or not _ddb_s(en, 'StudentCode'):
-                needs_profiles = True
-                break
+        needs_profiles = True
         if needs_profiles:
             scan_students = dynamodb.scan(
                 TableName=DDB_TABLE,
@@ -688,10 +718,14 @@ def handle_class_details(event, body):
 
         name = _ddb_s(en, 'StudentName') or None
         code = _ddb_s(en, 'StudentCode') or None
-        if (not name or not code) and student_profile_by_email.get(se):
-            prof = student_profile_by_email.get(se) or {}
-            name = name or prof.get('studentName')
-            code = code or prof.get('studentCode')
+        prof = student_profile_by_email.get(se) or {}
+        prof_name = str(prof.get('studentName') or '').strip()
+        if prof_name and '@' not in prof_name:
+            name = prof_name
+        elif name and '@' in str(name):
+            name = None
+        if not code:
+            code = prof.get('studentCode') or None
 
         students.append({
             'studentEmail': se,
@@ -699,6 +733,12 @@ def handle_class_details(event, body):
             'studentCode': code,
             'joinedAt': (en.get('JoinedAt', {}) or {}).get('N') or None,
         })
+
+    if role == 'student':
+        students = [{
+            'studentName': row.get('studentName'),
+            'isSelf': str(row.get('studentEmail') or '').strip().lower() == email,
+        } for row in students]
 
     response_data = {
         'ok': True,
@@ -709,6 +749,7 @@ def handle_class_details(event, body):
             'startTime': _ddb_s(class_item, 'StartTime'),
             'endTime': _ddb_s(class_item, 'EndTime'),
             'teacherEmail': teacher_email,
+            'teacherName': teacher_name or None,
             'subjectCode': _ddb_s(class_item, 'SubjectCode'),
             'period': _ddb_s(class_item, 'Period'),
             'schedule': _ddb_schedule(class_item, 'Schedule'),
