@@ -59,3 +59,87 @@ export function formatClockTime(value, fallback = '') {
   }
   return colombiaClock(ms);
 }
+
+export function colombiaTodayYmd() {
+  return colombiaDayKey(Date.now());
+}
+
+export function extractYmd(value) {
+  const s = String(value || '').trim();
+  const m = s.match(/(20\d{2}-\d{2}-\d{2})/);
+  return m ? m[1] : '';
+}
+
+function ymdNoonMs(ymd) {
+  const key = extractYmd(ymd);
+  if (!key) return null;
+  const ms = Date.parse(`${key}T12:00:00-05:00`);
+  return Number.isNaN(ms) ? null : ms;
+}
+
+const EN_WEEKDAY_TO_KEY = {
+  Sunday: 'SUNDAY',
+  Monday: 'MONDAY',
+  Tuesday: 'TUESDAY',
+  Wednesday: 'WEDNESDAY',
+  Thursday: 'THURSDAY',
+  Friday: 'FRIDAY',
+  Saturday: 'SATURDAY',
+};
+
+export function colombiaWeekdayKeyFromYmd(ymd) {
+  const ms = ymdNoonMs(ymd);
+  if (ms == null) return '';
+  const en = new Date(ms).toLocaleDateString('en-US', { weekday: 'long', timeZone: CO_TZ });
+  return EN_WEEKDAY_TO_KEY[en] || '';
+}
+
+export function colombiaWeekdayLongFromYmd(ymd) {
+  const ms = ymdNoonMs(ymd);
+  if (ms == null) return '';
+  const w = new Date(ms).toLocaleDateString(CO_LOCALE, { weekday: 'long', timeZone: CO_TZ });
+  return w ? w.charAt(0).toUpperCase() + w.slice(1) : '';
+}
+
+export function colombiaDateLongFromYmd(ymd) {
+  const ms = ymdNoonMs(ymd);
+  if (ms == null) return extractYmd(ymd) || String(ymd || '');
+  return new Date(ms).toLocaleDateString(CO_LOCALE, {
+    timeZone: CO_TZ,
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+}
+
+export function colombiaYmdFromEpoch(epoch) {
+  const n = Number(epoch);
+  if (!Number.isFinite(n) || n <= 0) return '';
+  const ms = n < 1e12 ? n * 1000 : n;
+  return colombiaDayKey(ms);
+}
+
+export function colombiaYmdFromMs(ms) {
+  const n = Number(ms);
+  if (!Number.isFinite(n) || n <= 0) return '';
+  return colombiaDayKey(n);
+}
+
+export function ymdFromSessionId(sessionId) {
+  const m = String(sessionId || '').trim().match(/_(20\d{2}-\d{2}-\d{2})$/);
+  return m ? m[1] : '';
+}
+
+export function colombiaNowMinutes() {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: CO_TZ,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(new Date());
+  let hh = Number(parts.find((p) => p.type === 'hour')?.value);
+  const mm = Number(parts.find((p) => p.type === 'minute')?.value);
+  if (hh === 24) hh = 0;
+  if (!Number.isFinite(hh) || !Number.isFinite(mm)) return 0;
+  return hh * 60 + mm;
+}

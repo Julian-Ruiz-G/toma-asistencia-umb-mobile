@@ -1,6 +1,6 @@
 import React from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { ArrowLeft } from 'lucide-react-native';
+import { ArrowLeft, X } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import LegalMarkdown from './LegalMarkdown';
@@ -17,39 +17,43 @@ export default function LegalDocumentModal({
   hideAccept = false,
 }) {
   const insets = useSafeAreaInsets();
+  const showFooter = !hideAccept && !!onAccept;
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.overlay}>
         <View style={styles.container}>
-          <View style={[styles.header, { backgroundColor: accent }]}>
-            <Pressable onPress={onClose} style={styles.backBtn} hitSlop={8}>
+          <View style={[styles.header, { backgroundColor: accent, paddingTop: Math.max(insets.top, 16) + 8 }]}>
+            <Pressable onPress={onClose} style={styles.headerIconBtn} hitSlop={8}>
               <ArrowLeft size={20} color="#fff" />
             </Pressable>
             <View style={styles.headerContent}>
-              {Icon ? <Icon size={20} color="#fff" /> : null}
-              <Text style={styles.headerTitle}>{title}</Text>
+              {Icon ? <Icon size={18} color="#fff" /> : null}
+              <Text style={styles.headerTitle} numberOfLines={1}>{title}</Text>
             </View>
+            <Pressable onPress={onClose} style={styles.headerIconBtn} hitSlop={8}>
+              <X size={18} color="#fff" />
+            </Pressable>
           </View>
 
           <ScrollView
             style={styles.content}
-            contentContainerStyle={styles.contentContainer}
+            contentContainerStyle={[
+              styles.contentContainer,
+              { paddingBottom: showFooter ? 28 : 24 + insets.bottom },
+            ]}
             showsVerticalScrollIndicator
           >
             <LegalMarkdown content={markdown} />
           </ScrollView>
 
-          <View style={[styles.footer, { paddingBottom: 16 + insets.bottom }]}>
-            {!hideAccept && onAccept ? (
+          {showFooter ? (
+            <View style={[styles.footer, { paddingBottom: 12 + insets.bottom }]}>
               <Pressable onPress={onAccept} style={[styles.acceptBtn, { backgroundColor: accent }]}>
                 <Text style={styles.acceptBtnText}>{acceptLabel}</Text>
               </Pressable>
-            ) : null}
-            <Pressable onPress={onClose} style={styles.closeBtn}>
-              <Text style={styles.closeBtnText}>{hideAccept ? 'Cerrar' : 'Cerrar'}</Text>
-            </Pressable>
-          </View>
+            </View>
+          ) : null}
         </View>
       </View>
     </Modal>
@@ -66,16 +70,19 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   header: {
-    paddingTop: 48,
-    paddingHorizontal: 16,
-    paddingBottom: 16,
+    paddingHorizontal: 12,
+    paddingBottom: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 8,
   },
-  backBtn: {
-    padding: 8,
-    borderRadius: 8,
+  headerIconBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.16)',
   },
   headerContent: {
     flex: 1,
@@ -87,7 +94,7 @@ const styles = StyleSheet.create({
     flex: 1,
     color: '#fff',
     fontWeight: '800',
-    fontSize: 17,
+    fontSize: 16,
   },
   content: {
     flex: 1,
@@ -95,14 +102,12 @@ const styles = StyleSheet.create({
   contentContainer: {
     paddingHorizontal: 20,
     paddingTop: 20,
-    paddingBottom: 28,
   },
   footer: {
     paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: '#E5E7EB',
-    gap: 8,
     backgroundColor: '#fff',
   },
   acceptBtn: {
@@ -114,14 +119,5 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '800',
     fontSize: 15,
-  },
-  closeBtn: {
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  closeBtnText: {
-    color: '#6B7280',
-    fontWeight: '600',
-    fontSize: 14,
   },
 });

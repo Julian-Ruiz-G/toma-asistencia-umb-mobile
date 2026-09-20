@@ -18,6 +18,7 @@ import { COLORS } from '../../ui/theme';
 import { CLASS_DETAILS_URL, CREATE_ATTENDANCE_QR_URL, REGENERATE_CLASS_QR_URL } from '../../config';
 import { useAuth } from '../../state/auth';
 import { alertAttendanceQrError } from '../../utils/attendanceQr';
+import { isClassInProgressNow as classIsInProgress } from '../../utils/schedule';
 
 export default function ClassQRScreen({ navigation, route }) {
   const { authToken } = useAuth();
@@ -278,54 +279,7 @@ export default function ClassQRScreen({ navigation, route }) {
     if (derivedRegisteredCount) setRegisteredCount(derivedRegisteredCount);
   }, [derivedRegisteredCount]);
 
-  const parseDayKey = (raw) => {
-    const s = String(raw || '').trim().toLowerCase();
-    const map = {
-      monday: 'MONDAY', mon: 'MONDAY', lunes: 'MONDAY', lun: 'MONDAY',
-      tuesday: 'TUESDAY', tue: 'TUESDAY', martes: 'TUESDAY', mar: 'TUESDAY',
-      wednesday: 'WEDNESDAY', wed: 'WEDNESDAY', miercoles: 'WEDNESDAY', 'miércoles': 'WEDNESDAY', mie: 'WEDNESDAY', 'mié': 'WEDNESDAY',
-      thursday: 'THURSDAY', thu: 'THURSDAY', jueves: 'THURSDAY', jue: 'THURSDAY',
-      friday: 'FRIDAY', fri: 'FRIDAY', viernes: 'FRIDAY', vie: 'FRIDAY',
-      saturday: 'SATURDAY', sat: 'SATURDAY', sabado: 'SATURDAY', 'sábado': 'SATURDAY', sab: 'SATURDAY',
-      sunday: 'SUNDAY', sun: 'SUNDAY', domingo: 'SUNDAY', dom: 'SUNDAY',
-    };
-    return map[s] || String(raw || '').trim().toUpperCase();
-  };
-
-  const getTodayKey = () => {
-    const d = new Date().getDay();
-    return d === 0 ? 'SUNDAY' : d === 1 ? 'MONDAY' : d === 2 ? 'TUESDAY' : d === 3 ? 'WEDNESDAY' : d === 4 ? 'THURSDAY' : d === 5 ? 'FRIDAY' : 'SATURDAY';
-  };
-
-  const parseTimeToMinutes = (raw) => {
-    const str = String(raw || '').trim();
-    const m = str.match(/^(\d{1,2}):(\d{2})/);
-    if (!m) return null;
-    const hh = Number(m[1]);
-    const mm = Number(m[2]);
-    if (!Number.isFinite(hh) || !Number.isFinite(mm)) return null;
-    return hh * 60 + mm;
-  };
-
-  const isClassInProgressNow = () => {
-    const raw = c?.schedule || c?.schedules || c?.horario || c?.horarios;
-    if (!Array.isArray(raw) || !raw.length) return false;
-    const now = new Date();
-    const nowMin = now.getHours() * 60 + now.getMinutes();
-    const todayKey = getTodayKey();
-    return raw.some((s) => {
-      const dayKey = parseDayKey(s?.day || s?.dia);
-      if (dayKey !== todayKey) return false;
-      const start = s?.startTime || s?.start || s?.horaInicio;
-      const end = s?.endTime || s?.end || s?.horaFin;
-      const startMin = parseTimeToMinutes(start);
-      const endMin = parseTimeToMinutes(end);
-      if (startMin == null || endMin == null) return false;
-      return nowMin >= startMin && nowMin <= endMin;
-    });
-  };
-
-  const inProgress = isClassInProgressNow();
+  const inProgress = classIsInProgress(c);
 
   return (
     <View style={[styles.root, isFullscreen ? styles.fullscreen : null]}>

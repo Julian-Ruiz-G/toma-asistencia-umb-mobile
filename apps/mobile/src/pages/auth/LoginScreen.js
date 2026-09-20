@@ -7,6 +7,7 @@ import { Input } from '../../components/Input';
 import { useAuth } from '../../state/auth';
 import { LOGIN_ADMIN_URL, LOGIN_STUDENT_URL, LOGIN_TEACHER_URL } from '../../config';
 import { COLORS } from '../../ui/theme';
+import Animated, { PulseGlow, enterDown } from '../../ui/motion';
 import { clearPersistedSession, savePersistedSession } from '../../utils/sessionStore';
 
 const CREDENTIALS_ERROR = 'Correo o contraseña incorrectos.';
@@ -142,7 +143,7 @@ export default function LoginScreen({ navigation }) {
 
   return (
     <View style={styles.root}>
-      <View style={styles.header}>
+      <Animated.View entering={enterDown(0, 360)} style={styles.header}>
         <Pressable
           onPress={() => navigation.goBack()}
           style={styles.backBtn}
@@ -153,11 +154,11 @@ export default function LoginScreen({ navigation }) {
           <Text style={styles.headerTitle}>Iniciar Sesión</Text>
           <Text style={styles.headerSubtitle}>Bienvenido de nuevo</Text>
         </View>
-      </View>
+      </Animated.View>
 
       <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
-        <View style={styles.hero}>
-          <View style={styles.logoGlow} />
+        <Animated.View entering={enterDown(80)} style={styles.hero}>
+          <PulseGlow style={styles.logoGlow} fromOpacity={0.1} toOpacity={0.18} toScale={1.06} />
           <View style={styles.logoWrap}>
               <Image
                 source={require('../../../assets/escudo_umb.png')}
@@ -167,9 +168,9 @@ export default function LoginScreen({ navigation }) {
 
           <Text style={styles.title}>Asistencia inteligente</Text>
           <Text style={styles.subtitle}>Sistema de control de asistencia</Text>
-        </View>
+        </Animated.View>
 
-        <View>
+        <Animated.View entering={enterDown(180)}>
           {loginError ? (
             <View style={styles.errorBanner}>
               <View style={styles.errorIcon}>
@@ -240,15 +241,15 @@ export default function LoginScreen({ navigation }) {
               Regístrese aquí
             </Text>
           </Text>
-        </View>
+        </Animated.View>
       </ScrollView>
 
-      <View style={styles.footer}>
+      <Animated.View entering={enterDown(260, 360)} style={styles.footer}>
         <View style={styles.footerRow}>
           <KeyRound size={16} color="#9CA3AF" />
           <Text style={styles.footerText}>Conexión segura SSL</Text>
         </View>
-      </View>
+      </Animated.View>
     </View>
   );
 }

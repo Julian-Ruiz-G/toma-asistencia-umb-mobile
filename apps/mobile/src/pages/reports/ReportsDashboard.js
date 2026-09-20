@@ -13,11 +13,13 @@ import {
   FileSpreadsheet,
   FileText,
   History,
+  Layers,
   PieChart,
 } from 'lucide-react-native';
 
 import { Button } from '../../components/Button';
 import { COLORS } from '../../ui/theme';
+import Animated, { enterDown, listEnter } from '../../ui/motion';
 import { useAuth } from '../../state/auth';
 import { MY_CLASSES_URL } from '../../config';
 
@@ -28,26 +30,33 @@ export default function ReportsDashboard({ navigation }) {
   const [selectedClassId, setSelectedClassId] = useState('');
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [corte, setCorte] = useState('1');
 
   const reportTypes = useMemo(
     () => [
       {
         id: 'session',
         label: 'Por sesión',
-        desc: 'Elige una fecha/sesión de la clase',
+        desc: 'Lista de fechas. Eliges un día y ves quién asistió, quién llegó tarde y quién faltó.',
         Icon: FileText,
       },
       {
         id: 'summary',
         label: 'Resumen general',
-        desc: 'Totales de asistencia de toda la clase',
+        desc: 'Totales de la materia: presentes, retardos y ausencias de todo el periodo.',
         Icon: PieChart,
       },
       {
         id: 'detail',
         label: 'Detalle completo',
-        desc: 'Una fila por estudiante y sesión',
+        desc: 'Una fila por estudiante y por sesión, lista para Excel o PDF.',
         Icon: FileSpreadsheet,
+      },
+      {
+        id: 'corte',
+        label: 'Por corte',
+        desc: 'Informe filtrado por corte 1 o 2, según el calendario de la UMB.',
+        Icon: Layers,
       },
     ],
     []
@@ -113,7 +122,8 @@ export default function ReportsDashboard({ navigation }) {
       }
       navigation.navigate('ReportPreview', {
         classId: selectedClassId,
-        mode: reportType,
+        mode: reportType === 'corte' ? 'detail' : reportType,
+        corte: reportType === 'corte' ? corte : undefined,
         classMeta,
       });
     } finally {
@@ -123,7 +133,7 @@ export default function ReportsDashboard({ navigation }) {
 
   return (
     <View style={styles.root}>
-      <View style={styles.header}>
+      <Animated.View entering={enterDown(0, 360)} style={styles.header}>
         <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
           <ArrowLeft size={24} color="#374151" />
         </Pressable>
@@ -134,16 +144,16 @@ export default function ReportsDashboard({ navigation }) {
         <Pressable onPress={() => navigation.navigate('ReportHistory')} style={styles.iconBtn}>
           <History size={20} color="#4B5563" />
         </Pressable>
-      </View>
+      </Animated.View>
 
       <ScrollView contentContainerStyle={styles.body}>
         <Text style={styles.sectionTitle}>Tipo de informe</Text>
         <View style={styles.grid2}>
-          {reportTypes.map((t) => {
+          {reportTypes.map((t, idx) => {
             const active = reportType === t.id;
             return (
+              <Animated.View key={t.id} entering={listEnter(idx)} style={{ width: '48%' }}>
               <Pressable
-                key={t.id}
                 onPress={() => setReportType(t.id)}
                 style={[styles.typeCard, active ? styles.typeCardActive : null]}
               >
@@ -153,6 +163,7 @@ export default function ReportsDashboard({ navigation }) {
                 <Text style={styles.typeTitle}>{t.label}</Text>
                 <Text style={styles.typeDesc}>{t.desc}</Text>
               </Pressable>
+              </Animated.View>
             );
           })}
         </View>
@@ -188,9 +199,29 @@ export default function ReportsDashboard({ navigation }) {
           })
         )}
 
+        {reportType === 'corte' ? (
+          <View>
+            <Text style={[styles.sectionTitle, { marginTop: 18 }]}>Corte</Text>
+            <View style={styles.corteRow}>
+              {['1', '2'].map((n) => (
+                <Pressable
+                  key={n}
+                  onPress={() => setCorte(n)}
+                  style={[styles.corteChip, corte === n ? styles.corteChipOn : null]}
+                >
+                  <Text style={[styles.corteText, corte === n ? styles.corteTextOn : null]}>Corte {n}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        ) : null}
+
+        <Text style={styles.hint}>
+          El informe se abre en pantalla y ahí puedes exportarlo a CSV, Excel o PDF. El historial (icono de arriba) lista sesiones previas.
+        </Text>
         <View style={{ height: 18 }} />
         <Button fullWidth size="lg" isLoading={generating || loading} onPress={handleGenerate}>
-          Generar
+          {reportType === 'session' ? 'Ver sesiones' : 'Generar informe'}
         </Button>
         <View style={{ height: 24 }} />
       </ScrollView>
@@ -216,7 +247,7 @@ const styles = StyleSheet.create({
   sectionTitle: { fontWeight: '900', color: '#374151' },
   grid2: { marginTop: 12, flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   typeCard: {
-    width: '48%',
+    width: '100%',
     backgroundColor: '#fff',
     borderRadius: 16,
     padding: 14,
@@ -252,6 +283,15 @@ const styles = StyleSheet.create({
   classSub: { marginTop: 4, color: '#6B7280', fontSize: 12 },
   radio: { width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: '#D1D5DB' },
   radioOn: { borderColor: COLORS.primary, backgroundColor: COLORS.primary },
+  corteRow: { flexDirection: 'row', gap: 10, marginTop: 10 },
+  corteChip: {
+    flex: 1, paddingVertical: 10, borderRadius: 12, backgroundColor: '#fff',
+    borderWidth: 1, borderColor: '#E5E7EB', alignItems: 'center',
+  },
+  corteChipOn: { borderColor: COLORS.primary, backgroundColor: 'rgba(185,28,28,0.06)' },
+  corteText: { fontWeight: '800', color: '#4B5563' },
+  corteTextOn: { color: COLORS.primary },
+  hint: { marginTop: 16, color: '#6B7280', fontSize: 12, lineHeight: 17 },
   centerMini: { paddingVertical: 20, alignItems: 'center' },
   muted: { marginTop: 10, color: '#6B7280' },
 });

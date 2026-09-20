@@ -1,25 +1,12 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Image, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Image, StyleSheet, Text, View } from 'react-native';
 import { useAuth } from '../../state/auth';
 import { COLORS } from '../../ui/theme';
+import Animated, { PulseGlow, enterDown, enterFade } from '../../ui/motion';
 
 export default function SplashScreen({ navigation }) {
   const { ready, authToken, role } = useAuth();
   const [progress, setProgress] = useState(0);
-  const fade = useRef(new Animated.Value(0)).current;
-  const glowScale = useRef(new Animated.Value(1)).current;
-
-  useEffect(() => {
-    Animated.timing(fade, { toValue: 1, duration: 500, useNativeDriver: true }).start();
-    const pulse = Animated.loop(
-      Animated.sequence([
-        Animated.timing(glowScale, { toValue: 1.06, duration: 1600, useNativeDriver: true }),
-        Animated.timing(glowScale, { toValue: 1, duration: 1600, useNativeDriver: true }),
-      ])
-    );
-    pulse.start();
-    return () => pulse.stop();
-  }, [fade, glowScale]);
 
   useEffect(() => {
     if (!ready) return undefined;
@@ -44,20 +31,31 @@ export default function SplashScreen({ navigation }) {
 
   return (
     <View style={styles.root}>
-      <Animated.View style={[styles.logoGlow, { transform: [{ scale: glowScale }] }]} />
-      <Animated.View style={[styles.hero, { opacity: fade }]}>
-        <View style={styles.logoWrap}>
-          <Image
-            source={require('../../../assets/escudo_umb.png')}
-            style={styles.logo}
-          />
-        </View>
+      <PulseGlow
+        style={styles.logoGlow}
+        fromOpacity={0.12}
+        toOpacity={0.22}
+        fromScale={1}
+        toScale={1.08}
+        duration={1600}
+      />
+      <Animated.View entering={enterFade(0, 500)} style={styles.hero}>
+        <Animated.View entering={enterDown(80)}>
+          <View style={styles.logoWrap}>
+            <Image
+              source={require('../../../assets/escudo_umb.png')}
+              style={styles.logo}
+            />
+          </View>
+        </Animated.View>
 
-        <Text style={styles.title}>Toma Asistencia UMB</Text>
-        <Text style={styles.subtitle}>Universidad Manuela Beltrán</Text>
+        <Animated.View entering={enterDown(180)} style={styles.center}>
+          <Text style={styles.title}>Toma Asistencia UMB</Text>
+          <Text style={styles.subtitle}>Universidad Manuela Beltrán</Text>
+        </Animated.View>
       </Animated.View>
 
-      <View style={styles.progressWrap}>
+      <Animated.View entering={enterDown(280)} style={styles.progressWrap}>
         <View style={styles.progressBg}>
           <View style={[styles.progressFill, { width: `${progress}%` }]} />
         </View>
@@ -67,7 +65,7 @@ export default function SplashScreen({ navigation }) {
           <View style={[styles.dot, { opacity: 0.7 }]} />
           <View style={[styles.dot, { opacity: 0.5 }]} />
         </View>
-      </View>
+      </Animated.View>
 
       <Text style={styles.version}>v1.0.0  ·  Uso interno UMB</Text>
     </View>
@@ -85,6 +83,7 @@ const styles = StyleSheet.create({
   hero: {
     alignItems: 'center',
   },
+  center: { alignItems: 'center' },
   logoGlow: {
     position: 'absolute',
     width: 220,
@@ -100,7 +99,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
-    shadowOpacity: 0.20,
+    shadowOpacity: 0.2,
     shadowRadius: 22,
     shadowOffset: { width: 0, height: 12 },
     elevation: 6,

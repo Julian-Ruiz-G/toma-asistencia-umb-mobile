@@ -93,6 +93,7 @@ export default function ReportPreview({ navigation, route }) {
   const sessionId = String(route?.params?.sessionId || '').trim();
   const classId = String(route?.params?.classId || '').trim();
   const reportMode = String(route?.params?.mode || (sessionId ? 'session' : 'summary')).trim();
+  const corte = String(route?.params?.corte || '').trim();
   const classMeta = route?.params?.classMeta;
 
   const [csvText, setCsvText] = useState('');
@@ -114,6 +115,7 @@ export default function ReportPreview({ navigation, route }) {
         },
         body: JSON.stringify({
           ...(sessionId ? { sessionId } : { classId, mode: reportMode || 'summary' }),
+          ...(corte ? { corte } : {}),
         }),
       });
       const text = await resp.text();
@@ -128,7 +130,7 @@ export default function ReportPreview({ navigation, route }) {
     } finally {
       setLoading(false);
     }
-  }, [authToken, sessionId, classId, reportMode]);
+  }, [authToken, sessionId, classId, reportMode, corte]);
 
   useEffect(() => {
     load();
@@ -144,6 +146,7 @@ export default function ReportPreview({ navigation, route }) {
       await exportAttendanceReport(authToken, sessionId, format, {
         classId: sessionId ? undefined : classId,
         mode: sessionId ? undefined : (reportMode || 'summary'),
+        corte: corte || undefined,
       });
     } catch (e) {
       Alert.alert('Error al exportar', e?.message || String(e));

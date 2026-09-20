@@ -12,13 +12,10 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import {
   ArrowLeft,
-  Bell,
   BookOpen,
-  Calendar,
   Camera,
   CheckCircle,
   ChevronRight,
-  Clock,
   Edit3,
   FileText,
   GraduationCap,
@@ -37,6 +34,7 @@ import TermsAndConditionsModal from '../../components/TermsAndConditions';
 import PrivacyPolicyModal from '../../components/PrivacyPolicy';
 import BiometricConsentModal from '../../components/BiometricConsent';
 import { COLORS } from '../../ui/theme';
+import Animated, { enterDown } from '../../ui/motion';
 import { useAuth } from '../../state/auth';
 import { UPDATE_MY_PROFILE_URL } from '../../config';
 import { personDisplayName } from '../../utils/displayName';
@@ -63,13 +61,14 @@ export default function StudentProfile({ navigation, route }) {
     setSemester,
     phone,
     setPhone,
+    photoUri,
+    setPhotoUri,
   } = useAuth();
 
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [showPrivacyMenu, setShowPrivacyMenu] = useState(false);
   const [legalDoc, setLegalDoc] = useState(null);
-  const [localPhotoUri, setLocalPhotoUri] = useState('');
   const [saving, setSaving] = useState(false);
 
   const [draftName, setDraftName] = useState('');
@@ -91,7 +90,7 @@ export default function StudentProfile({ navigation, route }) {
   useEffect(() => {
     (async () => {
       const local = await loadLocalProfile(email);
-      if (local?.photoUri) setLocalPhotoUri(String(local.photoUri));
+      if (local?.photoUri) setPhotoUri(String(local.photoUri));
       if (!program && local?.program) setProgram(String(local.program));
       if (!semester && local?.semester) setSemester(String(local.semester));
       if (!phone && local?.phone) setPhone(String(local.phone));
@@ -134,7 +133,7 @@ export default function StudentProfile({ navigation, route }) {
       if (!uri) return;
       const dest = await copyLocalAvatar(email, uri);
       const finalUri = dest || uri;
-      setLocalPhotoUri(finalUri);
+      setPhotoUri(finalUri);
       await saveLocalProfile(email, { photoUri: finalUri });
       Alert.alert(
         'Foto actualizada',
@@ -213,33 +212,9 @@ export default function StudentProfile({ navigation, route }) {
     }
   };
 
-  const menuLinks = [
-    {
-      label: 'Historial de asistencia',
-      Icon: Clock,
-      bg: '#FEE2E2',
-      fg: COLORS.primary,
-      onPress: () => navigation.navigate('StudentAttendanceHistory'),
-    },
-    {
-      label: 'Horario de clases',
-      Icon: Calendar,
-      bg: '#DBEAFE',
-      fg: '#2563EB',
-      onPress: () => navigation.navigate('StudentSchedule'),
-    },
-    {
-      label: 'Notificaciones',
-      Icon: Bell,
-      bg: '#FEF3C7',
-      fg: '#D97706',
-      onPress: () => navigation.navigate('StudentNotifications'),
-    },
-  ];
-
   return (
     <View style={styles.root}>
-      <View style={styles.header}>
+      <Animated.View entering={enterDown(0, 360)} style={styles.header}>
         <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
           <ArrowLeft size={24} color="#374151" />
         </Pressable>
@@ -250,15 +225,16 @@ export default function StudentProfile({ navigation, route }) {
         <Pressable onPress={() => setShowEdit(true)} style={styles.iconBtn}>
           <Edit3 size={20} color="#4B5563" />
         </Pressable>
-      </View>
+      </Animated.View>
 
       <ScrollView contentContainerStyle={styles.body}>
+        <Animated.View entering={enterDown(80)}>
         <Card style={[styles.card, { padding: 20 }]}>
           <View style={{ alignItems: 'center' }}>
             <View style={styles.photoWrap}>
               <View style={styles.photoGradient}>
-                {localPhotoUri ? (
-                  <Image source={{ uri: localPhotoUri }} style={styles.photoImg} />
+                {photoUri ? (
+                  <Image key={photoUri} source={{ uri: photoUri }} style={styles.photoImg} />
                 ) : (
                   <User size={44} color="#fff" />
                 )}
@@ -275,9 +251,11 @@ export default function StudentProfile({ navigation, route }) {
             </View>
           </View>
         </Card>
+        </Animated.View>
 
         <View style={{ height: 14 }} />
 
+        <Animated.View entering={enterDown(160)}>
         <Card style={[styles.card, { padding: 18 }]}>
           <Text style={styles.sectionTitle}>Información Personal</Text>
 
@@ -339,23 +317,9 @@ export default function StudentProfile({ navigation, route }) {
             </View>
           </View>
         </Card>
+        </Animated.View>
 
         <View style={{ height: 14 }} />
-
-        {menuLinks.map((item) => (
-          <View key={item.label}>
-            <Pressable onPress={item.onPress} style={[styles.card, styles.linkCard]}>
-              <View style={styles.linkLeft}>
-                <View style={[styles.infoIcon, { backgroundColor: item.bg }]}>
-                  <item.Icon size={20} color={item.fg} />
-                </View>
-                <Text style={styles.linkText}>{item.label}</Text>
-              </View>
-              <ChevronRight size={20} color="#9CA3AF" />
-            </Pressable>
-            <View style={{ height: 10 }} />
-          </View>
-        ))}
 
         <Pressable onPress={() => setShowPrivacyMenu(true)} style={[styles.card, styles.linkCard]}>
           <View style={styles.linkLeft}>
@@ -484,9 +448,9 @@ export default function StudentProfile({ navigation, route }) {
               <Text style={styles.privacyRowText}>Autorización biométrica</Text>
             </Pressable>
             <View style={{ height: 12 }} />
-            <Button fullWidth variant="outline" onPress={() => setShowPrivacyMenu(false)}>
-              Cerrar
-            </Button>
+            <Pressable onPress={() => setShowPrivacyMenu(false)}>
+              <Text style={styles.privacyClose}>Cerrar</Text>
+            </Pressable>
           </View>
         </View>
       </Modal>
@@ -601,4 +565,5 @@ const styles = StyleSheet.create({
     borderBottomColor: '#F3F4F6',
   },
   privacyRowText: { fontWeight: '700', color: '#111827' },
+  privacyClose: { marginTop: 8, textAlign: 'center', color: '#6B7280', fontWeight: '700', paddingVertical: 8 },
 });

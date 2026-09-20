@@ -1,6 +1,6 @@
 // Importaciones necesarias para el componente de escaneo QR
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated as RNAnimated, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 // Importación de íconos desde lucide-react-native
 import {
@@ -16,6 +16,7 @@ import {
 // Importaciones de componentes y configuración
 import { Button } from '../../components/Button';
 import { COLORS } from '../../ui/theme';
+import Animated, { enterDown } from '../../ui/motion';
 import { JOIN_CLASS_URL, MARK_ATTENDANCE_URL } from '../../config';
 import { useAuth } from '../../state/auth';
 import { formatActionDateTime, formatClockTime } from '../../utils/formatDateTime';
@@ -31,7 +32,7 @@ const ScanState = {
 // Componente principal del escáner QR para estudiantes
 export default function QRScanner({ navigation }) {
   // Obtener datos de autenticación del contexto
-  const { authToken, email, studentCode } = useAuth();
+  const { authToken, email, fullName, studentCode, refreshStudentClasses } = useAuth();
   // Estados de permisos de cámara
   const [permission, requestPermission] = useCameraPermissions();
   // Estados locales del componente
@@ -45,7 +46,7 @@ export default function QRScanner({ navigation }) {
   const [scanMode, setScanMode] = useState(''); // Modo de escaneo (registro/asistencia)
 
   // Referencia para la animación de la línea de escaneo
-  const lineAnim = useRef(new Animated.Value(0)).current;
+  const lineAnim = useRef(new RNAnimated.Value(0)).current;
 
   // Efecto para solicitar permisos de cámara al montar el componente
   useEffect(() => {
@@ -64,18 +65,16 @@ export default function QRScanner({ navigation }) {
     // Se reinicia la animación de la línea de escaneo
     lineAnim.setValue(0);
     // Se crea la animación de la línea de escaneo
-    const a = Animated.loop(
-      Animated.sequence([
-        // Se anima la línea de escaneo hacia abajo
-        Animated.timing(lineAnim, {
+    const a = RNAnimated.loop(
+      RNAnimated.sequence([
+        RNAnimated.timing(lineAnim, {
           toValue: 1,
-          duration: 2000, // Duración de la animación
+          duration: 2000,
           useNativeDriver: true,
         }),
-        // Se anima la línea de escaneo hacia arriba
-        Animated.timing(lineAnim, {
+        RNAnimated.timing(lineAnim, {
           toValue: 0,
-          duration: 2000, // Duración de la animación
+          duration: 2000,
           useNativeDriver: true,
         }),
       ])
@@ -253,13 +252,13 @@ export default function QRScanner({ navigation }) {
 
     try {
       // Realizar petición POST al backend para unirse a clase
-      console.log('🔍 DEBUG: Enviando registro de clase:', { classToken, studentName: email, studentCode });
+      console.log('🔍 DEBUG: Enviando registro de clase:', { classToken, studentName: fullName, studentCode });
       console.log('🔍 DEBUG: JOIN_CLASS_URL:', JOIN_CLASS_URL);
       console.log('🔍 DEBUG: AuthToken:', authToken ? 'exists' : 'missing');
       
       const requestBody = {
         classToken, // Token de clase del QR
-        studentName: email || '', // Nombre/email del estudiante
+        studentName: fullName || '',
         studentCode: studentCode || '', // Código del estudiante
       };
       console.log('🔍 DEBUG: Request body:', JSON.stringify(requestBody, null, 2));
@@ -302,6 +301,7 @@ export default function QRScanner({ navigation }) {
       setAttendanceStatus('register');
       setScanTime('');
       setScanState(ScanState.success);
+      refreshStudentClasses();
     } catch (e) {
       // Manejar errores de la petición
       console.log('❌ DEBUG: Exception in submitJoinClass:', e);
@@ -375,7 +375,7 @@ export default function QRScanner({ navigation }) {
         onRequestClose={() => navigation.goBack()}
       >
         <View style={styles.modeOverlay}>
-          <View style={styles.modeCard}>
+          <Animated.View entering={enterDown(40)} style={styles.modeCard}>
             <Text style={styles.modeTitle}>¿Qué deseas escanear?</Text>
             <Text style={styles.modeText}>Selecciona el tipo de QR antes de abrir la cámara.</Text>
             <View style={{ height: 14 }} />
@@ -384,7 +384,7 @@ export default function QRScanner({ navigation }) {
             <Button fullWidth variant="outline" onPress={() => setScanMode('register')}>Registro (unirse a clase)</Button>
             <View style={{ height: 10 }} />
             <Button fullWidth variant="ghost" onPress={() => navigation.goBack()}>Cancelar</Button>
-          </View>
+          </Animated.View>
         </View>
       </Modal>
 
@@ -420,7 +420,7 @@ export default function QRScanner({ navigation }) {
               <Scan size={30} color="rgba(255,255,255,0.55)" />
             </View>
 
-            <Animated.View
+            <RNAnimated.View
               style={[
                 styles.scanLine,
                 {
@@ -436,7 +436,7 @@ export default function QRScanner({ navigation }) {
               ]}
             >
               <View style={styles.scanLineGlow} />
-            </Animated.View>
+            </RNAnimated.View>
 
             <View style={[styles.markerDot, { top: 14, left: 14 }]} />
             <View style={[styles.markerDot, { top: 14, right: 14 }]} />
@@ -508,7 +508,13 @@ export default function QRScanner({ navigation }) {
                   <Text style={styles.statusLine2}>{scanTime ? `${scanTime} - ${cfg.message}` : cfg.message}</Text>
                 </View>
               ) : null}
-              <Button fullWidth onPress={() => navigation.goBack()}>
+              <Button fullWidth onPress={() => {
+                if (scanMode === 'register') {
+                  navigation.navigate('StudentHome');
+                  return;
+                }
+                navigation.goBack();
+              }}>
                 Continuar
               </Button>
             </View>

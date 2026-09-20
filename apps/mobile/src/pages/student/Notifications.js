@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
   ArrowLeft,
@@ -10,10 +10,18 @@ import {
   Trash2,
 } from 'lucide-react-native';
 import { COLORS } from '../../ui/theme';
+import Animated, { enterDown, listEnter } from '../../ui/motion';
 import { STUDENT_NOTIFICATIONS_URL, MARK_NOTIFICATIONS_READ_URL } from '../../config';
 import { useAuth } from '../../state/auth';
 import { formatActionDateTime } from '../../utils/formatDateTime';
 import { isStudentProfileComplete, studentProfileIncompleteMessage } from '../../utils/studentProfile';
+import {
+  loadReminders,
+  reminderDates,
+  reminderIsDue,
+  saveReminders,
+} from '../../utils/remindersStore';
+import { classSoonIsDue, loadClassSoon, saveClassSoon } from '../../utils/classSoon';
 
 function mapNotification(n, idx) {
   const raw = String(n?.type || 'info');
@@ -34,13 +42,18 @@ function mapNotification(n, idx) {
     type,
     time: formatActionDateTime(n?.createdAt || n?.markedAt || n?.time, String(n?.time || 'Hoy')),
     read: Boolean(n?.read),
+    classId: n?.classId ? String(n.classId) : '',
   };
 }
 
 export default function Notifications({ navigation }) {
-  const { authToken, fullName, program, semester, phone } = useAuth();
+  const { authToken, email, fullName, program, semester, phone, setNotificationUnread } = useAuth();
   const [loading, setLoading] = useState(true);
   const [notifications, setNotifications] = useState([]);
+  const [reminders, setReminders] = useState([]);
+  const [classSoon, setClassSoon] = useState([]);
+  const classSoonIdsRef = useRef([]);
+  const locallyReadRef = useRef(new Set());
 
   useEffect(() => {
     if (!authToken || !STUDENT_NOTIFICATIONS_URL) {
@@ -71,7 +84,12 @@ export default function Notifications({ navigation }) {
           throw new Error(msg);
         }
         const arr = Array.isArray(json?.notifications) ? json.notifications : [];
-        if (!cancelled) setNotifications(arr.map(mapNotification));
+        if (!cancelled) {
+          const mapped = arr.map(mapNotification).map((n) => (
+            locallyReadRef.current.has(n.id) ? { ...n, read: true } : n
+          ));
+          setNotifications(mapped);
+        }
       } catch (e) {
         if (!silent && !cancelled) {
           Alert.alert('Error', e?.message || String(e));
@@ -82,12 +100,28 @@ export default function Notifications({ navigation }) {
       }
     };
     load();
-    const timer = setInterval(() => load({ silent: true }), 15000);
+    (async () => {
+      const list = await loadReminders(email);
+      const soon = await loadClassSoon(email);
+      if (!cancelled) {
+        setReminders(list);
+        setClassSoon(Array.isArray(soon.alerts) ? soon.alerts : []);
+        classSoonIdsRef.current = Array.isArray(soon.notificationIds) ? soon.notificationIds : [];
+      }
+    })();
+    const timer = setInterval(async () => {
+      load({ silent: true });
+      const soon = await loadClassSoon(email);
+      if (!cancelled) {
+        setClassSoon(Array.isArray(soon.alerts) ? soon.alerts : []);
+        classSoonIdsRef.current = Array.isArray(soon.notificationIds) ? soon.notificationIds : [];
+      }
+    }, 15000);
     return () => {
       cancelled = true;
       clearInterval(timer);
     };
-  }, [authToken]);
+  }, [authToken, email]);
 
   const profileNotice = useMemo(() => {
     const profile = { fullName, program, semester, phone };
@@ -103,15 +137,61 @@ export default function Notifications({ navigation }) {
     };
   }, [fullName, program, semester, phone]);
 
+  const reminderNotices = useMemo(() => reminders.filter(reminderIsDue).map((r) => {
+    const dates = reminderDates(r);
+    const whenLabel = dates.length ? `${dates.join(', ')} · ${r.time || ''}` : String(r.time || '');
+    return {
+      id: `reminder:${r.id}`,
+      title: r.title || 'Recordatorio',
+      message: r.description ? `${r.description} · ${whenLabel}` : whenLabel,
+      type: 'reminder',
+      time: whenLabel,
+      read: Boolean(r.read),
+      local: true,
+      reminderId: r.id,
+    };
+  }), [reminders]);
+
+  const classSoonNotices = useMemo(() => classSoon.filter(classSoonIsDue).map((a) => ({
+    id: a.id,
+    title: 'Clase por comenzar',
+    message: `${a.className} empieza a las ${a.time}. Faltan 5 minutos.`,
+    type: 'info',
+    time: a.time,
+    read: Boolean(a.read),
+    local: true,
+    classId: a.classId,
+  })), [classSoon]);
+
   const displayedNotifications = useMemo(() => {
-    if (!profileNotice) return notifications;
-    return [profileNotice, ...notifications.filter((n) => n.id !== profileNotice.id)];
-  }, [profileNotice, notifications]);
+    const extra = [];
+    if (profileNotice) extra.push(profileNotice);
+    extra.push(...reminderNotices);
+    extra.push(...classSoonNotices);
+    const ids = new Set(extra.map((n) => n.id));
+    const soonClassIds = new Set(classSoonNotices.map((n) => String(n.classId || '')));
+    return [
+      ...extra,
+      ...notifications.filter((n) => {
+        if (ids.has(n.id)) return false;
+        const sid = String(n.id || '').toLowerCase();
+        if (sid.includes('soon#') && soonClassIds.has(String(n.classId || ''))) return false;
+        return true;
+      }),
+    ];
+  }, [profileNotice, reminderNotices, classSoonNotices, notifications]);
 
   const unreadCount = useMemo(
     () => displayedNotifications.filter((n) => !n.read).length,
     [displayedNotifications]
   );
+
+  useEffect(() => {
+    const serverUnread = notifications.filter((n) => !n.read).length;
+    const reminderUnread = reminders.filter((n) => reminderIsDue(n) && !n.read).length;
+    const classSoonUnread = classSoon.filter((a) => classSoonIsDue(a) && !a.read).length;
+    setNotificationUnread(serverUnread + reminderUnread + classSoonUnread);
+  }, [notifications, reminders, classSoon, setNotificationUnread]);
 
   const persistRead = async ({ ids, all } = {}) => {
     if (!authToken || !MARK_NOTIFICATIONS_READ_URL) return;
@@ -130,7 +210,14 @@ export default function Notifications({ navigation }) {
   };
 
   const markAllAsRead = () => {
+    notifications.forEach((n) => locallyReadRef.current.add(n.id));
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    const nextReminders = reminders.map((r) => ({ ...r, read: true }));
+    setReminders(nextReminders);
+    saveReminders(email, nextReminders);
+    const nextSoon = classSoon.map((a) => ({ ...a, read: true }));
+    setClassSoon(nextSoon);
+    saveClassSoon(email, { alerts: nextSoon, notificationIds: classSoonIdsRef.current });
     persistRead({ all: true });
   };
 
@@ -139,6 +226,21 @@ export default function Notifications({ navigation }) {
       navigation.navigate('StudentProfile', { forceEdit: true });
       return;
     }
+    if (String(id).startsWith('reminder:')) {
+      const rid = String(id).slice('reminder:'.length);
+      const nextReminders = reminders.map((r) => (r.id === rid ? { ...r, read: true } : r));
+      setReminders(nextReminders);
+      saveReminders(email, nextReminders);
+      navigation.navigate('StudentReminders');
+      return;
+    }
+    if (String(id).startsWith('classsoon:')) {
+      const nextSoon = classSoon.map((a) => (a.id === id ? { ...a, read: true } : a));
+      setClassSoon(nextSoon);
+      saveClassSoon(email, { alerts: nextSoon, notificationIds: classSoonIdsRef.current });
+      return;
+    }
+    locallyReadRef.current.add(id);
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
     persistRead({ ids: [id] });
   };
@@ -148,12 +250,28 @@ export default function Notifications({ navigation }) {
       navigation.navigate('StudentProfile', { forceEdit: true });
       return;
     }
+    if (String(id).startsWith('reminder:')) {
+      const rid = String(id).slice('reminder:'.length);
+      const nextReminders = reminders.map((r) => (r.id === rid ? { ...r, read: true } : r));
+      setReminders(nextReminders);
+      saveReminders(email, nextReminders);
+      return;
+    }
+    if (String(id).startsWith('classsoon:')) {
+      const nextSoon = classSoon.filter((a) => a.id !== id);
+      setClassSoon(nextSoon);
+      saveClassSoon(email, { alerts: nextSoon, notificationIds: classSoonIdsRef.current });
+      return;
+    }
+    locallyReadRef.current.add(id);
     setNotifications((prev) => prev.filter((n) => n.id !== id));
     persistRead({ ids: [id] });
   };
 
   const getConfig = (type) => {
     switch (type) {
+      case 'reminder':
+        return { Icon: Bell, bg: '#F5F3FF', border: '#DDD6FE', iconBg: '#7C3AED' };
       case 'success':
         return { Icon: CheckCheck, bg: '#ECFDF5', border: '#BBF7D0', iconBg: '#22C55E' };
       case 'warning':
@@ -165,11 +283,11 @@ export default function Notifications({ navigation }) {
     }
   };
 
-  const renderItem = (n) => {
+  const renderItem = (n, idx) => {
     const cfg = getConfig(n.type);
     return (
+      <Animated.View key={n.id} entering={listEnter(idx)}>
       <Pressable
-        key={n.id}
         onPress={() => { if (!n.read) markOneRead(n.id); }}
         style={[
           styles.item,
@@ -193,12 +311,13 @@ export default function Notifications({ navigation }) {
           </View>
         </View>
       </Pressable>
+      </Animated.View>
     );
   };
 
   return (
     <View style={styles.root}>
-      <View style={styles.header}>
+      <Animated.View entering={enterDown(0, 360)} style={styles.header}>
         <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
           <ArrowLeft size={24} color="#374151" />
         </Pressable>
@@ -213,7 +332,7 @@ export default function Notifications({ navigation }) {
             <Text style={styles.headerActionText}>Marcar todas</Text>
           </Pressable>
         ) : null}
-      </View>
+      </Animated.View>
 
       <ScrollView contentContainerStyle={styles.body}>
         {loading ? (
@@ -230,7 +349,7 @@ export default function Notifications({ navigation }) {
             <Text style={styles.emptyText}>No tienes notificaciones pendientes</Text>
           </View>
         ) : (
-          displayedNotifications.map(renderItem)
+          displayedNotifications.map((n, idx) => renderItem(n, idx))
         )}
 
         <View style={{ height: 12 }} />

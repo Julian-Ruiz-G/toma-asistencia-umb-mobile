@@ -1,11 +1,15 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { ArrowLeft, Calendar, RefreshCw } from 'lucide-react-native';
+import { useFocusEffect } from '@react-navigation/native';
+import { ArrowLeft, Bell, Calendar, Clock, MapPin, RefreshCw, Users } from 'lucide-react-native';
 import { API_BASE, MY_CLASSES_URL } from '../../config';
 import { useAuth } from '../../state/auth';
 import { COLORS } from '../../ui/theme';
+import Animated, { enterDown, listEnter } from '../../ui/motion';
+import { dateToDayKey, loadReminders, reminderDates } from '../../utils/remindersStore';
+import { todayScheduleKey } from '../../utils/schedule';
 
-const DAY_ORDER = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+const DAY_ORDER = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
 const DAY_LABEL = {
   MONDAY: 'Lunes',
   TUESDAY: 'Martes',
@@ -13,6 +17,16 @@ const DAY_LABEL = {
   THURSDAY: 'Jueves',
   FRIDAY: 'Viernes',
   SATURDAY: 'Sábado',
+  SUNDAY: 'Domingo',
+};
+const DAY_SHORT = {
+  MONDAY: 'Lun',
+  TUESDAY: 'Mar',
+  WEDNESDAY: 'Mié',
+  THURSDAY: 'Jue',
+  FRIDAY: 'Vie',
+  SATURDAY: 'Sáb',
+  SUNDAY: 'Dom',
 };
 
 const dayToIndex = (day) => {
@@ -21,11 +35,23 @@ const dayToIndex = (day) => {
   return i < 0 ? 999 : i;
 };
 
+function todayKey() {
+  return todayScheduleKey();
+}
+
+function accentForTime(t) {
+  const hh = parseInt(String(t || '').split(':')[0] || '0', 10);
+  if (!Number.isFinite(hh) || hh < 10) return COLORS.primary;
+  if (hh < 13) return COLORS.blue;
+  return '#16A34A';
+}
+
 export default function ScheduleScreen({ navigation }) {
-  const { authToken } = useAuth();
+  const { authToken, email } = useAuth();
   const [loading, setLoading] = useState(false);
   const [classes, setClasses] = useState([]);
-  const [activeDay, setActiveDay] = useState('MONDAY');
+  const [reminders, setReminders] = useState([]);
+  const [activeDay, setActiveDay] = useState(todayKey);
 
   const STUDENT_MY_CLASSES_URL = API_BASE ? `${API_BASE}/my-classes-student` : '';
 
@@ -60,7 +86,6 @@ export default function ScheduleScreen({ navigation }) {
 
     setLoading(true);
     try {
-      // Prefer student endpoint if exists; fallback to /my-classes.
       let r = null;
       if (STUDENT_MY_CLASSES_URL) {
         r = await tryFetch(STUDENT_MY_CLASSES_URL);
@@ -88,6 +113,19 @@ export default function ScheduleScreen({ navigation }) {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      (async () => {
+        const list = await loadReminders(email);
+        if (!cancelled) setReminders(list);
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }, [email])
+  );
 
   const entries = useMemo(() => {
     const out = [];
@@ -118,103 +156,151 @@ export default function ScheduleScreen({ navigation }) {
     return out;
   }, [classes]);
 
+  const reminderEntries = useMemo(() => reminders.flatMap((r) => (
+    reminderDates(r).map((date) => ({
+      kind: 'reminder',
+      day: dateToDayKey(date),
+      startTime: String(r.time || ''),
+      endTime: '',
+      className: String(r.title || 'Recordatorio'),
+      group: '',
+      room: '',
+      teacher: String(r.description || ''),
+      classId: `${r.id}:${date}`,
+    }))
+  )), [reminders]);
+
   const perDay = useMemo(() => {
     const map = {};
     for (const d of DAY_ORDER) map[d] = [];
     for (const e of entries) {
       if (!map[e.day]) map[e.day] = [];
+      map[e.day].push({ ...e, kind: 'class' });
+    }
+    for (const e of reminderEntries) {
+      if (!e.day) continue;
+      if (!map[e.day]) map[e.day] = [];
       map[e.day].push(e);
     }
+    Object.keys(map).forEach((k) => {
+      map[k].sort((a, b) => String(a.startTime || '99:99').localeCompare(String(b.startTime || '99:99')));
+    });
     return map;
-  }, [entries]);
+  }, [entries, reminderEntries]);
 
-  const dayList = useMemo(() => DAY_ORDER.map((d) => ({ key: d, label: DAY_LABEL[d] || d })), []);
+  const dayList = useMemo(() => DAY_ORDER.map((d) => ({
+    key: d,
+    label: DAY_LABEL[d] || d,
+    short: DAY_SHORT[d] || d,
+    count: (perDay[d] || []).length,
+  })), [perDay]);
   const activeList = perDay[activeDay] || [];
-
-  const timeBg = (t) => {
-    const hh = parseInt(String(t || '').split(':')[0] || '0', 10);
-    if (!Number.isFinite(hh)) return 'rgba(185,28,28,0.10)';
-    if (hh < 10) return 'rgba(185,28,28,0.10)';
-    if (hh < 13) return 'rgba(30,64,175,0.10)';
-    return 'rgba(34,197,94,0.12)';
-  };
-  const timeColor = (t) => {
-    const hh = parseInt(String(t || '').split(':')[0] || '0', 10);
-    if (!Number.isFinite(hh)) return COLORS.primary;
-    if (hh < 10) return COLORS.primary;
-    if (hh < 13) return COLORS.blue;
-    return '#16A34A';
-  };
+  const isToday = activeDay === todayKey();
 
   return (
     <View style={styles.root}>
-      <View style={styles.header}>
+      <Animated.View entering={enterDown(0, 360)} style={styles.header}>
         <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
           <ArrowLeft size={24} color="#374151" />
         </Pressable>
         <View style={{ flex: 1 }}>
-          <Text style={styles.headerTitle}>Horario de Clases</Text>
-          <Text style={styles.headerSubtitle}>Semana</Text>
+          <Text style={styles.headerTitle}>Horario</Text>
+          <Text style={styles.headerSubtitle}>
+            {DAY_LABEL[activeDay]}
+            {isToday ? ' · Hoy' : ''}
+            {activeList.length ? ` · ${activeList.length} ${activeList.length === 1 ? 'evento' : 'eventos'}` : ''}
+          </Text>
         </View>
         <Pressable onPress={load} style={styles.iconBtn}>
           <RefreshCw size={20} color="#4B5563" />
         </Pressable>
-      </View>
+      </Animated.View>
 
-      <ScrollView contentContainerStyle={styles.body}>
-        <View style={styles.card}>
-          <View style={styles.cardTitleRow}>
-            <Calendar size={20} color={COLORS.primary} />
-            <Text style={styles.cardTitle}>Tu horario</Text>
-          </View>
+      <Animated.View entering={enterDown(60)} style={styles.weekBar}>
+        {dayList.map((d) => {
+          const active = activeDay === d.key;
+          return (
+            <Pressable
+              key={d.key}
+              onPress={() => setActiveDay(d.key)}
+              style={[styles.dayCol, active ? styles.dayColActive : null]}
+            >
+              <Text style={[styles.dayShort, active ? styles.dayShortActive : null]}>{d.short}</Text>
+              <View style={[styles.dayDot, d.count ? (active ? styles.dayDotActive : styles.dayDotHas) : null]} />
+            </Pressable>
+          );
+        })}
+      </Animated.View>
 
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dayPills}>
-            {dayList.map((d) => {
-              const active = activeDay === d.key;
-              return (
-                <Pressable
-                  key={d.key}
-                  onPress={() => setActiveDay(d.key)}
-                  style={[styles.dayPill, active ? styles.dayPillActive : null]}
-                >
-                  <Text style={[styles.dayPillText, active ? styles.dayPillTextActive : null]}>{d.label}</Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
+      <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
+        {loading ? <Text style={styles.muted}>Cargando horario…</Text> : null}
 
-          <View style={{ height: 12 }} />
-
-          {activeList.map((it, idx) => (
-            <View key={`${it.day}-${it.startTime}-${idx}`} style={styles.itemRow}>
-              <View style={[styles.timeBox, { backgroundColor: timeBg(it.startTime) }]}>
-                <Text style={[styles.timeText, { color: timeColor(it.startTime) }]}>{it.startTime || '--:--'}</Text>
-              </View>
-              <View style={styles.itemCard}>
-                <Text style={styles.itemTitle}>{it.className}</Text>
-                <Text style={styles.itemSub}>
-                  {it.room ? `Aula ${it.room}` : 'Aula'}
-                  {it.teacher ? ` • ${it.teacher}` : ''}
-                </Text>
-                <Text style={styles.itemMeta}>
-                  {it.endTime ? `${it.startTime}-${it.endTime}` : it.startTime}
-                  {it.group ? ` • ${it.group}` : ''}
-                </Text>
-              </View>
+        {!loading && activeList.length === 0 ? (
+          <Animated.View entering={enterDown(80)} style={styles.emptyCard}>
+            <View style={styles.emptyIcon}>
+              <Calendar size={28} color="#9CA3AF" />
             </View>
-          ))}
+            <Text style={styles.emptyTitle}>Día libre</Text>
+            <Text style={styles.emptyText}>No tienes clases ni recordatorios este día.</Text>
+          </Animated.View>
+        ) : null}
 
-          {activeList.length === 0 && !loading ? (
-            <View style={styles.emptyWrap}>
-              <Text style={styles.emptyTitle}>Sin clases</Text>
-              <Text style={styles.emptyText}>No tienes clases programadas para este día.</Text>
-            </View>
-          ) : null}
+        {activeList.map((it, idx) => {
+          const isReminder = it.kind === 'reminder';
+          const accent = isReminder ? '#7C3AED' : accentForTime(it.startTime);
+          return (
+            <Animated.View
+              key={`${it.kind}-${it.day}-${it.startTime}-${it.classId || idx}`}
+              entering={listEnter(idx)}
+              style={styles.classCard}
+            >
+              <View style={[styles.accent, { backgroundColor: accent }]} />
+              <View style={styles.timeCol}>
+                <Text style={[styles.timeStart, { color: accent }]}>{it.startTime || '--:--'}</Text>
+                <View style={[styles.timeLine, { backgroundColor: accent }]} />
+                <Text style={styles.timeEnd}>{isReminder ? 'Aviso' : (it.endTime || '--:--')}</Text>
+              </View>
+              <View style={styles.classBody}>
+                {isReminder ? (
+                  <View style={styles.reminderTag}>
+                    <Bell size={11} color="#7C3AED" />
+                    <Text style={styles.reminderTagText}>Recordatorio</Text>
+                  </View>
+                ) : null}
+                <Text style={styles.className}>{it.className}</Text>
+                {it.teacher ? (
+                  <Text style={styles.teacher} numberOfLines={2}>{it.teacher}</Text>
+                ) : null}
+                {!isReminder ? (
+                <View style={styles.chips}>
+                  {it.room ? (
+                    <View style={styles.chip}>
+                      <MapPin size={12} color="#6B7280" />
+                      <Text style={styles.chipText}>Aula {it.room}</Text>
+                    </View>
+                  ) : null}
+                  {it.group ? (
+                    <View style={styles.chip}>
+                      <Users size={12} color="#6B7280" />
+                      <Text style={styles.chipText}>{it.group}</Text>
+                    </View>
+                  ) : null}
+                  {!it.room && !it.group ? (
+                    <View style={styles.chip}>
+                      <Clock size={12} color="#6B7280" />
+                      <Text style={styles.chipText}>
+                        {it.endTime ? `${it.startTime} – ${it.endTime}` : it.startTime}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+                ) : null}
+              </View>
+            </Animated.View>
+          );
+        })}
 
-          {loading ? <Text style={styles.muted}>Cargando...</Text> : null}
-        </View>
-
-        <View style={{ height: 18 }} />
+        <View style={{ height: 24 }} />
       </ScrollView>
     </View>
   );
@@ -225,7 +311,7 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: '#fff',
     paddingHorizontal: 24,
-    paddingBottom: 16,
+    paddingBottom: 12,
     paddingTop: 48,
     flexDirection: 'row',
     alignItems: 'center',
@@ -234,33 +320,89 @@ const styles = StyleSheet.create({
   iconBtn: { padding: 10, borderRadius: 999 },
   headerTitle: { fontSize: 20, fontWeight: '800', color: '#111827' },
   headerSubtitle: { marginTop: 2, fontSize: 14, color: '#6B7280' },
-  body: { paddingHorizontal: 24, paddingVertical: 18 },
-  card: {
+  weekBar: {
+    backgroundColor: '#fff',
+    flexDirection: 'row',
+    paddingHorizontal: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  dayCol: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderRadius: 14,
+  },
+  dayColActive: { backgroundColor: COLORS.primary },
+  dayShort: { fontWeight: '800', fontSize: 11, color: '#6B7280' },
+  dayShortActive: { color: '#fff' },
+  dayDot: { width: 5, height: 5, borderRadius: 3, marginTop: 6, backgroundColor: 'transparent' },
+  dayDotHas: { backgroundColor: COLORS.primary },
+  dayDotActive: { backgroundColor: '#fff' },
+  body: { paddingHorizontal: 20, paddingTop: 18 },
+  classCard: {
+    flexDirection: 'row',
     backgroundColor: '#fff',
     borderRadius: 18,
-    padding: 18,
+    marginBottom: 14,
+    overflow: 'hidden',
     shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.07,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
     elevation: 2,
+    minHeight: 108,
   },
-  cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  cardTitle: { fontWeight: '800', color: '#1F2937' },
-  dayPills: { gap: 10, paddingTop: 12, paddingBottom: 2 },
-  dayPill: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 999, backgroundColor: '#fff', borderWidth: 1, borderColor: '#E5E7EB' },
-  dayPillActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-  dayPillText: { color: '#6B7280', fontWeight: '800' },
-  dayPillTextActive: { color: '#fff' },
-  itemRow: { flexDirection: 'row', gap: 12, marginBottom: 12, alignItems: 'stretch' },
-  timeBox: { width: 56, borderRadius: 14, alignItems: 'center', justifyContent: 'center', paddingVertical: 10 },
-  timeText: { fontWeight: '900' },
-  itemCard: { flex: 1, backgroundColor: '#F9FAFB', borderRadius: 14, padding: 12, borderWidth: 1, borderColor: '#F3F4F6' },
-  itemTitle: { fontWeight: '900', color: '#111827' },
-  itemSub: { marginTop: 3, color: '#6B7280' },
-  itemMeta: { marginTop: 8, color: '#9CA3AF', fontSize: 12 },
-  emptyWrap: { marginTop: 10, alignItems: 'center', paddingVertical: 18 },
-  emptyTitle: { fontWeight: '900', color: '#111827' },
+  accent: { width: 5 },
+  timeCol: {
+    width: 72,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    backgroundColor: '#FAFAFA',
+  },
+  timeStart: { fontWeight: '900', fontSize: 14 },
+  timeLine: { width: 1.5, height: 14, marginVertical: 6, opacity: 0.45 },
+  timeEnd: { fontWeight: '700', fontSize: 12, color: '#9CA3AF' },
+  classBody: { flex: 1, paddingVertical: 16, paddingHorizontal: 14, justifyContent: 'center' },
+  className: { fontWeight: '900', fontSize: 16, color: '#111827', lineHeight: 22 },
+  reminderTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 6,
+  },
+  reminderTagText: { fontSize: 11, fontWeight: '800', color: '#7C3AED' },
+  teacher: { marginTop: 4, color: '#6B7280', fontSize: 13 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 999,
+  },
+  chipText: { fontSize: 12, color: '#4B5563', fontWeight: '700' },
+  emptyCard: {
+    backgroundColor: '#fff',
+    borderRadius: 18,
+    paddingVertical: 36,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+  },
+  emptyIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  emptyTitle: { fontWeight: '900', fontSize: 16, color: '#111827' },
   emptyText: { marginTop: 6, color: '#6B7280', textAlign: 'center' },
-  muted: { marginTop: 10, color: '#6B7280' },
+  muted: { color: '#6B7280', textAlign: 'center', marginBottom: 12 },
 });

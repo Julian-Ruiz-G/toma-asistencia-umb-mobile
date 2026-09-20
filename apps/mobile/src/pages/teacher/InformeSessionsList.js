@@ -8,11 +8,13 @@ import {
   Text,
   View,
 } from 'react-native';
-import { ArrowLeft, Calendar, ChevronRight, FileSpreadsheet } from 'lucide-react-native';
+import { ArrowLeft, Calendar, ChevronRight, Clock, FileSpreadsheet, Layers } from 'lucide-react-native';
 
 import { COLORS } from '../../ui/theme';
 import { useAuth } from '../../state/auth';
 import { CLASS_DETAILS_URL } from '../../config';
+import { colombiaDateLongFromYmd, colombiaWeekdayLongFromYmd } from '../../utils/formatDateTime';
+import { resolveSessionYmd } from '../../utils/schedule';
 
 function sortSessionsNewestFirst(rows) {
   const list = Array.isArray(rows) ? [...rows] : [];
@@ -33,6 +35,7 @@ export default function InformeSessionsList({ navigation, route }) {
   const { classId, className, group, room } = route.params || {};
 
   const [sessions, setSessions] = useState([]);
+  const [classSchedule, setClassSchedule] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
@@ -72,6 +75,7 @@ export default function InformeSessionsList({ navigation, route }) {
         throw new Error(msg);
       }
       const raw = Array.isArray(json?.attendanceSessions) ? json.attendanceSessions : [];
+      setClassSchedule(Array.isArray(json?.class?.schedule) ? json.class.schedule : []);
       setSessions(sortSessionsNewestFirst(raw));
     } catch (e) {
       setError(e?.message || String(e));
@@ -92,47 +96,61 @@ export default function InformeSessionsList({ navigation, route }) {
     load();
   };
 
-  const formatSessionDate = (d) => {
-    const s = String(d || '').trim();
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return s || '—';
-    try {
-      const [y, m, day] = s.split('-').map(Number);
-      const dt = new Date(y, m - 1, day);
-      return dt.toLocaleDateString('es-CO', {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      });
-    } catch {
-      return s;
-    }
+  const formatSessionDate = (item) => {
+    const ymd = resolveSessionYmd({
+      sessionDate: item?.sessionDate,
+      sessionId: item?.sessionId,
+      scheduledStartEpoch: item?.scheduledStartEpoch,
+      schedule: classSchedule,
+    });
+    if (!ymd) return { title: String(item?.sessionDate || item?.sessionId || '—'), weekday: '', ymd: '' };
+    return {
+      weekday: colombiaWeekdayLongFromYmd(ymd),
+      title: colombiaDateLongFromYmd(ymd),
+      ymd,
+    };
   };
 
-  const renderItem = ({ item }) => (
-    <Pressable
-      onPress={() =>
-        navigation.navigate('ReportPreview', {
-          sessionId: item.sessionId,
-          classId,
-          classMeta,
-        })
-      }
-      style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-    >
-      <View style={styles.rowIcon}>
-        <Calendar size={20} color={COLORS.primary} />
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text style={styles.rowTitle}>{formatSessionDate(item.sessionDate)}</Text>
-        <Text style={styles.rowSub} numberOfLines={1}>
-          {item.sessionId}
-          {item.corte ? ` • Corte ${item.corte}` : ''}
-        </Text>
-      </View>
-      <ChevronRight size={20} color="#9CA3AF" />
-    </Pressable>
-  );
+  const renderItem = ({ item, index }) => {
+    const d = formatSessionDate(item);
+    return (
+      <Pressable
+        onPress={() =>
+          navigation.navigate('ReportPreview', {
+            sessionId: item.sessionId,
+            classId,
+            classMeta,
+          })
+        }
+        style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+      >
+        <View style={styles.cardTop}>
+          <View style={styles.rowIcon}>
+            <Calendar size={20} color={COLORS.primary} />
+          </View>
+          <View style={{ flex: 1 }}>
+            {d.weekday ? <Text style={styles.weekday}>{d.weekday}</Text> : null}
+            <Text style={styles.rowTitle}>{d.title}</Text>
+          </View>
+          {item.corte ? (
+            <View style={styles.cortePill}>
+              <Layers size={12} color={COLORS.primary} />
+              <Text style={styles.corteText}>Corte {item.corte}</Text>
+            </View>
+          ) : null}
+        </View>
+        <View style={styles.metaRow}>
+          <Clock size={13} color="#9CA3AF" />
+          <Text style={styles.rowSub}>Sesión {index + 1} de {sessions.length}</Text>
+        </View>
+        <Text style={styles.idText} numberOfLines={2}>{item.sessionId}</Text>
+        <View style={styles.cardFooter}>
+          <Text style={styles.openText}>Abrir informe</Text>
+          <ChevronRight size={18} color={COLORS.primary} />
+        </View>
+      </Pressable>
+    );
+  };
 
   return (
     <View style={styles.root}>
@@ -148,8 +166,11 @@ export default function InformeSessionsList({ navigation, route }) {
           <Text style={styles.headerSub} numberOfLines={2}>
             {className || 'Clase'}
             {group ? ` • Grupo ${group}` : ''}
+            {room ? ` • ${room}` : ''}
           </Text>
-          <Text style={styles.orderHint}>Más recientes arriba</Text>
+          <Text style={styles.orderHint}>
+            {sessions.length ? `${sessions.length} sesión${sessions.length === 1 ? '' : 'es'} · más recientes arriba` : 'Más recientes arriba'}
+          </Text>
         </View>
       </View>
 
@@ -174,6 +195,9 @@ export default function InformeSessionsList({ navigation, route }) {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           ListEmptyComponent={
             <View style={styles.emptyBox}>
+              <View style={styles.emptyIcon}>
+                <Calendar size={28} color="#9CA3AF" />
+              </View>
               <Text style={styles.emptyTitle}>No hay sesiones registradas</Text>
               <Text style={styles.emptyText}>
                 Cuando generes QR de asistencia y se cree una sesión, aparecerá aquí. Arriba verás siempre la más
@@ -209,31 +233,67 @@ const styles = StyleSheet.create({
   err: { color: '#B91C1C', textAlign: 'center', fontWeight: '700' },
   retry: { marginTop: 16, paddingVertical: 10, paddingHorizontal: 20, backgroundColor: COLORS.primary, borderRadius: 12 },
   retryText: { color: '#fff', fontWeight: '800' },
-  listPad: { paddingHorizontal: 16, paddingBottom: 24, paddingTop: 8 },
+  listPad: { paddingHorizontal: 16, paddingBottom: 28, paddingTop: 12 },
   emptyList: { flexGrow: 1, padding: 24 },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  card: {
     backgroundColor: '#fff',
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 10,
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: '#E5E7EB',
-    gap: 12,
   },
-  rowPressed: { opacity: 0.92, backgroundColor: '#F9FAFB' },
+  cardPressed: { opacity: 0.94, backgroundColor: '#F9FAFB' },
+  cardTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   rowIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
+    width: 48,
+    height: 48,
+    borderRadius: 14,
     backgroundColor: 'rgba(185,28,28,0.08)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  rowTitle: { fontWeight: '800', color: '#111827', textTransform: 'capitalize' },
-  rowSub: { marginTop: 4, fontSize: 12, color: '#6B7280' },
-  emptyBox: { paddingVertical: 40 },
+  weekday: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: COLORS.primary,
+    textTransform: 'capitalize',
+    letterSpacing: 0.3,
+  },
+  rowTitle: { marginTop: 2, fontWeight: '900', color: '#111827', fontSize: 16, textTransform: 'capitalize' },
+  cortePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(185,28,28,0.08)',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 999,
+  },
+  corteText: { fontSize: 11, fontWeight: '800', color: COLORS.primary },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12 },
+  rowSub: { fontSize: 12, color: '#6B7280', fontWeight: '600' },
+  idText: { marginTop: 6, fontSize: 11, color: '#9CA3AF', fontWeight: '600' },
+  cardFooter: {
+    marginTop: 14,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  openText: { fontWeight: '800', color: COLORS.primary, fontSize: 13 },
+  emptyBox: { paddingVertical: 40, alignItems: 'center' },
+  emptyIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 20,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
   emptyTitle: { fontSize: 17, fontWeight: '900', color: '#374151', textAlign: 'center' },
   emptyText: { marginTop: 10, fontSize: 14, color: '#6B7280', textAlign: 'center', lineHeight: 20 },
 });

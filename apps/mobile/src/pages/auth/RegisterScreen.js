@@ -23,6 +23,7 @@ import { Button } from '../../components/Button';
 import { Input } from '../../components/Input';
 import RobotCaptcha from '../../components/RobotCaptcha';
 import { COLORS } from '../../ui/theme';
+import Animated, { enterDown } from '../../ui/motion';
 import { REGISTER_STUDENT_URL, VALIDATE_REGISTER_PHOTO_URL } from '../../config';
 import TermsAndConditionsModal from '../../components/TermsAndConditions';
 import PrivacyPolicyModal from '../../components/PrivacyPolicy';
@@ -332,7 +333,7 @@ export default function RegisterScreen({ navigation }) {
 
   return (
     <View style={styles.root}>
-      <View style={styles.header}>
+      <Animated.View entering={enterDown(0, 360)} style={styles.header}>
         <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
           <ArrowLeft size={24} color="#374151" />
         </Pressable>
@@ -340,9 +341,10 @@ export default function RegisterScreen({ navigation }) {
           <Text style={styles.headerTitle}>Crear Cuenta</Text>
           <Text style={styles.headerSubtitle}>Complete sus datos</Text>
         </View>
-      </View>
+      </Animated.View>
 
       <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+        <Animated.View entering={enterDown(90)}>
         {formAlert ? (
           <View style={styles.formAlert}>
             <CircleAlert size={18} color="#B91C1C" />
@@ -587,9 +589,10 @@ export default function RegisterScreen({ navigation }) {
         </View>
 
         <View style={{ height: 18 }} />
+        </Animated.View>
       </ScrollView>
 
-      <View style={styles.footer}>
+      <Animated.View entering={enterDown(200, 360)} style={styles.footer}>
         <Button fullWidth size="lg" isLoading={isSubmitting || isCheckingPhoto} onPress={submit}>
           Registrar Cuenta
         </Button>
@@ -599,7 +602,7 @@ export default function RegisterScreen({ navigation }) {
             Iniciar sesión
           </Text>
         </Text>
-      </View>
+      </Animated.View>
 
       <TermsAndConditionsModal
         visible={showTermsModal}

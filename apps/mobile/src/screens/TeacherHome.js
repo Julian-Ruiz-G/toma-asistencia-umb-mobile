@@ -20,13 +20,17 @@ import {
 } from 'lucide-react-native';
 
 import { COLORS } from '../ui/theme';
+import Animated, { enterDown, listEnter } from '../ui/motion';
 import { useAuth } from '../state/auth';
 import { CLASS_DETAILS_URL, CREATE_ATTENDANCE_QR_URL, MY_CLASSES_URL, DELETE_CLASS_URL } from '../config';
 import { personDisplayName } from '../utils/displayName';
+import { loadLocalProfile } from '../utils/sessionStore';
 import { alertAttendanceQrError } from '../utils/attendanceQr';
+import { classStatusMeta, formatScheduleFriendly, isClassInProgressNow, isClassScheduledToday } from '../utils/schedule';
+import { colombiaTodayYmd } from '../utils/formatDateTime';
 
 export default function TeacherHome({ navigation }) {
-  const { logout, authToken, fullName } = useAuth();
+  const { logout, authToken, fullName, email, photoUri, setPhotoUri } = useAuth();
   const [classes, setClasses] = useState([]);
   const [loadingClasses, setLoadingClasses] = useState(false);
 
@@ -61,13 +65,15 @@ export default function TeacherHome({ navigation }) {
         json = null;
       }
       if (!resp.ok) {
-        if (alertAttendanceQrError(json, text)) return null;
+        if (alertAttendanceQrError(json)) return null;
         const msg = (json && (json.error || json.message || json.details)) || text || `HTTP ${resp.status}`;
         throw new Error(msg);
       }
       return json;
     } catch (err) {
-      Alert.alert('Error', err?.message || String(err));
+      if (String(err?.message || '') !== 'HOURS_NOTICE') {
+        Alert.alert('Error', err?.message || String(err));
+      }
       return null;
     }
   };
@@ -100,8 +106,8 @@ export default function TeacherHome({ navigation }) {
           // 🔍 Buscar sesión en múltiples campos posibles
           const attendanceSession = json?.attendanceSession || json?.attendance_session || json?.attendance;
           if (attendanceSession?.sessionId) {
-            // 📅 Verificar si la sesión es del día de hoy
-            const today = new Date().toISOString().split('T')[0];
+            // 📅 Verificar si la sesión es del día de hoy (Colombia)
+            const today = colombiaTodayYmd();
             const sessionDate = attendanceSession?.sessionDate || attendanceSession?.date || attendanceSession?.createdAt?.split('T')[0];
             
             if (sessionDate === today) {
@@ -145,7 +151,7 @@ export default function TeacherHome({ navigation }) {
           if (targetClass) {
             const attendanceSession = targetClass?.attendanceSession || targetClass?.attendance_session || targetClass?.attendance;
             if (attendanceSession?.sessionId) {
-              const today = new Date().toISOString().split('T')[0];
+              const today = colombiaTodayYmd();
               const sessionDate = attendanceSession?.sessionDate || attendanceSession?.date || attendanceSession?.createdAt?.split('T')[0];
               
               if (sessionDate === today) {
@@ -211,6 +217,10 @@ export default function TeacherHome({ navigation }) {
   };
   useEffect(() => {
     loadClasses();
+    (async () => {
+      const local = await loadLocalProfile(email);
+      if (local?.photoUri) setPhotoUri(String(local.photoUri));
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -222,187 +232,31 @@ export default function TeacherHome({ navigation }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigation]);
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'active':
-        return '#22C55E';
-      case 'pending':
-        return '#EAB308';
-      case 'completed':
-        return '#9CA3AF';
-      default:
-        return '#9CA3AF';
-    }
-  };
-
-  const getStatusText = (status) => {
-    switch (status) {
-      case 'active':
-        return 'En progreso';
-      case 'pending':
-        return 'Pendiente';
-      case 'completed':
-        return 'Finalizada';
-      default:
-        return 'Desconocido';
-    }
-  };
-
-  const parseTimeToMinutes = (t) => {
-    const m = String(t || '').match(/^(\d{1,2}):(\d{2})/);
-    if (!m) return null;
-    const hh = Number(m[1]);
-    const mm = Number(m[2]);
-    if (!Number.isFinite(hh) || !Number.isFinite(mm)) return null;
-    return hh * 60 + mm;
-  };
-
-  const isClassInProgressNow = (c) => {
-    const raw = c?.schedule || c?.schedules || c?.horario || c?.horarios;
-    if (!Array.isArray(raw)) return false;
-    const todayKey = getTodayKey();
-    const now = new Date();
-    const nowMin = now.getHours() * 60 + now.getMinutes();
-
-    return raw.some((s) => {
-      const dayKey = parseDayKey(s?.day || s?.dia);
-      if (dayKey !== todayKey) return false;
-      const start = s?.startTime || s?.start || s?.horaInicio;
-      const end = s?.endTime || s?.end || s?.horaFin;
-      const startMin = parseTimeToMinutes(start);
-      const endMin = parseTimeToMinutes(end);
-      if (startMin == null || endMin == null) return false;
-      return nowMin >= startMin && nowMin <= endMin;
-    });
-  };
-
-  const parseDayKey = (value) => {
-    const v = String(value || '').toUpperCase().trim();
-    if (!v) return '';
-    if (v.startsWith('MON')) return 'LUNES';
-    if (v.startsWith('TUE')) return 'MARTES';
-    if (v.startsWith('WED')) return 'MIERCOLES';
-    if (v.startsWith('THU')) return 'JUEVES';
-    if (v.startsWith('FRI')) return 'VIERNES';
-    if (v.startsWith('SAT')) return 'SABADO';
-    if (v.startsWith('SUN')) return 'DOMINGO  ';
-    // Spanish
-    if (v.startsWith('LUN')) return 'LUNES';
-    if (v.startsWith('MAR')) return 'MARTES';
-    if (v.startsWith('MIE') || v.startsWith('MIÉ')) return 'MIERCOLES';
-    if (v.startsWith('JUE')) return 'JUEVES';
-    if (v.startsWith('VIE')) return 'VIERNES';
-    if (v.startsWith('SAB') || v.startsWith('SÁB')) return 'SABADO';
-    if (v.startsWith('DOM')) return 'DOMINGO';
-    return v;
-  };
-
-  // Obtiene la clave del día actual en formato inglés para comparar con horarios
-// getDay(): 0=Domingo, 1=Lunes, ..., 6=Sábado
-const getTodayKey = () => {
-    const d = new Date().getDay();
-    // JS: 0=Sun,1=Mon...
-    if (d === 0) return 'DOMINGO';
-    if (d === 1) return 'LUNES';
-    if (d === 2) return 'MARTES';
-    if (d === 3) return 'MIERCOLES';
-    if (d === 4) return 'JUEVES';
-    if (d === 5) return 'VIERNES';
-    return 'SABADO';
-  };
-
-  // Formatea el horario de una clase para mostrarlo de manera legible
-// Convierte los días a abreviaturas en español y formatea las horas
-const formatSchedule = (c) => {
-    if (!c) return '';
-    if (typeof c.schedule === 'string') return c.schedule;
-    // Intenta obtener el horario desde diferentes posibles campos del backend
-    const raw = c.schedule || c.schedules || c.horario || c.horarios;
-    if (!raw) return '';
-    const arr = Array.isArray(raw) ? raw : [];
-    const items = arr
-      .map((s) => {
-        // Extrae día y horas desde diferentes posibles nombres de campos
-        const day = s?.day || s?.dia;
-        const start = s?.startTime || s?.start || s?.horaInicio;
-        const end = s?.endTime || s?.end || s?.horaFin;
-        // Convierte el día a clave estándar en inglés
-        const dayKey = parseDayKey(day);
-        // Mapea la clave del día a su abreviatura en español
-        const label = dayKey
-          ? {
-              MONDAY: 'Lun',
-              TUESDAY: 'Mar',
-              WEDNESDAY: 'Mié',
-              THURSDAY: 'Jue',
-              FRIDAY: 'Vie',
-              SATURDAY: 'Sáb',
-              SUNDAY: 'Dom',
-            }[dayKey] || dayKey
-          : '';
-        // Formatea el rango de horas
-        const t = start && end ? `${start}-${end}` : start || end || '';
-        return `${label} ${t}`.trim();
-      })
-      .filter(Boolean);
-    // Une múltiples horarios con separador
-    return items.join(' • ');
-  };
-
   const stats = useMemo(() => {
     const totalClasses = classes.length;
-    const todayKey = getTodayKey();
     let classesToday = 0;
-    let totalStudents = 0;
-    let activeClasses = 0;
-
+    let inSession = 0;
     classes.forEach((c) => {
-      const status = c?.status || c?.classStatus || 'active';
-      if (status === 'active') activeClasses += 1;
-
-      const sc =
-        Number(c?.studentsCount) ||
-        Number(c?.studentCount) ||
-        (Array.isArray(c?.students) ? c.students.length : 0) ||
-        0;
-      totalStudents += sc;
-
-      const raw = c?.schedule || c?.schedules || c?.horario || c?.horarios;
-      if (typeof raw === 'string') {
-        // Heuristic: try to match short day names inside the string
-        const s = raw.toLowerCase();
-        const keyToNeedle = {
-          MONDAY: ['lun'],
-          TUESDAY: ['mar'],
-          WEDNESDAY: ['mie', 'mié'],
-          THURSDAY: ['jue'],
-          FRIDAY: ['vie'],
-          SATURDAY: ['sab', 'sáb'],
-          SUNDAY: ['dom'],
-        };
-        if ((keyToNeedle[todayKey] || []).some((n) => s.includes(n))) classesToday += 1;
-      } else if (Array.isArray(raw)) {
-        const hasToday = raw.some((x) => parseDayKey(x?.day || x?.dia) === todayKey);
-        if (hasToday) classesToday += 1;
-      }
+      if (isClassScheduledToday(c)) classesToday += 1;
+      if (isClassInProgressNow(c)) inSession += 1;
     });
-
-    return { totalClasses, classesToday, totalStudents, activeClasses };
+    return { totalClasses, classesToday, inSession };
   }, [classes]);
 
   return (
     <View style={styles.root}>
       <ScrollView contentContainerStyle={styles.scroll}>
-        <View style={styles.header}>
+        <Animated.View entering={enterDown(0, 400)} style={styles.header}>
           <View style={styles.headerRow}>
             <View style={styles.userRow}>
-              <View style={styles.avatarWrap}>
+              <Pressable onPress={() => navigation.navigate('TeacherProfile')} style={styles.avatarWrap}>
                 <Image
-                  source={require('../../assets/escudo_umb.png')}
-                  style={styles.avatar}
-                  resizeMode="contain"
+                  key={photoUri || 'default'}
+                  source={photoUri ? { uri: photoUri } : require('../../assets/escudo_umb.png')}
+                  style={photoUri ? styles.avatarPhoto : styles.avatar}
+                  resizeMode={photoUri ? 'cover' : 'contain'}
                 />
-              </View>
+              </Pressable>
               <View>
                 <Text style={styles.userRole}>Docente</Text>
                 <Text style={styles.userName}>{personDisplayName(fullName, 'Docente')}</Text>
@@ -429,8 +283,8 @@ const formatSchedule = (c) => {
               <Text style={styles.quickLabel}>Mis clases</Text>
             </View>
             <View style={styles.quickCard}>
-              <Text style={styles.quickValue}>{stats.totalStudents}</Text>
-              <Text style={styles.quickLabel}>Estudiantes</Text>
+              <Text style={styles.quickValue}>{stats.inSession}</Text>
+              <Text style={styles.quickLabel}>En curso</Text>
             </View>
           </View>
 
@@ -444,30 +298,19 @@ const formatSchedule = (c) => {
               <Text style={styles.quickActionText}>Crear clase</Text>
             </Pressable>
           </View>
-        </View>
+        </Animated.View>
 
         <View style={styles.body}>
-          <View style={styles.sectionHeader}>
+          <Animated.View entering={enterDown(80)} style={styles.sectionHeader}>
             <View style={styles.sectionTitleRow}>
               <BookOpen size={18} color={COLORS.primary} />
               <Text style={styles.sectionTitle}>Mis Clases</Text>
             </View>
-            <View style={styles.sectionRight}>
-              <Pressable
-                onPress={loadClasses}
-                disabled={loadingClasses}
-                style={[styles.refreshBtn, loadingClasses ? styles.refreshBtnDisabled : null]}
-              >
-                <RefreshCw size={16} color={loadingClasses ? '#9CA3AF' : COLORS.primary} />
-                <Text style={[styles.reportsText, loadingClasses ? { color: '#9CA3AF' } : null]}>Actualizar</Text>
-              </Pressable>
-
-              <Pressable onPress={() => navigation.navigate('ReportsDashboard')} style={styles.reportsBtn}>
-                <BarChart3 size={16} color={COLORS.primary} />
-                <Text style={styles.reportsText}>Reportes</Text>
-              </Pressable>
-            </View>
-          </View>
+            <Pressable onPress={() => navigation.navigate('ReportsDashboard')} style={styles.reportsBtn}>
+              <BarChart3 size={16} color={COLORS.primary} />
+              <Text style={styles.reportsText}>Reportes</Text>
+            </Pressable>
+          </Animated.View>
 
           {loadingClasses ? (
             <View style={styles.loadingCard}>
@@ -495,38 +338,13 @@ const formatSchedule = (c) => {
             const title = c?.className || c?.subject || c?.name || 'Clase';
             const group = c?.group || c?.groupName || c?.grupo || '';
             const room = c?.room || c?.classroom || c?.aula || '';
-            const status = isClassInProgressNow(c) ? 'active' : 'pending';
-            const scheduleText = formatSchedule(c);
-
-            const studentsArr =
-              (Array.isArray(c?.students) && c.students) ||
-              (Array.isArray(c?.studentList) && c.studentList) ||
-              (Array.isArray(c?.studentsList) && c.studentsList) ||
-              (Array.isArray(c?.enrolledStudents) && c.enrolledStudents) ||
-              (Array.isArray(c?.classStudents) && c.classStudents) ||
-              (Array.isArray(c?.alumnos) && c.alumnos) ||
-              (Array.isArray(c?.studentIds) && c.studentIds) ||
-              (Array.isArray(c?.student_emails) && c.student_emails) ||
-              (Array.isArray(c?.students?.items) && c.students.items) ||
-              [];
-            const studentsCount =
-              Number(c?.studentsCount) ||
-              Number(c?.studentCount) ||
-              Number(c?.totalStudents) ||
-              Number(c?.enrolledCount) ||
-              Number(c?.enrolledStudentsCount) ||
-              Number(c?.students_count) ||
-              Number(c?.student_count) ||
-              Number(c?.students?.count) ||
-              Number(c?.students?.total) ||
-              Number(c?.students?.length) ||
-              Number(c?.class?.studentsCount) ||
-              Number(studentsArr.length);
+            const status = classStatusMeta(c);
+            const scheduleText = formatScheduleFriendly(c);
 
             return (
+              <Animated.View key={String(classId)} entering={listEnter(idx)}>
               <Pressable
-                key={String(classId)}
-                onPress={() => navigation.navigate('TeacherCreateClass', { classId })}
+                onPress={() => navigation.navigate('TeacherClassDetails', { classId })}
                 style={styles.classCard}
               >
                 <View style={styles.classTop}>
@@ -542,8 +360,8 @@ const formatSchedule = (c) => {
                       </Text>
                     </View>
                   </View>
-                  <View style={[styles.statusPill, { backgroundColor: getStatusColor(status) }]}>
-                    <Text style={styles.statusText}>{getStatusText(status)}</Text>
+                  <View style={[styles.statusPill, { backgroundColor: status.pillBg, borderWidth: 1, borderColor: status.pillBorder }]}>
+                    <Text style={[styles.statusText, { color: status.pillText }]}>{status.label}</Text>
                   </View>
                 </View>
 
@@ -553,17 +371,9 @@ const formatSchedule = (c) => {
                   </Text>
                 ) : (
                   <Text style={styles.classSchedule}>
-                    <Clock size={14} color="#9CA3AF" /> Horario no disponible
+                    <Clock size={14} color="#9CA3AF" /> Sin horario asignado
                   </Text>
                 )}
-
-                <View style={styles.attRow}>
-                  <View style={styles.attItem}>
-                    <Users size={14} color="#16A34A" />
-                    <Text style={styles.attNum}>{studentsCount}</Text>
-                  </View>
-                  <Text style={styles.attTotal}>estudiantes</Text>
-                </View>
 
                 <View style={styles.actionsGrid}>
                   <Pressable
@@ -733,20 +543,20 @@ const formatSchedule = (c) => {
                   </Pressable>
                 </View>
               </Pressable>
+              </Animated.View>
             );
           })}
 
-          <View style={styles.infoCard}>
-            <View style={styles.infoIcon}>
-              <Settings size={16} color="#2563EB" />
+          <Pressable onPress={() => navigation.navigate('TeacherAttendanceGuide')} style={styles.guideBtn}>
+            <View style={styles.guideIcon}>
+              <Settings size={18} color="#2563EB" />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.infoTitle}>Cómo funciona</Text>
-              <Text style={styles.infoText}>
-                1. Muestra el QR de tu clase para que los estudiantes marquen asistencia.\n2. Toma 1-2 fotos durante la clase para validar con reconocimiento facial.\n3. Modifica manualmente si es necesario.
-              </Text>
+              <Text style={styles.guideTitle}>Cómo funciona</Text>
+              <Text style={styles.guideSub}>Guía de QR, foto y horario de clase</Text>
             </View>
-          </View>
+            <Text style={styles.guideCta}>Ver guía</Text>
+          </Pressable>
         </View>
       </ScrollView>
     </View>
@@ -761,6 +571,7 @@ const styles = StyleSheet.create({
   userRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   avatarWrap: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   avatar: { width: 40, height: 40 },
+  avatarPhoto: { width: 48, height: 48 },
   userRole: { color: 'rgba(255,255,255,0.70)', fontSize: 12, fontWeight: '700' },
   userName: { color: '#fff', fontSize: 16, fontWeight: '900' },
   logoutBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
@@ -787,7 +598,7 @@ const styles = StyleSheet.create({
   classTitle: { fontWeight: '900', color: '#111827' },
   classSub: { marginTop: 2, color: '#6B7280', fontSize: 12 },
   statusPill: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999 },
-  statusText: { color: '#fff', fontWeight: '900', fontSize: 12 },
+  statusText: { fontWeight: '900', fontSize: 11 },
   classSchedule: { paddingHorizontal: 14, paddingVertical: 10, color: '#9CA3AF' },
   attRow: { paddingHorizontal: 14, paddingVertical: 10, backgroundColor: '#F9FAFB', flexDirection: 'row', alignItems: 'center', gap: 12 },
   attItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
@@ -796,10 +607,21 @@ const styles = StyleSheet.create({
   actionsGrid: { padding: 12, flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'space-between' },
   actionBtn: { flexBasis: '48%', borderRadius: 14, paddingVertical: 12, alignItems: 'center', justifyContent: 'center', gap: 6 },
   actionText: { fontWeight: '900', fontSize: 12 },
-  infoCard: { marginTop: 4, backgroundColor: '#EFF6FF', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: '#DBEAFE', flexDirection: 'row', gap: 12 },
-  infoIcon: { width: 34, height: 34, borderRadius: 10, backgroundColor: '#DBEAFE', alignItems: 'center', justifyContent: 'center' },
-  infoTitle: { fontWeight: '900', color: '#1E3A8A' },
-  infoText: { marginTop: 4, color: '#2563EB', fontSize: 12, lineHeight: 16 },
+  guideBtn: {
+    marginTop: 4,
+    backgroundColor: '#EFF6FF',
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  guideIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#DBEAFE', alignItems: 'center', justifyContent: 'center' },
+  guideTitle: { fontWeight: '900', color: '#1E3A8A' },
+  guideSub: { marginTop: 2, color: '#2563EB', fontSize: 12 },
+  guideCta: { fontWeight: '900', color: '#2563EB', fontSize: 12 },
   loadingCard: { backgroundColor: '#fff', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: '#E5E7EB', alignItems: 'center' },
   loadingText: { color: '#6B7280', fontWeight: '800' },
   emptyCard: { backgroundColor: '#fff', borderRadius: 18, padding: 14, borderWidth: 1, borderColor: '#E5E7EB', alignItems: 'center' },

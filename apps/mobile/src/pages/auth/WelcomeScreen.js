@@ -1,68 +1,17 @@
-import React, { useEffect, useRef } from 'react';
-import { Animated, Image, StyleSheet, Text, View } from 'react-native';
+import React from 'react';
+import { Image, StyleSheet, Text, View } from 'react-native';
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
 import { COLORS } from '../../ui/theme';
+import Animated, { PulseGlow, enterDown } from '../../ui/motion';
 
 export default function WelcomeScreen({ navigation }) {
-  const glowScale = useRef(new Animated.Value(1)).current;
-  const glowOpacity = useRef(new Animated.Value(0.1)).current;
-  const logoOpacity = useRef(new Animated.Value(0)).current;
-  const logoTranslate = useRef(new Animated.Value(14)).current;
-  const textOpacity = useRef(new Animated.Value(0)).current;
-  const textTranslate = useRef(new Animated.Value(10)).current;
-  const cardOpacity = useRef(new Animated.Value(0)).current;
-  const cardTranslate = useRef(new Animated.Value(16)).current;
-
-  useEffect(() => {
-    Animated.stagger(120, [
-      Animated.parallel([
-        Animated.timing(logoOpacity, { toValue: 1, duration: 450, useNativeDriver: true }),
-        Animated.timing(logoTranslate, { toValue: 0, duration: 450, useNativeDriver: true }),
-      ]),
-      Animated.parallel([
-        Animated.timing(textOpacity, { toValue: 1, duration: 400, useNativeDriver: true }),
-        Animated.timing(textTranslate, { toValue: 0, duration: 400, useNativeDriver: true }),
-      ]),
-      Animated.parallel([
-        Animated.timing(cardOpacity, { toValue: 1, duration: 400, useNativeDriver: true }),
-        Animated.timing(cardTranslate, { toValue: 0, duration: 400, useNativeDriver: true }),
-      ]),
-    ]).start();
-
-    const pulse = Animated.loop(
-      Animated.sequence([
-        Animated.parallel([
-          Animated.timing(glowScale, { toValue: 1.06, duration: 1800, useNativeDriver: true }),
-          Animated.timing(glowOpacity, { toValue: 0.16, duration: 1800, useNativeDriver: true }),
-        ]),
-        Animated.parallel([
-          Animated.timing(glowScale, { toValue: 1, duration: 1800, useNativeDriver: true }),
-          Animated.timing(glowOpacity, { toValue: 0.1, duration: 1800, useNativeDriver: true }),
-        ]),
-      ])
-    );
-    pulse.start();
-    return () => pulse.stop();
-  }, [cardOpacity, cardTranslate, glowOpacity, glowScale, logoOpacity, logoTranslate, textOpacity, textTranslate]);
-
   return (
     <View style={styles.root}>
       <View style={styles.container}>
         <View style={styles.hero}>
-          <Animated.View
-            style={[
-              styles.logoGlow,
-              { opacity: glowOpacity, transform: [{ scale: glowScale }] },
-            ]}
-          />
-          <Animated.View
-            style={{
-              opacity: logoOpacity,
-              transform: [{ translateY: logoTranslate }],
-              alignItems: 'center',
-            }}
-          >
+          <PulseGlow style={styles.logoGlow} fromOpacity={0.1} toOpacity={0.16} toScale={1.06} />
+          <Animated.View entering={enterDown(40)} style={styles.center}>
             <View style={styles.logoWrap}>
               <Image
                 source={require('../../../assets/escudo_umb.png')}
@@ -70,20 +19,14 @@ export default function WelcomeScreen({ navigation }) {
               />
             </View>
           </Animated.View>
-          <Animated.View
-            style={{
-              opacity: textOpacity,
-              transform: [{ translateY: textTranslate }],
-              alignItems: 'center',
-            }}
-          >
+          <Animated.View entering={enterDown(140)} style={styles.center}>
             <Text style={styles.brand}>Universidad Manuela Beltrán</Text>
             <Text style={styles.title}>Toma Asistencia UMB</Text>
             <Text style={styles.subtitle}>Sistema de control de asistencia</Text>
           </Animated.View>
         </View>
 
-        <Animated.View style={{ opacity: cardOpacity, transform: [{ translateY: cardTranslate }] }}>
+        <Animated.View entering={enterDown(240)}>
           <Card style={styles.card}>
             <Text style={styles.cardText}>Elige una opción para continuar</Text>
             <View style={{ height: 16 }} />
@@ -118,6 +61,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 18,
   },
+  center: { alignItems: 'center' },
   logoGlow: {
     position: 'absolute',
     width: 150,

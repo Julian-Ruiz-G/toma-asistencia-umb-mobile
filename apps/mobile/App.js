@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -7,6 +7,8 @@ import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-cont
 
 import { AuthProvider } from './src/state/auth';
 import { COLORS } from './src/ui/theme';
+import { setupLocalNotifications, subscribeNotificationResponses } from './src/utils/localNotify';
+import { HoursNoticeHost } from './src/utils/attendanceQr';
 
 import SplashScreen from './src/pages/auth/SplashScreen';
 import WelcomeScreen from './src/pages/auth/WelcomeScreen';
@@ -18,6 +20,8 @@ import StudentSchedule from './src/pages/student/ScheduleScreen';
 import StudentNotifications from './src/pages/student/Notifications';
 import StudentProfile from './src/pages/student/StudentProfile';
 import StudentAttendanceHistory from './src/pages/student/AttendanceHistory';
+import StudentReminders from './src/pages/student/RemindersScreen';
+import StudentClassDetails from './src/pages/student/StudentClassDetails';
 import TeacherHome from './src/pages/teacher/TeacherDashboard';
 import TeacherCreateClass from './src/pages/teacher/CreateClass';
 import TeacherMyClasses from './src/pages/teacher/MyClasses';
@@ -29,6 +33,8 @@ import TeacherLiveAttendanceDashboard from './src/pages/teacher/LiveAttendanceDa
 import SessionHistory from './src/pages/teacher/SessionHistory';
 import InformeSessionsList from './src/pages/teacher/InformeSessionsList';
 import TeacherFaceRecognitionScreen from './src/pages/teacher/FaceRecognitionScreen';
+import TeacherProfile from './src/pages/teacher/TeacherProfile';
+import TeacherAttendanceGuide from './src/pages/teacher/TeacherAttendanceGuide';
 import TeacherManualCorrection from './src/pages/teacher/ManualCorrection';
 import ReportsDashboard from './src/pages/reports/ReportsDashboard';
 import ReportPreview from './src/pages/reports/ReportPreview';
@@ -52,7 +58,10 @@ function AppStack() {
   return (
     <View style={{ flex: 1, paddingBottom: bottomPad, backgroundColor: COLORS.background }}>
       <StatusBar style="auto" />
-      <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName="Splash">
+      <Stack.Navigator
+        screenOptions={{ headerShown: false, animation: 'fade_from_bottom', animationDuration: 280 }}
+        initialRouteName="Splash"
+      >
           <Stack.Screen name="Splash" component={SplashScreen} />
           <Stack.Screen name="Welcome" component={WelcomeScreen} />
           <Stack.Screen name="Login" component={LoginScreen} />
@@ -64,8 +73,12 @@ function AppStack() {
           <Stack.Screen name="StudentNotifications" component={StudentNotifications} />
           <Stack.Screen name="StudentProfile" component={StudentProfile} />
           <Stack.Screen name="StudentAttendanceHistory" component={StudentAttendanceHistory} />
+          <Stack.Screen name="StudentReminders" component={StudentReminders} />
+          <Stack.Screen name="StudentClassDetails" component={StudentClassDetails} />
 
           <Stack.Screen name="TeacherHome" component={TeacherHome} />
+          <Stack.Screen name="TeacherProfile" component={TeacherProfile} />
+          <Stack.Screen name="TeacherAttendanceGuide" component={TeacherAttendanceGuide} />
           <Stack.Screen name="TeacherCreateClass" component={TeacherCreateClass} />
           <Stack.Screen name="TeacherMyClasses" component={TeacherMyClasses} />
           <Stack.Screen name="TeacherClassDetails" component={TeacherClassDetails} />
@@ -97,12 +110,42 @@ function AppStack() {
 }
 
 export default function App() {
+  const navRef = useRef(null);
+
+  useEffect(() => {
+    let unsub = () => {};
+    let cancelled = false;
+    (async () => {
+      try {
+        await setupLocalNotifications();
+        if (cancelled) return;
+        unsub = subscribeNotificationResponses((response) => {
+          const data = response?.notification?.request?.content?.data;
+          if (data?.type === 'reminder') {
+            navRef.current?.navigate('StudentReminders');
+          } else {
+            navRef.current?.navigate('StudentNotifications');
+          }
+        });
+      } catch {
+        // APK preview antigua: sin módulo nativo de notificaciones. La app debe abrir igual.
+      }
+    })();
+    return () => {
+      cancelled = true;
+      unsub();
+    };
+  }, []);
+
   return (
     <SafeAreaProvider>
       <AuthProvider>
-        <NavigationContainer>
-          <AppStack />
-        </NavigationContainer>
+        <View style={{ flex: 1 }}>
+          <HoursNoticeHost />
+          <NavigationContainer ref={navRef}>
+            <AppStack />
+          </NavigationContainer>
+        </View>
       </AuthProvider>
     </SafeAreaProvider>
   );

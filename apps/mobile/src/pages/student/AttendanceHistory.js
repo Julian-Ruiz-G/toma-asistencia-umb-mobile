@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
   AlertCircle,
   ArrowLeft,
@@ -9,11 +9,15 @@ import {
   ChevronDown,
   Clock,
   Filter,
+  User,
+  X,
   XCircle,
 } from 'lucide-react-native';
 import { COLORS } from '../../ui/theme';
+import Animated, { enterDown, listEnter } from '../../ui/motion';
 import { STUDENT_ATTENDANCE_HISTORY_URL } from '../../config';
 import { useAuth } from '../../state/auth';
+import { formatActionDateTime } from '../../utils/formatDateTime';
 
 export default function AttendanceHistory({ navigation, route }) {
   const { authToken } = useAuth();
@@ -22,6 +26,7 @@ export default function AttendanceHistory({ navigation, route }) {
   const [showFilter, setShowFilter] = useState(false);
   const [loading, setLoading] = useState(true);
   const [attendanceData, setAttendanceData] = useState([]);
+  const [selected, setSelected] = useState(null);
 
   useEffect(() => {
     const next = String(route?.params?.filter || 'all');
@@ -61,10 +66,14 @@ export default function AttendanceHistory({ navigation, route }) {
         setAttendanceData(arr.map((r, idx) => ({
           id: String(r?.id || `${r?.sessionId || idx}`),
           date: String(r?.date || r?.dateRaw || '—'),
+          dateRaw: String(r?.dateRaw || ''),
           subject: String(r?.subject || 'Clase'),
           professor: String(r?.professor || 'Docente'),
           time: String(r?.time || '—'),
           status: String(r?.status || 'absent'),
+          sessionId: String(r?.sessionId || ''),
+          classId: String(r?.classId || ''),
+          markedAt: r?.markedAt ?? null,
         })));
       } catch (e) {
         Alert.alert('Error', e?.message || String(e));
@@ -89,6 +98,11 @@ export default function AttendanceHistory({ navigation, route }) {
     ? Math.round(((stats.present + stats.late) / stats.total) * 100)
     : 0;
 
+  const toggleStatFilter = (value) => {
+    setFilter((prev) => (prev === value ? 'all' : value));
+    setShowFilter(false);
+  };
+
   const statusCfg = (status) => {
     switch (status) {
       case 'present':
@@ -109,7 +123,7 @@ export default function AttendanceHistory({ navigation, route }) {
 
   return (
     <View style={styles.root}>
-      <View style={styles.header}>
+      <Animated.View entering={enterDown(0, 360)} style={styles.header}>
         <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
           <ArrowLeft size={24} color="#374151" />
         </Pressable>
@@ -117,34 +131,43 @@ export default function AttendanceHistory({ navigation, route }) {
           <Text style={styles.headerTitle}>Historial</Text>
           <Text style={styles.headerSubtitle}>Registro de asistencias</Text>
         </View>
-      </View>
+      </Animated.View>
 
       <ScrollView contentContainerStyle={styles.body}>
-        <View style={styles.statsRow}>
-          <View style={styles.statMiniCard}>
+        <Animated.View entering={enterDown(70)} style={styles.statsRow}>
+          <Pressable
+            onPress={() => toggleStatFilter('present')}
+            style={[styles.statMiniCard, filter === 'present' ? styles.statMiniCardActive : null]}
+          >
             <View style={[styles.statIcon, { backgroundColor: '#DCFCE7' }]}>
               <CheckCircle size={20} color="#16A34A" />
             </View>
             <Text style={styles.statNumber}>{stats.present}</Text>
             <Text style={styles.statMiniLabel}>Presentes</Text>
-          </View>
-          <View style={styles.statMiniCard}>
+          </Pressable>
+          <Pressable
+            onPress={() => toggleStatFilter('late')}
+            style={[styles.statMiniCard, filter === 'late' ? styles.statMiniCardActive : null]}
+          >
             <View style={[styles.statIcon, { backgroundColor: '#FEF3C7' }]}>
               <AlertCircle size={20} color="#A16207" />
             </View>
             <Text style={styles.statNumber}>{stats.late}</Text>
             <Text style={styles.statMiniLabel}>Retardos</Text>
-          </View>
-          <View style={styles.statMiniCard}>
+          </Pressable>
+          <Pressable
+            onPress={() => toggleStatFilter('absent')}
+            style={[styles.statMiniCard, filter === 'absent' ? styles.statMiniCardActive : null]}
+          >
             <View style={[styles.statIcon, { backgroundColor: '#FEE2E2' }]}>
               <XCircle size={20} color="#B91C1C" />
             </View>
             <Text style={styles.statNumber}>{stats.absent}</Text>
             <Text style={styles.statMiniLabel}>Ausencias</Text>
-          </View>
-        </View>
+          </Pressable>
+        </Animated.View>
 
-        <View style={styles.percentCard}>
+        <Animated.View entering={enterDown(120)} style={styles.percentCard}>
           <View>
             <Text style={styles.percentSub}>Porcentaje de asistencia</Text>
             <Text style={styles.percentValue}>{percent}%</Text>
@@ -152,7 +175,7 @@ export default function AttendanceHistory({ navigation, route }) {
           <View style={styles.percentIconWrap}>
             <BookOpen size={28} color="#fff" />
           </View>
-        </View>
+        </Animated.View>
 
         <View style={{ height: 14 }} />
 
@@ -194,10 +217,11 @@ export default function AttendanceHistory({ navigation, route }) {
           </View>
         ) : null}
 
-        {!loading && filtered.map((r) => {
+        {!loading && filtered.map((r, idx) => {
           const cfg = statusCfg(r.status);
           return (
-            <View key={r.id} style={[styles.recordCard, { borderColor: cfg.border }]}>
+            <Pressable key={r.id} onPress={() => setSelected(r)}>
+              <Animated.View entering={listEnter(idx)} style={[styles.recordCard, { borderColor: cfg.border }]}>
               <View style={[styles.recordIconWrap, { backgroundColor: cfg.bg }]}>
                 <cfg.Icon size={22} color={cfg.icon} />
               </View>
@@ -222,7 +246,8 @@ export default function AttendanceHistory({ navigation, route }) {
                   </View>
                 </View>
               </View>
-            </View>
+              </Animated.View>
+            </Pressable>
           );
         })}
 
@@ -237,6 +262,68 @@ export default function AttendanceHistory({ navigation, route }) {
 
         <View style={{ height: 18 }} />
       </ScrollView>
+
+      <Modal visible={!!selected} transparent animationType="fade" onRequestClose={() => setSelected(null)}>
+        <View style={styles.detailOverlay}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setSelected(null)} />
+          <View style={styles.detailCard}>
+            {selected ? (
+              <>
+                <View style={styles.detailHeader}>
+                  <View style={{ flex: 1, paddingRight: 8 }}>
+                    <Text style={styles.detailKicker}>Detalle de asistencia</Text>
+                    <Text style={styles.detailTitle}>{selected.subject}</Text>
+                  </View>
+                  <Pressable onPress={() => setSelected(null)} style={styles.detailClose} hitSlop={8}>
+                    <X size={18} color="#6B7280" />
+                  </Pressable>
+                </View>
+                {(() => {
+                  const cfg = statusCfg(selected.status);
+                  return (
+                    <View style={[styles.detailStatus, { backgroundColor: cfg.bg }]}>
+                      <cfg.Icon size={18} color={cfg.icon} />
+                      <Text style={[styles.detailStatusText, { color: cfg.text }]}>{cfg.label}</Text>
+                    </View>
+                  );
+                })()}
+                <View style={styles.detailRow}>
+                  <User size={16} color="#6B7280" />
+                  <View>
+                    <Text style={styles.detailLabel}>Docente</Text>
+                    <Text style={styles.detailValue}>{selected.professor || '—'}</Text>
+                  </View>
+                </View>
+                <View style={styles.detailRow}>
+                  <Calendar size={16} color="#6B7280" />
+                  <View>
+                    <Text style={styles.detailLabel}>Fecha de la sesión</Text>
+                    <Text style={styles.detailValue}>{selected.date || '—'}</Text>
+                  </View>
+                </View>
+                <View style={styles.detailRow}>
+                  <Clock size={16} color="#6B7280" />
+                  <View>
+                    <Text style={styles.detailLabel}>Hora de la clase</Text>
+                    <Text style={styles.detailValue}>{selected.time || '—'}</Text>
+                  </View>
+                </View>
+                <View style={styles.detailRow}>
+                  <CheckCircle size={16} color="#6B7280" />
+                  <View>
+                    <Text style={styles.detailLabel}>Hora de registro</Text>
+                    <Text style={styles.detailValue}>
+                      {selected.markedAt
+                        ? formatActionDateTime(selected.markedAt, '—')
+                        : 'Sin registro'}
+                    </Text>
+                  </View>
+                </View>
+              </>
+            ) : null}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -267,6 +354,12 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 6 },
     elevation: 1,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  statMiniCardActive: {
+    borderColor: COLORS.primary,
+    backgroundColor: '#FFF7F7',
   },
   statIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
   statNumber: { fontSize: 22, fontWeight: '900', color: '#1F2937' },
@@ -334,4 +427,41 @@ const styles = StyleSheet.create({
   emptyWrap: { alignItems: 'center', paddingVertical: 40 },
   emptyIcon: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
   emptyText: { color: '#6B7280' },
+  detailOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  detailCard: {
+    backgroundColor: '#fff',
+    borderRadius: 18,
+    padding: 18,
+  },
+  detailHeader: { flexDirection: 'row', alignItems: 'flex-start' },
+  detailKicker: { fontSize: 12, color: '#6B7280', fontWeight: '700' },
+  detailTitle: { marginTop: 4, fontSize: 18, fontWeight: '900', color: '#111827' },
+  detailClose: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  detailStatus: {
+    marginTop: 14,
+    marginBottom: 8,
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
+  detailStatusText: { fontWeight: '800', fontSize: 13 },
+  detailRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginTop: 12 },
+  detailLabel: { fontSize: 12, color: '#6B7280' },
+  detailValue: { marginTop: 2, fontWeight: '800', color: '#1F2937' },
 });

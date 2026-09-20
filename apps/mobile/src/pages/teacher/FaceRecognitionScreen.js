@@ -15,6 +15,7 @@ import { Button } from '../../components/Button';
 import { COLORS } from '../../ui/theme';
 import { CONFIRM_ATTENDANCE_PHOTO_URL } from '../../config';
 import { useAuth } from '../../state/auth';
+import { alertClassHoursError } from '../../utils/attendanceQr';
 
 export default function FaceRecognitionScreen({ navigation, route }) {
   const { authToken } = useAuth();
@@ -60,6 +61,9 @@ export default function FaceRecognitionScreen({ navigation, route }) {
     }
 
     if (!resp.ok) {
+      if (alertClassHoursError(json)) {
+        throw new Error('HOURS_NOTICE');
+      }
       const msg = (json && (json.error || json.message || json.details)) || text || `HTTP ${resp.status}`;
       throw new Error(msg);
     }
@@ -130,7 +134,9 @@ export default function FaceRecognitionScreen({ navigation, route }) {
         ],
       );
     } catch (e) {
-      Alert.alert('Error', e?.message || String(e));
+      if (String(e?.message || '') !== 'HOURS_NOTICE') {
+        Alert.alert('Error', e?.message || String(e));
+      }
     } finally {
       clearInterval(interval);
       setIsCapturing(false);

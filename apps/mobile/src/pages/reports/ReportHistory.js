@@ -21,6 +21,7 @@ import { Button } from '../../components/Button';
 import { COLORS } from '../../ui/theme';
 import { useAuth } from '../../state/auth';
 import { CLASS_DETAILS_URL, MY_CLASSES_URL } from '../../config';
+import { colombiaDateLongFromYmd, colombiaWeekdayLongFromYmd, extractYmd } from '../../utils/formatDateTime';
 
 export default function ReportHistory({ navigation }) {
   const { authToken } = useAuth();
@@ -94,7 +95,7 @@ export default function ReportHistory({ navigation }) {
             sessionId: sid,
             title: classMeta.title,
             subtitle: classMeta.group ? `Grupo ${classMeta.group}` : '',
-            dateLabel: String(s.sessionDate || sid),
+            dateLabel: [colombiaWeekdayLongFromYmd(extractYmd(s.sessionDate)), colombiaDateLongFromYmd(extractYmd(s.sessionDate) || s.sessionDate)].filter(Boolean).join(' · ') || String(s.sessionDate || sid),
             classMeta,
           });
         });

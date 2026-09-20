@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
-import { clearPersistedSession, loadPersistedSession, savePersistedSession } from '../utils/sessionStore';
+import { clearPersistedSession, loadLocalProfile, loadPersistedSession, savePersistedSession } from '../utils/sessionStore';
 
 const AuthContext = createContext(null);
 
@@ -14,6 +14,9 @@ export function AuthProvider({ children }) {
   const [program, setProgram] = useState('');
   const [semester, setSemester] = useState('');
   const [phone, setPhone] = useState('');
+  const [photoUri, setPhotoUri] = useState('');
+  const [notificationUnread, setNotificationUnread] = useState(0);
+  const [classesRevision, setClassesRevision] = useState(0);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -29,6 +32,8 @@ export function AuthProvider({ children }) {
         setProgram(String(saved.program || ''));
         setSemester(String(saved.semester || ''));
         setPhone(String(saved.phone || ''));
+        const local = await loadLocalProfile(saved.email);
+        setPhotoUri(String(local?.photoUri || ''));
       }
       setReady(true);
     })();
@@ -54,6 +59,12 @@ export function AuthProvider({ children }) {
     setSemester,
     phone,
     setPhone,
+    photoUri,
+    setPhotoUri,
+    notificationUnread,
+    setNotificationUnread,
+    classesRevision,
+    refreshStudentClasses: () => setClassesRevision((n) => n + 1),
     persistSession: async (session) => {
       await savePersistedSession(session);
     },
@@ -67,9 +78,12 @@ export function AuthProvider({ children }) {
       setProgram('');
       setSemester('');
       setPhone('');
+      setPhotoUri('');
+      setNotificationUnread(0);
+      setClassesRevision(0);
       clearPersistedSession();
     }
-  }), [ready, authToken, role, email, fullName, studentCode, teacherCode, program, semester, phone]);
+  }), [ready, authToken, role, email, fullName, studentCode, teacherCode, program, semester, phone, photoUri, notificationUnread, classesRevision]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

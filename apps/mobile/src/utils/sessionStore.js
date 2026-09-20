@@ -72,7 +72,7 @@ export async function saveLocalProfile(email, patch) {
 export async function copyLocalAvatar(email, sourceUri) {
   if (!FileSystem.documentDirectory || !sourceUri) return null;
   const safe = emailKey(email).replace(/[^a-z0-9]/g, '_') || 'user';
-  const dest = `${FileSystem.documentDirectory}umb-avatar-${safe}.jpg`;
+  const dest = `${FileSystem.documentDirectory}umb-avatar-${safe}-${Date.now()}.jpg`;
   await FileSystem.copyAsync({ from: sourceUri, to: dest });
   return dest;
 }

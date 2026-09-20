@@ -26,6 +26,8 @@ import { COLORS } from '../../ui/theme';
 import { ATTENDANCE_DETAILS_URL, REMOVE_STUDENT_FROM_CLASS_URL, SET_ATTENDANCE_STATUS_URL } from '../../config';
 import { useAuth } from '../../state/auth';
 import { alertClassHoursError } from '../../utils/attendanceQr';
+import { personDisplayName } from '../../utils/displayName';
+import { formatClockTime } from '../../utils/formatDateTime';
 
 // Componente principal del dashboard de asistencia en vivo
 export default function LiveAttendanceDashboard({ navigation, route }) {
@@ -235,11 +237,12 @@ export default function LiveAttendanceDashboard({ navigation, route }) {
       // 🔍 DEBUG: Log de cada estudiante
       console.log(`DEBUG Student ${idx}:`, { statusRaw, status, student: r?.studentEmail });
       return {
-        id: String(r?.studentEmail || r?.studentCode || idx), // ID único del estudiante
-        code: r?.studentCode || '', // Código del estudiante
-        name: r?.studentName || r?.studentEmail || 'Sin nombre', // Nombre para mostrar
+        id: String(r?.studentEmail || r?.studentCode || idx),
+        code: r?.studentCode || '',
+        email: r?.studentEmail || '',
+        name: personDisplayName(r?.studentName, 'Estudiante'),
         status,
-        time: r?.time || r?.markedAt || '', // Hora de marcación
+        time: formatClockTime(r?.markedAt || r?.time, ''),
         method: r?.method || 'manual', // Método de marcación (qr/face/manual)
       };
     });
@@ -272,7 +275,8 @@ export default function LiveAttendanceDashboard({ navigation, route }) {
       const matchesSearch =
         !q ||
         student.name.toLowerCase().includes(q) ||
-        String(student.code || '').includes(q);
+        String(student.code || '').includes(q) ||
+        String(student.email || '').toLowerCase().includes(q);
       return matchesFilter && matchesSearch;
     });
   }, [dataSource, filter, searchQuery]);
@@ -433,7 +437,7 @@ export default function LiveAttendanceDashboard({ navigation, route }) {
                     <Text numberOfLines={1} style={styles.studentName}>{student.name}</Text>
                     {getMethodDot(student.method)}
                   </View>
-                  <Text style={styles.studentCode}>{student.code}</Text>
+                  <Text style={styles.studentCode}>{student.code || student.email}</Text>
                   {student.time ? <Text style={styles.timeText}>{student.time}</Text> : null}
                 </View>
 

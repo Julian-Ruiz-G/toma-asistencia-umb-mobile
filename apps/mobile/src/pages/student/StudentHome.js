@@ -5,92 +5,38 @@ import { useFocusEffect } from '@react-navigation/native';
 // Importación de íconos desde lucide-react-native
 import {
   Bell,
+  BellRing,
+  BookOpen,
   Calendar,
+  ChevronRight,
+  History,
   LogOut,
-  QrCode,
-  RefreshCw,
   ScanLine,
   User,
 } from 'lucide-react-native';
 
 // Importaciones de configuración y contexto
 import { COLORS } from '../../ui/theme';
+import Animated, { enterDown, listEnter } from '../../ui/motion';
 import { useAuth } from '../../state/auth';
 import { MY_CLASSES_URL, STUDENT_ATTENDANCE_HISTORY_URL, STUDENT_DAILY_SUMMARY_URL, STUDENT_NOTIFICATIONS_URL } from '../../config';
 import { personDisplayName } from '../../utils/displayName';
 import { loadLocalProfile } from '../../utils/sessionStore';
 import { isStudentProfileComplete, studentProfileIncompleteMessage } from '../../utils/studentProfile';
+import { syncClassSoonNotifications } from '../../utils/classSoon';
+import { classStatusMeta } from '../../utils/schedule';
 
 // Componente principal de la pantalla de inicio del estudiante
 export default function StudentHome({ navigation }) {
   // Obtener datos de autenticación desde el contexto
-  const { logout, authToken, fullName, email, program, semester, phone, setProgram, setSemester, setPhone } = useAuth();
+  const { logout, authToken, fullName, email, program, semester, phone, setProgram, setSemester, setPhone, photoUri, setPhotoUri, notificationUnread, setNotificationUnread, classesRevision } = useAuth();
   // Estados locales del componente
   const [classes, setClasses] = useState([]); // Lista de clases registradas
   const [loadingClasses, setLoadingClasses] = useState(false); // Estado de carga
   const [dailySummary, setDailySummary] = useState(null);
   const [attendanceStats, setAttendanceStats] = useState({ present: 0, late: 0, absent: 0, loaded: false });
-  const [notificationCount, setNotificationCount] = useState(0);
-  const [photoUri, setPhotoUri] = useState('');
   const profileRef = React.useRef({ fullName, program, semester, phone });
   profileRef.current = { fullName, program, semester, phone };
-
-  // Función para normalizar nombres de días a formato estándar en inglés
-  const parseDayKey = (raw) => {
-    const s = String(raw || '').trim().toLowerCase();
-    // Mapeo completo de días en múltiples formatos (inglés, español, abreviaturas)
-    const map = {
-      monday: 'MONDAY', mon: 'MONDAY', lunes: 'MONDAY', lun: 'MONDAY',
-      tuesday: 'TUESDAY', tue: 'TUESDAY', martes: 'TUESDAY', mar: 'TUESDAY',
-      wednesday: 'WEDNESDAY', wed: 'WEDNESDAY', miercoles: 'WEDNESDAY', 'miércoles': 'WEDNESDAY', mie: 'WEDNESDAY', 'mié': 'WEDNESDAY',
-      thursday: 'THURSDAY', thu: 'THURSDAY', jueves: 'THURSDAY', jue: 'THURSDAY',
-      friday: 'FRIDAY', fri: 'FRIDAY', viernes: 'FRIDAY', vie: 'FRIDAY',
-      saturday: 'SATURDAY', sat: 'SATURDAY', sabado: 'SATURDAY', 'sábado': 'SATURDAY', sab: 'SATURDAY',
-      sunday: 'SUNDAY', sun: 'SUNDAY', domingo: 'SUNDAY', dom: 'SUNDAY',
-    };
-    return map[s] || String(raw || '').trim().toUpperCase();
-  };
-
-  // Función para obtener la clave del día actual en formato estándar
-  const getTodayKey = () => {
-    const d = new Date().getDay(); // getDay(): 0=Domingo, 1=Lunes, ..., 6=Sábado
-    return d === 0 ? 'SUNDAY' : d === 1 ? 'MONDAY' : d === 2 ? 'TUESDAY' : d === 3 ? 'WEDNESDAY' : d === 4 ? 'THURSDAY' : d === 5 ? 'FRIDAY' : 'SATURDAY';
-  };
-
-  // Función para convertir hora en formato HH:MM a minutos totales
-  const parseTimeToMinutes = (raw) => {
-    const str = String(raw || '').trim();
-    // Extraer horas y minutos usando regex
-    const m = str.match(/^(\d{1,2}):(\d{2})/);
-    if (!m) return null;
-    const hh = Number(m[1]);
-    const mm = Number(m[2]);
-    if (!Number.isFinite(hh) || !Number.isFinite(mm)) return null;
-    return hh * 60 + mm; // Convertir a minutos totales
-  };
-
-  // Función para determinar si una clase está en progreso ahora mismo
-  const isClassInProgressNow = (c) => {
-    // Obtener horario desde múltiples campos posibles
-    const raw = c?.schedule || c?.schedules || c?.horario || c?.horarios;
-    if (!Array.isArray(raw) || !raw.length) return false;
-    const now = new Date();
-    const nowMin = now.getHours() * 60 + now.getMinutes(); // Minutos totales actuales
-    const todayKey = getTodayKey();
-    return raw.some((s) => {
-      // Verificar si alguna entrada del horario corresponde al día actual
-      const dayKey = parseDayKey(s?.day || s?.dia);
-      if (dayKey !== todayKey) return false;
-      // Extraer horas de inicio y fin
-      const start = s?.startTime || s?.start || s?.horaInicio;
-      const end = s?.endTime || s?.end || s?.horaFin;
-      const startMin = parseTimeToMinutes(start);
-      const endMin = parseTimeToMinutes(end);
-      if (startMin == null || endMin == null) return false;
-      // Verificar si la hora actual está dentro del rango de la clase
-      return nowMin >= startMin && nowMin <= endMin;
-    });
-  };
 
   // Función asíncrona para cargar las clases registradas del estudiante
   const loadClasses = async () => {
@@ -127,6 +73,7 @@ export default function StudentHome({ navigation }) {
         (Array.isArray(json) && json) ||
         [];
       setClasses(arr);
+      syncClassSoonNotifications(email, arr).catch(() => {});
     } catch (e) {
       // Mostrar alerta en caso de error
       Alert.alert('Error', e?.message || String(e));
@@ -139,7 +86,10 @@ export default function StudentHome({ navigation }) {
   // Efecto para cargar clases al montar el componente
   useEffect(() => {
     loadClasses();
-    // cargar resumen diario y notificaciones
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authToken, classesRevision]);
+
+  useEffect(() => {
     (async () => {
       try {
         if (!authToken) return;
@@ -223,7 +173,7 @@ export default function StudentHome({ navigation }) {
             const unread = Number.isFinite(Number(json?.unreadCount))
               ? Number(json.unreadCount)
               : arr.filter((n) => !n?.read).length;
-            setNotificationCount(unread);
+            setNotificationUnread(unread);
           }
         }
       } catch {
@@ -254,27 +204,27 @@ export default function StudentHome({ navigation }) {
           const unread = Number.isFinite(Number(json?.unreadCount))
             ? Number(json.unreadCount)
             : arr.filter((n) => !n?.read).length;
-          setNotificationCount(unread);
+          setNotificationUnread(unread);
         }
       } catch {
         // ignore
       }
     };
     loadNotifs();
-    const timer = setInterval(loadNotifs, 20000);
     return () => {
       cancelled = true;
-      clearInterval(timer);
     };
   }, [authToken]);
 
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
+      loadClasses();
       (async () => {
         const local = await loadLocalProfile(email);
         if (cancelled) return;
-        setPhotoUri(String(local?.photoUri || ''));
+        const nextPhoto = String(local?.photoUri || '');
+        if (nextPhoto) setPhotoUri(nextPhoto);
         const cur = profileRef.current;
         const nextProgram = cur.program || String(local?.program || '');
         const nextSemester = cur.semester || String(local?.semester || '');
@@ -305,7 +255,7 @@ export default function StudentHome({ navigation }) {
       return () => {
         cancelled = true;
       };
-    }, [email, navigation, setProgram, setSemester, setPhone])
+    }, [email, navigation, setProgram, setSemester, setPhone, setPhotoUri])
   );
 
   // Memoización para definir los elementos del menú principal
@@ -329,13 +279,31 @@ export default function StudentHome({ navigation }) {
       badge: null,
     },
     {
+      id: 'reminders',
+      title: 'Recordatorio',
+      description: 'Actividades y pendientes',
+      Icon: BellRing,
+      bg: '#7C3AED',
+      onPress: () => navigation.navigate('StudentReminders'),
+      badge: null,
+    },
+    {
+      id: 'history',
+      title: 'Historial',
+      description: 'Tu registro de asistencias',
+      Icon: History,
+      bg: '#0F766E',
+      onPress: () => navigation.navigate('StudentAttendanceHistory'),
+      badge: null,
+    },
+    {
       id: 'notifications',
       title: 'Notificaciones',
       description: 'Mensajes y alertas importantes',
       Icon: Bell,
       bg: '#F59E0B',
       onPress: () => navigation.navigate('StudentNotifications'),
-      badge: notificationCount + (isStudentProfileComplete({ fullName, program, semester, phone }) ? 0 : 1),
+      badge: notificationUnread + (isStudentProfileComplete({ fullName, program, semester, phone }) ? 0 : 1),
     },
     {
       id: 'profile',
@@ -346,7 +314,7 @@ export default function StudentHome({ navigation }) {
       onPress: () => navigation.navigate('StudentProfile'),
       badge: null,
     },
-  ]), [navigation, notificationCount, fullName, program, semester, phone]);
+  ]), [navigation, notificationUnread, fullName, program, semester, phone]);
 
   const asistenciaCount = attendanceStats.loaded
     ? attendanceStats.present
@@ -366,15 +334,16 @@ export default function StudentHome({ navigation }) {
   return (
     <View style={styles.root}>
       <ScrollView contentContainerStyle={styles.scroll}>
-        <View style={styles.header}>
+        <Animated.View entering={enterDown(0, 400)} style={styles.header}>
           <View style={styles.headerRow}>
             <View style={styles.userRow}>
-              <View style={styles.avatar}>
+              <Pressable onPress={() => navigation.navigate('StudentProfile')} style={styles.avatar}>
                 <Image
+                  key={photoUri || 'default'}
                   source={photoUri ? { uri: photoUri } : require('../../../assets/escudo_umb.png')}
                   style={photoUri ? styles.avatarPhoto : styles.avatarImg}
                 />
-              </View>
+              </Pressable>
               <View>
                 <Text style={styles.welcome}>Bienvenido,</Text>
                 <Text style={styles.userName}>{personDisplayName(fullName, 'Estudiante')}</Text>
@@ -414,14 +383,15 @@ export default function StudentHome({ navigation }) {
               </Pressable>
             </View>
           </View>
-        </View>
+        </Animated.View>
 
         <View style={styles.content}>
-          <View style={styles.card}>
+          <Animated.View entering={enterDown(120)} style={styles.card}>
             <Text style={styles.sectionTitle}>Menú Principal</Text>
             <View style={styles.grid}>
-              {menuItems.map((item) => (
-                <Pressable key={item.id} onPress={item.onPress} style={styles.gridItem}>
+              {menuItems.map((item, idx) => (
+                <Animated.View key={item.id} entering={listEnter(idx)} style={styles.gridItemWrap}>
+                <Pressable onPress={item.onPress} style={styles.gridItem}>
                   <View style={[styles.gridIconWrap, { backgroundColor: item.bg }]}>
                     <item.Icon size={24} color="#fff" />
                   </View>
@@ -433,47 +403,50 @@ export default function StudentHome({ navigation }) {
                     </View>
                   ) : null}
                 </Pressable>
+                </Animated.View>
               ))}
             </View>
-          </View>
+          </Animated.View>
 
-          <View style={[styles.card, { marginTop: 18 }]}>
-            <View style={styles.recentHeader}>
-              <Text style={styles.sectionTitle}>Mis clases</Text>
-              <Pressable onPress={loadClasses} style={styles.recentLink}>
-                <RefreshCw size={16} color={COLORS.primary} />
-                <Text style={styles.recentLinkText}>{loadingClasses ? 'Cargando…' : 'Actualizar'}</Text>
-              </Pressable>
-            </View>
+          <Animated.View entering={enterDown(200)} style={[styles.card, { marginTop: 18 }]}>
+            <Text style={styles.sectionTitle}>Mis clases</Text>
 
             <View style={{ height: 10 }} />
 
             {classes.map((c, idx) => {
               const title = c?.className || c?.subject || c?.name || 'Clase';
               const group = c?.group || c?.groupName || c?.grupo || '';
-              const inProgress = isClassInProgressNow(c);
+              const classId = c?.classId || c?.id;
+              const status = classStatusMeta(c);
               return (
-                <View key={String(c?.classId || c?.id || idx)} style={styles.activityRow}>
-                  <View style={[styles.activityIcon, { backgroundColor: COLORS.primary }]}>
-                    <QrCode size={18} color="#fff" />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.activityTitle}>{title}</Text>
-                    <Text style={styles.activitySub}>{group ? `Grupo ${group}` : ''}</Text>
-                  </View>
-                  <View style={[styles.statusPill, inProgress ? styles.statusPillActive : styles.statusPillPending]}>
-                    <Text style={[styles.statusPillText, inProgress ? styles.statusTextActive : styles.statusTextPending]}>
-                      {inProgress ? 'En proceso' : 'Pendiente'}
-                    </Text>
-                  </View>
-                </View>
+                <Animated.View
+                  key={String(classId || idx)}
+                  entering={listEnter(idx)}
+                >
+                  <Pressable
+                    onPress={() => navigation.navigate('StudentClassDetails', { classId, classPreview: c })}
+                    style={styles.activityRow}
+                  >
+                    <View style={[styles.activityIcon, { backgroundColor: COLORS.primary }]}>
+                      <BookOpen size={18} color="#fff" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.activityTitle}>{title}</Text>
+                      <Text style={styles.activitySub}>{group ? `Grupo ${group}` : 'Toca para ver detalles'}</Text>
+                    </View>
+                    <View style={[styles.statusPill, { backgroundColor: status.pillBg, borderColor: status.pillBorder }]}>
+                      <Text style={[styles.statusPillText, { color: status.pillText }]}>{status.label}</Text>
+                    </View>
+                    <ChevronRight size={18} color="#9CA3AF" />
+                  </Pressable>
+                </Animated.View>
               );
             })}
 
             {!loadingClasses && classes.length === 0 ? (
               <Text style={styles.emptyText}>Aún no estás inscrito en clases.</Text>
             ) : null}
-          </View>
+          </Animated.View>
         </View>
       </ScrollView>
     </View>
@@ -534,13 +507,13 @@ const styles = StyleSheet.create({
   },
   sectionTitle: { color: '#1F2937', fontWeight: '800', marginBottom: 14 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+  gridItemWrap: { width: '48%', marginBottom: 12 },
   gridItem: {
-    width: '48%',
+    width: '100%',
     borderWidth: 1,
     borderColor: '#F3F4F6',
     borderRadius: 14,
     padding: 14,
-    marginBottom: 12,
   },
   gridIconWrap: { width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
   gridTitle: { fontWeight: '800', color: '#1F2937', fontSize: 14 },
@@ -557,9 +530,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   badgeText: { color: '#fff', fontSize: 11, fontWeight: '900' },
-  recentHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  recentLink: { flexDirection: 'row', alignItems: 'center' },
-  recentLinkText: { color: COLORS.primary, fontWeight: '700', marginRight: 4 },
   activityRow: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 14 },
   activityIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
   activityTitle: { fontWeight: '800', color: '#1F2937', fontSize: 13 },
@@ -568,9 +538,5 @@ const styles = StyleSheet.create({
   pillText: { fontSize: 12, fontWeight: '800' },
   emptyText: { color: '#6B7280', textAlign: 'center', marginTop: 6 },
   statusPill: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, borderWidth: 1 },
-  statusPillActive: { backgroundColor: '#ECFDF5', borderColor: '#BBF7D0' },
-  statusPillPending: { backgroundColor: '#FFFBEB', borderColor: '#FDE68A' },
-  statusPillText: { fontSize: 12, fontWeight: '900' },
-  statusTextActive: { color: '#16A34A' },
-  statusTextPending: { color: '#A16207' },
+  statusPillText: { fontSize: 11, fontWeight: '900' },
 });

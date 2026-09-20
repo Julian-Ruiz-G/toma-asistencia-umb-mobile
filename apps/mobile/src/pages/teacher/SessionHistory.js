@@ -20,6 +20,53 @@ import { Card } from '../../components/Card';
 import { COLORS } from '../../ui/theme';
 import { useAuth } from '../../state/auth';
 import { ATTENDANCE_DETAILS_URL, CLASS_DETAILS_URL } from '../../config';
+import {
+  colombiaDateLongFromYmd,
+  colombiaTodayYmd,
+  colombiaWeekdayLongFromYmd,
+  formatActionDateTime,
+  formatClockTime,
+} from '../../utils/formatDateTime';
+import { DAY_LONG, formatScheduleFriendly, resolveSessionYmd, scheduleHoursForYmd } from '../../utils/schedule';
+import { personDisplayName } from '../../utils/displayName';
+
+function mapClassSession(s, classDetails, extras = {}) {
+  const klass = classDetails?.class || {};
+  const sessionDate = resolveSessionYmd({
+    sessionDate: s?.sessionDate,
+    sessionId: s?.sessionId,
+    scheduledStartEpoch: s?.scheduledStartEpoch,
+    schedule: klass.schedule,
+  });
+  const hours = scheduleHoursForYmd(klass.schedule, sessionDate);
+  const startTime = hours.startTime || '';
+  const endTime = hours.endTime || '';
+  return {
+    sessionId: s?.sessionId,
+    sessionDate,
+    scheduledStartEpoch: parseInt(String(s?.scheduledStartEpoch || '0'), 10) || 0,
+    lateAfterSeconds: parseInt(String(s?.lateAfterSeconds || '900'), 10) || 900,
+    status: sessionDate && sessionDate === colombiaTodayYmd() ? 'active' : 'completed',
+    totalStudents: 0,
+    presentCount: 0,
+    lateCount: 0,
+    absentCount: 0,
+    createdAt: s?.createdAt || '',
+    classInfo: {
+      className: klass.className || extras.className || '',
+      group: klass.group || extras.group || '',
+      room: klass.room || extras.room || '',
+      subject: klass.className || extras.className || '',
+      teacher: personDisplayName(klass.teacherName, klass.teacherEmail || extras.email || ''),
+      scheduleLabel: formatScheduleFriendly(klass),
+    },
+    schedule: {
+      startTime,
+      endTime,
+      day: DAY_LONG[hours.dayKey] || colombiaWeekdayLongFromYmd(sessionDate),
+    },
+  };
+}
 
 // Componente principal del historial de sesiones
 export default function SessionHistory({ navigation, route }) {
@@ -125,31 +172,8 @@ export default function SessionHistory({ navigation, route }) {
       // Lista completa desde API (misma que Informe): más recientes primero
       const fromApi = Array.isArray(classDetails?.attendanceSessions) ? classDetails.attendanceSessions : [];
       if (fromApi.length > 0) {
-        const todayStr = new Date().toISOString().split('T')[0];
-        const mapped = fromApi.map((s) => ({
-          sessionId: s.sessionId,
-          sessionDate: s.sessionDate,
-          scheduledStartEpoch: parseInt(String(s.scheduledStartEpoch || '0'), 10) || 0,
-          lateAfterSeconds: parseInt(String(s.lateAfterSeconds || '900'), 10) || 900,
-          status: s.sessionDate === todayStr ? 'active' : 'completed',
-          totalStudents: 0,
-          presentCount: 0,
-          lateCount: 0,
-          absentCount: 0,
-          createdAt: s.sessionDate ? `${s.sessionDate}T12:00:00Z` : new Date().toISOString(),
-          classInfo: {
-            className: classDetails?.class?.className || className || 'Clase sin nombre',
-            group: classDetails?.class?.group || group || 'A',
-            room: classDetails?.class?.room || room || 'Aula 101',
-            subject: classDetails?.class?.className || className || 'Materia',
-            teacher: classDetails?.class?.teacherEmail || email || 'Docente',
-          },
-          schedule: {
-            startTime: classDetails?.class?.startTime || '09:00',
-            endTime: classDetails?.class?.endTime || '10:30',
-            day: '',
-          },
-        }));
+        const extras = { className, group, room, email };
+        const mapped = fromApi.map((s) => mapClassSession(s, classDetails, extras));
         mapped.sort((a, b) => {
           const da = String(a.sessionDate || '');
           const db = String(b.sessionDate || '');
@@ -178,30 +202,10 @@ export default function SessionHistory({ navigation, route }) {
         if (attendanceSession.classId === classId) {
           console.log('✅ DEBUG: Sesión activa encontrada para esta clase');
           // Sesión activa encontrada para esta clase
-          sessions.push({
-            sessionId: attendanceSession.sessionId,
-            sessionDate: attendanceSession.sessionDate || new Date().toISOString().split('T')[0],
-            scheduledStartEpoch: parseInt(attendanceSession.scheduledStartEpoch) || Math.floor(new Date().setHours(9, 0, 0, 0) / 1000),
-            lateAfterSeconds: parseInt(attendanceSession.lateAfterSeconds) || 900,
-            status: 'active',
-            totalStudents: classDetails?.students?.length || 0,
-            presentCount: 0, // Se actualizará al cargar detalles
-            lateCount: 0,
-            absentCount: 0,
-            createdAt: attendanceSession.createdAt || new Date().toISOString(),
-            classInfo: {
-              className: classDetails?.class?.className || className || 'Clase sin nombre',
-              group: classDetails?.class?.group || group || 'A',
-              room: classDetails?.class?.room || room || 'Aula 101',
-              subject: classDetails?.class?.className || className || 'Materia',
-              teacher: classDetails?.class?.teacherEmail || email || 'Docente',
-            },
-            schedule: {
-              startTime: classDetails?.class?.startTime || '09:00',
-              endTime: classDetails?.class?.endTime || '10:30',
-              day: new Date().toLocaleDateString('es-ES', { weekday: 'long' }).split(',')[0],
-            },
-          });
+          sessions.push(mapClassSession({
+            ...attendanceSession,
+            sessionDate: attendanceSession.sessionDate,
+          }, classDetails, { className, group, room, email }));
         } else {
           console.log('❌ DEBUG: attendanceSession.classId no coincide con classId');
         }
@@ -213,43 +217,26 @@ export default function SessionHistory({ navigation, route }) {
       console.log('🔍 DEBUG: Buscando sesiones reales para classId:', classId);
       
       // El backend ahora usa formato: classId_fecha para sessionIds
-      const today = new Date();
+      const extras = { className, group, room, email };
+      const todayYmd = colombiaTodayYmd();
       const realSessions = [];
-      
-      // Buscar sesiones de los últimos días usando el formato real del backend
+
       for (let i = 0; i <= 7; i++) {
-        const date = new Date(today.getTime() - i * 24 * 60 * 60 * 1000);
-        const dateStr = date.toISOString().split('T')[0];
-        
-        // Formato real que usa el backend: classId_fecha
-        const sessionId = `${classId}_${dateStr}`;
+        const probeYmd = new Intl.DateTimeFormat('en-CA', {
+          timeZone: 'America/Bogota',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+        }).format(new Date(Date.parse(`${todayYmd}T12:00:00-05:00`) - i * 86400000));
+        const sessionId = `${classId}_${probeYmd}`;
         console.log(`🔍 DEBUG: Probando sessionId: ${sessionId}`);
-        
-        // Crear sesión temporal para probar si existe
-        const tempSession = {
-          sessionId: sessionId,
-          sessionDate: dateStr,
-          scheduledStartEpoch: Math.floor(date.setHours(9, 0, 0, 0) / 1000),
+
+        const tempSession = mapClassSession({
+          sessionId,
+          sessionDate: probeYmd,
+          scheduledStartEpoch: 0,
           lateAfterSeconds: 900,
-          status: dateStr === today.toISOString().split('T')[0] ? 'active' : 'completed',
-          totalStudents: 0,
-          presentCount: 0,
-          lateCount: 0,
-          absentCount: 0,
-          createdAt: dateStr + 'T09:00:00Z',
-          classInfo: {
-            className: classDetails?.class?.className || className || 'Clase sin nombre',
-            group: classDetails?.class?.group || group || 'A',
-            room: classDetails?.class?.room || room || 'Aula 101',
-            subject: classDetails?.class?.className || className || 'Materia',
-            teacher: classDetails?.class?.teacherEmail || email || 'Docente',
-          },
-          schedule: {
-            startTime: classDetails?.class?.startTime || '09:00',
-            endTime: classDetails?.class?.endTime || '10:30',
-            day: date.toLocaleDateString('es-ES', { weekday: 'long' }).split(',')[0],
-          },
-        };
+        }, classDetails, extras);
         
         // Intentar cargar estadísticas reales
         const sessionWithStats = await loadSessionStats(tempSession);
@@ -273,8 +260,8 @@ export default function SessionHistory({ navigation, route }) {
       console.log(`🔍 DEBUG: Sesiones reales encontradas: ${realSessions.length}`);
       
       // Ordenar sesiones por fecha (más reciente primero)
-      const sortedSessions = sessions.sort((a, b) => 
-        new Date(b.sessionDate) - new Date(a.sessionDate)
+      const sortedSessions = sessions.sort((a, b) =>
+        String(b.sessionDate || '').localeCompare(String(a.sessionDate || ''))
       );
       
       // Cargar estadísticas reales para cada sesión (si no se cargaron antes)
@@ -357,24 +344,9 @@ export default function SessionHistory({ navigation, route }) {
   };
 
   // Función para formatear fecha
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('es-ES', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
-  };
+  const formatDate = (dateString) => colombiaDateLongFromYmd(dateString) || String(dateString || '—');
 
-  // Función para formatear hora
-  const formatTime = (epoch) => {
-    const date = new Date(epoch * 1000);
-    return date.toLocaleTimeString('es-ES', {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
+  const formatTime = (epoch) => formatClockTime(epoch, '');
 
   // Calcular porcentaje de asistencia
   const calculateAttendancePercentage = (present, late, total) => {
@@ -411,51 +383,82 @@ export default function SessionHistory({ navigation, route }) {
             </Text>
           </View>
         ) : (
-          sessions.map((session) => (
+          sessions.map((session) => {
+            const weekday = session.schedule?.day || colombiaWeekdayLongFromYmd(session.sessionDate) || '—';
+            const start = session.schedule?.startTime || formatTime(session.scheduledStartEpoch);
+            const end = session.schedule?.endTime || '';
+            const hoursLabel = start && end ? `${start} – ${end}` : start || end || '';
+            const pct = calculateAttendancePercentage(session.presentCount, session.lateCount, session.totalStudents);
+            const roomLabel = session.classInfo?.room || room || '';
+            return (
             <Card key={session.sessionId} style={styles.sessionCard}>
-              {/* Header con información de clase y sesión */}
               <View style={styles.sessionHeader}>
                 <View style={styles.sessionInfo}>
+                  <Text style={styles.weekday}>{weekday}</Text>
                   <Text style={styles.sessionDate}>
                     {formatDate(session.sessionDate)}
                   </Text>
-                  <Text style={styles.sessionTime}>
-                    <Clock size={16} color="#6B7280" />
-                    {' '}{session.schedule?.startTime || formatTime(session.scheduledStartEpoch)} - {session.schedule?.endTime || '10:30'}
-                  </Text>
-                  <Text style={styles.sessionClass}>
-                    {session.classInfo?.className || className} • {session.classInfo?.group || group} • {session.classInfo?.room || room}
-                  </Text>
                 </View>
-                <View style={styles.sessionStatus}>
-                  <View style={[
-                    styles.statusPill,
-                    { backgroundColor: session.status === 'completed' ? '#10B981' : session.status === 'active' ? '#F59E0B' : '#6B7280' }
-                  ]}>
-                    <Text style={styles.statusText}>
-                      {session.status === 'completed' ? 'Completada' : session.status === 'active' ? 'Activa' : 'Pendiente'}
-                    </Text>
-                  </View>
+                <View style={[
+                  styles.statusPill,
+                  { backgroundColor: session.status === 'completed' ? '#10B981' : session.status === 'active' ? '#F59E0B' : '#6B7280' }
+                ]}>
+                  <Text style={styles.statusText}>
+                    {session.status === 'completed' ? 'Completada' : session.status === 'active' ? 'Activa' : 'Pendiente'}
+                  </Text>
                 </View>
               </View>
 
-              {/* Detalles de la clase */}
+              <View style={styles.metaChips}>
+                {hoursLabel ? (
+                  <View style={styles.chip}>
+                    <Clock size={14} color="#6B7280" />
+                    <Text style={styles.chipText}>{hoursLabel}</Text>
+                  </View>
+                ) : null}
+                {roomLabel ? (
+                  <View style={styles.chip}>
+                    <Calendar size={14} color="#6B7280" />
+                    <Text style={styles.chipText}>{roomLabel}</Text>
+                  </View>
+                ) : null}
+              </View>
+
+              <Text style={styles.sessionClass}>
+                {session.classInfo?.className || className}
+                {session.classInfo?.group || group ? `  ·  Grupo ${session.classInfo?.group || group}` : ''}
+              </Text>
+              {session.classInfo?.scheduleLabel ? (
+                <Text style={styles.sessionClass}>Horario de la materia: {session.classInfo.scheduleLabel}</Text>
+              ) : null}
+
               <View style={styles.classDetails}>
                 <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Materia:</Text>
+                  <Text style={styles.detailLabel}>Materia</Text>
                   <Text style={styles.detailValue}>{session.classInfo?.subject || className}</Text>
                 </View>
+                {(session.classInfo?.group || group) ? (
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Grupo</Text>
+                    <Text style={styles.detailValue}>{session.classInfo?.group || group}</Text>
+                  </View>
+                ) : null}
                 <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Docente:</Text>
+                  <Text style={styles.detailLabel}>Docente</Text>
                   <Text style={styles.detailValue}>{session.classInfo?.teacher || email}</Text>
                 </View>
                 <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Día:</Text>
-                  <Text style={styles.detailValue}>{session.schedule?.day || 'Sin especificar'}</Text>
+                  <Text style={styles.detailLabel}>Día de la sesión</Text>
+                  <Text style={styles.detailValue}>{weekday}</Text>
+                </View>
+                <View style={[styles.detailRow, { marginBottom: 0 }]}>
+                  <Text style={styles.detailLabel}>ID de sesión</Text>
+                  <Text style={[styles.detailValue, { flex: 1, textAlign: 'right' }]} numberOfLines={2}>
+                    {session.sessionId}
+                  </Text>
                 </View>
               </View>
 
-              {/* Estadísticas de asistencia */}
               <View style={styles.sessionStats}>
                 <View style={styles.statRow}>
                   <View style={styles.statItem}>
@@ -463,49 +466,38 @@ export default function SessionHistory({ navigation, route }) {
                     <Text style={styles.statText}>{session.totalStudents} estudiantes</Text>
                   </View>
                   <View style={styles.statItem}>
-                    <Text style={styles.statLabel}>Asistencia:</Text>
-                    <Text style={[
-                      styles.statValue,
-                      { color: calculateAttendancePercentage(session.presentCount, session.lateCount, session.totalStudents) >= 80 ? '#10B981' : '#F59E0B' }
-                    ]}>
-                      {calculateAttendancePercentage(session.presentCount, session.lateCount, session.totalStudents)}%
+                    <Text style={styles.statLabel}>Asistencia</Text>
+                    <Text style={[styles.statValue, { color: pct >= 80 ? '#10B981' : '#F59E0B' }]}>
+                      {pct}%
                     </Text>
                   </View>
                 </View>
-                
+
                 <View style={styles.attendanceBreakdown}>
-                  <View style={styles.breakdownItem}>
-                    <View style={styles.breakdownDot} />
-                    <Text style={styles.breakdownText}>
-                      Presentes: {session.presentCount}
-                    </Text>
+                  <View style={styles.breakdownCol}>
+                    <Text style={[styles.breakdownNum, { color: '#10B981' }]}>{session.presentCount}</Text>
+                    <Text style={styles.breakdownText}>Presentes</Text>
                   </View>
-                  <View style={styles.breakdownItem}>
-                    <View style={[styles.breakdownDot, { backgroundColor: '#F59E0B' }]} />
-                    <Text style={styles.breakdownText}>
-                      Retardos: {session.lateCount}
-                    </Text>
+                  <View style={styles.breakdownCol}>
+                    <Text style={[styles.breakdownNum, { color: '#F59E0B' }]}>{session.lateCount}</Text>
+                    <Text style={styles.breakdownText}>Retardos</Text>
                   </View>
-                  <View style={styles.breakdownItem}>
-                    <View style={[styles.breakdownDot, { backgroundColor: '#EF4444' }]} />
-                    <Text style={styles.breakdownText}>
-                      Ausentes: {session.absentCount}
-                    </Text>
+                  <View style={styles.breakdownCol}>
+                    <Text style={[styles.breakdownNum, { color: '#EF4444' }]}>{session.absentCount}</Text>
+                    <Text style={styles.breakdownText}>Ausentes</Text>
                   </View>
                 </View>
               </View>
 
-              {/* Información de tiempo */}
               <View style={styles.timeInfo}>
                 <Text style={styles.timeLabel}>
-                  Sesión creada: {new Date(session.createdAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                  Creada {session.createdAt ? formatActionDateTime(session.createdAt) : '—'}
                 </Text>
                 <Text style={styles.timeLabel}>
-                  Tolerancia: {Math.floor((session.lateAfterSeconds || 600) / 60)} minutos
+                  Tolerancia {Math.floor((session.lateAfterSeconds || 600) / 60)} min
                 </Text>
               </View>
 
-              {/* Acciones */}
               <View style={styles.sessionActions}>
                 <Pressable
                   onPress={() => handleViewSession(session)}
@@ -514,24 +506,22 @@ export default function SessionHistory({ navigation, route }) {
                   <Eye size={16} color="#0284C7" />
                   <Text style={[styles.actionText, { color: '#0284C7' }]}>Ver</Text>
                 </Pressable>
-                
                 <Pressable
                   onPress={() => handleGenerateQR(session)}
                   style={[
-                    styles.actionBtn, 
+                    styles.actionBtn,
                     { backgroundColor: session.status === 'active' ? '#F0FDF4' : '#F3F4F6' }
                   ]}
                   disabled={session.status !== 'active'}
                 >
                   <QrCode size={16} color={session.status === 'active' ? '#16A34A' : '#9CA3AF'} />
                   <Text style={[
-                    styles.actionText, 
+                    styles.actionText,
                     { color: session.status === 'active' ? '#16A34A' : '#9CA3AF' }
                   ]}>
                     QR
                   </Text>
                 </Pressable>
-                
                 <Pressable
                   onPress={() => handleDownloadReport(session)}
                   style={[styles.actionBtn, { backgroundColor: '#FFFBEB' }]}
@@ -541,7 +531,8 @@ export default function SessionHistory({ navigation, route }) {
                 </Pressable>
               </View>
             </Card>
-          ))
+            );
+          })
         )}
       </ScrollView>
     </View>
@@ -594,7 +585,8 @@ const styles = StyleSheet.create({
   },
   body: {
     padding: 16,
-    gap: 12,
+    paddingBottom: 32,
+    gap: 16,
   },
   emptyState: {
     alignItems: 'center',
@@ -613,89 +605,120 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   sessionCard: {
-    padding: 16,
+    padding: 18,
+    borderRadius: 18,
   },
   sessionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: 12,
+    gap: 12,
   },
   sessionInfo: {
     flex: 1,
   },
-  sessionDate: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#111827',
+  weekday: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: COLORS.primary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
     marginBottom: 4,
   },
-  sessionTime: {
-    fontSize: 14,
-    color: '#6B7280',
+  sessionDate: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#111827',
+    textTransform: 'capitalize',
+    lineHeight: 24,
+  },
+  metaChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 12,
+  },
+  chip: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
+  chipText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#4B5563',
   },
   sessionClass: {
     fontSize: 14,
-    color: '#6B7280',
-    marginTop: 4,
-  },
-  sessionStatus: {
-    marginLeft: 12,
+    color: '#4B5563',
+    fontWeight: '600',
+    marginBottom: 14,
+    lineHeight: 20,
   },
   statusPill: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
   },
   statusText: {
-    fontSize: 12,
-    fontWeight: '500',
+    fontSize: 11,
+    fontWeight: '800',
     color: '#FFFFFF',
   },
   classDetails: {
     backgroundColor: '#F9FAFB',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 12,
+    padding: 14,
+    borderRadius: 14,
+    marginBottom: 14,
+    gap: 10,
   },
   detailRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
+    alignItems: 'flex-start',
+    gap: 12,
   },
   detailLabel: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#6B7280',
-    fontWeight: '500',
+    fontWeight: '700',
+    width: 90,
   },
   detailValue: {
     fontSize: 13,
-    color: '#374151',
-    fontWeight: '600',
+    color: '#111827',
+    fontWeight: '700',
+    flex: 1,
+    textAlign: 'right',
   },
   timeInfo: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 12,
-    paddingTop: 8,
+    marginBottom: 14,
+    paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: '#E5E7EB',
+    gap: 8,
   },
   timeLabel: {
     fontSize: 12,
     color: '#6B7280',
+    fontWeight: '600',
+    flex: 1,
   },
   sessionStats: {
-    marginBottom: 16,
+    marginBottom: 4,
   },
   statRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   statItem: {
     flexDirection: 'row',
@@ -705,51 +728,53 @@ const styles = StyleSheet.create({
   statText: {
     fontSize: 14,
     color: '#6B7280',
+    fontWeight: '600',
   },
   statLabel: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#6B7280',
+    marginRight: 6,
   },
   statValue: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: '800',
   },
   attendanceBreakdown: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    backgroundColor: '#F9FAFB',
+    borderRadius: 14,
+    paddingVertical: 12,
+    marginBottom: 4,
   },
-  breakdownItem: {
-    flexDirection: 'row',
+  breakdownCol: {
+    flex: 1,
     alignItems: 'center',
-    gap: 6,
   },
-  breakdownDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#10B981',
+  breakdownNum: {
+    fontSize: 18,
+    fontWeight: '900',
   },
   breakdownText: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#6B7280',
+    fontWeight: '700',
+    marginTop: 4,
   },
   sessionActions: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    gap: 8,
   },
   actionBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    marginHorizontal: 4,
+    paddingVertical: 12,
+    borderRadius: 12,
     gap: 6,
   },
   actionText: {
-    fontSize: 12,
-    fontWeight: '500',
+    fontSize: 13,
+    fontWeight: '800',
   },
 });
