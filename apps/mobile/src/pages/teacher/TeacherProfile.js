@@ -7,6 +7,7 @@ import {
   Camera,
   CheckCircle,
   ChevronRight,
+  FileText,
   Hash,
   LogOut,
   Mail,
@@ -14,9 +15,8 @@ import {
   User,
 } from 'lucide-react-native';
 
-import { Button } from '../../components/Button';
-import { Card } from '../../components/Card';
 import OverlayDismiss from '../../components/OverlayDismiss';
+import { Card } from '../../components/Card';
 import TermsAndConditionsModal from '../../components/TermsAndConditions';
 import PrivacyPolicyModal from '../../components/PrivacyPolicy';
 import { AppSettingsBlocks, AppAboutBlock } from '../../components/AppSettingsPanel';
@@ -29,13 +29,14 @@ import { SET_CONSENT_URL } from '../../config';
 import {
   copyLocalAvatar,
   loadLocalProfile,
+  loadPersistedSession,
   saveLocalProfile,
 } from '../../utils/sessionStore';
 
 export default function TeacherProfile({ navigation, route }) {
   const COLORS = useColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
-  const { email, logout, teacherCode, fullName, photoUri, setPhotoUri, authToken } = useAuth();
+  const { email, logout, teacherCode, fullName, photoUri, setPhotoUri, authToken, acceptTerms, setAcceptTerms, acceptPrivacy, setAcceptPrivacy, persistSession } = useAuth();
   const [showPrivacyMenu, setShowPrivacyMenu] = useState(false);
   const [legalDoc, setLegalDoc] = useState(null);
   const requestedOpen = String(route?.params?.open || '');
@@ -58,15 +59,25 @@ export default function TeacherProfile({ navigation, route }) {
 
   const saveConsent = async (fields) => {
     try {
-      if (!SET_CONSENT_URL || !authToken) return;
-      await fetch(SET_CONSENT_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${authToken}`,
-        },
-        body: JSON.stringify(fields),
-      });
+      if (SET_CONSENT_URL && authToken) {
+        await fetch(SET_CONSENT_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${authToken}`,
+          },
+          body: JSON.stringify(fields),
+        });
+      }
+    } catch {
+      // ignore
+    }
+    if (fields.acceptTerms) setAcceptTerms(true);
+    if (fields.acceptPrivacy) setAcceptPrivacy(true);
+    await saveLocalProfile(email, fields);
+    try {
+      const saved = await loadPersistedSession();
+      if (saved) await persistSession({ ...saved, ...fields });
     } catch {
       // ignore
     }
@@ -205,25 +216,54 @@ export default function TeacherProfile({ navigation, route }) {
       <Modal visible={showPrivacyMenu} transparent animationType="fade" onRequestClose={() => setShowPrivacyMenu(false)}>
         <OverlayDismiss style={styles.modalOverlay} onClose={() => setShowPrivacyMenu(false)}>
           <View style={styles.modalCard}>
+            <View style={styles.privacyIconWrap}>
+              <Shield size={22} color={COLORS.primary} />
+            </View>
             <Text style={styles.modalTitle}>Privacidad</Text>
-            <Button fullWidth variant="outline" onPress={() => { setShowPrivacyMenu(false); setLegalDoc('terms'); }}>Términos y condiciones</Button>
-            <View style={{ height: 10 }} />
-            <Button fullWidth variant="outline" onPress={() => { setShowPrivacyMenu(false); setLegalDoc('privacy'); }}>Política de privacidad</Button>
-            <View style={{ height: 10 }} />
-            <Button fullWidth variant="ghost" onPress={() => setShowPrivacyMenu(false)}>Cerrar</Button>
+            <Text style={styles.modalText}>Consulta y acepta los documentos legales de la cuenta docente.</Text>
+            <View style={{ height: 8 }} />
+            <Pressable
+              onPress={() => { setShowPrivacyMenu(false); setLegalDoc('terms'); }}
+              style={styles.privacyRow}
+            >
+              <View style={styles.privacyRowIcon}>
+                <FileText size={18} color={COLORS.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.privacyRowText}>Términos y condiciones</Text>
+                <Text style={styles.privacyRowHint}>{acceptTerms ? 'Aceptados' : 'Pendiente de aceptar'}</Text>
+              </View>
+              <ChevronRight size={18} color={COLORS.placeholder} />
+            </Pressable>
+            <Pressable
+              onPress={() => { setShowPrivacyMenu(false); setLegalDoc('privacy'); }}
+              style={[styles.privacyRow, styles.privacyRowLast]}
+            >
+              <View style={styles.privacyRowIcon}>
+                <Shield size={18} color={COLORS.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.privacyRowText}>Política de privacidad</Text>
+                <Text style={styles.privacyRowHint}>{acceptPrivacy ? 'Aceptada' : 'Pendiente de aceptar'}</Text>
+              </View>
+              <ChevronRight size={18} color={COLORS.placeholder} />
+            </Pressable>
+            <Pressable onPress={() => setShowPrivacyMenu(false)}>
+              <Text style={styles.privacyClose}>Cerrar</Text>
+            </Pressable>
           </View>
         </OverlayDismiss>
       </Modal>
 
       <TermsAndConditionsModal
         visible={legalDoc === 'terms'}
-        readOnly={!fromAdminRequest}
+        readOnly={acceptTerms && !fromAdminRequest}
         onClose={() => setLegalDoc(null)}
         onAccept={() => { saveConsent({ acceptTerms: true }); setLegalDoc(null); }}
       />
       <PrivacyPolicyModal
         visible={legalDoc === 'privacy'}
-        readOnly={!fromAdminRequest}
+        readOnly={acceptPrivacy && !fromAdminRequest}
         onClose={() => setLegalDoc(null)}
         onAccept={() => { saveConsent({ acceptPrivacy: true }); setLegalDoc(null); }}
       />
@@ -274,7 +314,37 @@ const createStyles = (COLORS) => StyleSheet.create({
   logoutCard: { padding: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   logoutText: { fontWeight: '800', color: COLORS.dangerStrong },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(17,24,39,0.45)', justifyContent: 'center', padding: 24 },
-  modalCard: { backgroundColor: COLORS.card, borderRadius: 18, padding: 20 },
-  modalTitle: { fontWeight: '900', fontSize: 18, color: COLORS.text, textAlign: 'center' },
-  modalText: { marginTop: 8, color: COLORS.muted, textAlign: 'center' },
+  modalCard: { backgroundColor: COLORS.card, borderRadius: 20, padding: 20, width: '100%', maxWidth: 360, alignSelf: 'center' },
+  privacyIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    backgroundColor: COLORS.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+  },
+  modalTitle: { marginTop: 12, fontWeight: '900', fontSize: 20, color: COLORS.text, textAlign: 'center' },
+  modalText: { marginTop: 6, marginBottom: 8, color: COLORS.muted, textAlign: 'center', lineHeight: 20 },
+  privacyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  privacyRowLast: { borderBottomWidth: 0 },
+  privacyRowIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: COLORS.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  privacyRowText: { fontWeight: '800', color: COLORS.text, fontSize: 14 },
+  privacyRowHint: { marginTop: 2, color: COLORS.muted, fontSize: 12, fontWeight: '700' },
+  privacyClose: { marginTop: 4, textAlign: 'center', color: COLORS.muted, fontWeight: '800', paddingVertical: 10 },
 });

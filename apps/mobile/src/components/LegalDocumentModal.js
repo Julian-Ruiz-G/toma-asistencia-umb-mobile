@@ -17,27 +17,37 @@ export default function LegalDocumentModal({
   markdown,
   acceptLabel,
   hideAccept = false,
+  blocking = false,
 }) {
   const COLORS = useColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const insets = useSafeAreaInsets();
   const showFooter = !hideAccept && !!onAccept;
+  const canClose = !blocking;
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={canClose ? onClose : undefined}>
       <View style={styles.overlay}>
         <View style={styles.container}>
           <View style={[styles.header, { backgroundColor: accent, paddingTop: Math.max(insets.top, 16) + 8 }]}>
-            <Pressable onPress={onClose} style={styles.headerIconBtn} hitSlop={8}>
-              <ArrowLeft size={20} color={COLORS.white} />
-            </Pressable>
+            {canClose ? (
+              <Pressable onPress={onClose} style={styles.headerIconBtn} hitSlop={8}>
+                <ArrowLeft size={20} color={COLORS.white} />
+              </Pressable>
+            ) : (
+              <View style={styles.headerIconBtn} />
+            )}
             <View style={styles.headerContent}>
               {Icon ? <Icon size={18} color={COLORS.white} /> : null}
               <Text style={styles.headerTitle} numberOfLines={1}>{title}</Text>
             </View>
-            <Pressable onPress={onClose} style={styles.headerIconBtn} hitSlop={8}>
-              <X size={18} color={COLORS.white} />
-            </Pressable>
+            {canClose ? (
+              <Pressable onPress={onClose} style={styles.headerIconBtn} hitSlop={8}>
+                <X size={18} color={COLORS.white} />
+              </Pressable>
+            ) : (
+              <View style={styles.headerIconBtn} />
+            )}
           </View>
 
           <ScrollView

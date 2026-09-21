@@ -33,6 +33,8 @@ def handle_register_teacher(event, body):
         'Role': {'S': 'teacher'},
         'PasswordSalt': {'S': salt_hex},
         'PasswordHash': {'S': pw_hash},
+        'AcceptTerms': {'BOOL': False},
+        'AcceptPrivacy': {'BOOL': False},
     }
     if teacher_code:
         item['TeacherCode'] = {'S': teacher_code}
@@ -105,6 +107,8 @@ def handle_login_teacher(event, body):
         'fullName': (item.get('FullName', {}) or {}).get('S'),
         'teacherCode': stored_code,
         'authToken': token,
+        'acceptTerms': _ddb_bool(item, 'AcceptTerms') is True,
+        'acceptPrivacy': _ddb_bool(item, 'AcceptPrivacy') is True,
     })
 
 def handle_login_admin(event, body):

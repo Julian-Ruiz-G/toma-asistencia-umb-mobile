@@ -292,13 +292,14 @@ Declaro que he leído esta Política de Privacidad y Tratamiento de Datos Person
 Al pulsar el botón de aceptación, **autorizo** el tratamiento de mis datos personales de acuerdo con esta Política.
 `;
 
-export default function PrivacyPolicyModal({ visible, onClose, onAccept, readOnly = false }) {
+export default function PrivacyPolicyModal({ visible, onClose, onAccept, readOnly = false, blocking = false }) {
   return (
     <LegalDocumentModal
       visible={visible}
       onClose={onClose}
       onAccept={onAccept}
       hideAccept={readOnly}
+      blocking={blocking}
       title="Política de Privacidad"
       accent={COLORS.primary}
       Icon={Shield}

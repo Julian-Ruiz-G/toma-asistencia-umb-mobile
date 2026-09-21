@@ -12,7 +12,6 @@ import {
   Send,
   Trash2,
   Users,
-  XCircle,
 } from 'lucide-react-native';
 
 import OverlayDismiss from '../../components/OverlayDismiss';
@@ -64,22 +63,22 @@ export default function DocentesPage({ navigation }) {
 
       const arr = Array.isArray(json?.teachers) ? json.teachers : [];
       const mapped = arr.map((t, idx) => {
-        const parts = String(t?.fullName || '').trim().split(' ');
+        const email = String(t?.email || '').trim().toLowerCase();
+        const fullName = String(t?.fullName || '').trim();
+        const parts = fullName.split(' ').filter(Boolean);
         const firstName = parts[0] || '';
         const lastName = parts.slice(1).join(' ');
+        const rekognitionId = String(t?.id || '').trim();
         return {
-          id: `${String(t?.email || 'row').trim().toLowerCase() || 'row'}-${idx}`,
+          id: rekognitionId || `${email || 'row'}-${idx}`,
+          rekognitionId,
           code: String(t?.teacherCode || ''),
           firstName,
           lastName,
-          email: String(t?.email || ''),
-          department: '—',
-          specialization: '—',
+          fullName,
+          email,
           status: 'active',
           subjectsCount: Number(t?.subjectsCount || 0),
-          biometricRegistered: true,
-          lastAccess: '',
-          fullName: String(t?.fullName || '').trim(),
           acceptTerms: t?.acceptTerms === true,
           acceptPrivacy: t?.acceptPrivacy === true,
         };
@@ -213,32 +212,29 @@ export default function DocentesPage({ navigation }) {
 
         {paginated.map((t) => {
           const b = statusBadge(t.status);
+          const displayName = `${t.firstName || ''} ${t.lastName || ''}`.trim() || t.fullName || 'Sin nombre';
           return (
             <View key={t.id} style={styles.card}>
               <View style={styles.cardTop}>
                 <View style={{ flex: 1 }}>
                   <View style={styles.nameRow}>
-                    <Text style={styles.nameText}>{t.firstName} {t.lastName}</Text>
+                    <Text style={styles.nameText}>{displayName}</Text>
                     <View style={[styles.badge, { backgroundColor: b.bg }]}>
                       <Text style={[styles.badgeText, { color: b.text }]}>{b.label}</Text>
                     </View>
                   </View>
-                  <Text style={styles.metaText}>{t.code}</Text>
-                  <Text style={styles.metaText}>{t.department} • {t.specialization}</Text>
+                  {t.code ? <Text style={styles.metaText}>{t.code}</Text> : null}
+                  <Text style={styles.metaText}>{t.email || 'Sin correo'}</Text>
                   <View style={styles.metaRow}>
-                    <Text style={styles.metaSmall}>{t.subjectsCount} asignaturas</Text>
+                    <Text style={styles.metaSmall}>{t.subjectsCount} {t.subjectsCount === 1 ? 'clase' : 'clases'}</Text>
                     <Text style={styles.metaSep}>|</Text>
-                    {t.biometricRegistered ? (
-                      <View style={styles.bioRow}>
-                        <CheckCircle size={12} color={COLORS.successStrong} />
-                        <Text style={[styles.metaSmall, { color: COLORS.successStrong }]}>Biometría</Text>
-                      </View>
-                    ) : (
-                      <View style={styles.bioRow}>
-                        <XCircle size={12} color={COLORS.dangerStrong} />
-                        <Text style={[styles.metaSmall, { color: COLORS.dangerStrong }]}>Sin biometría</Text>
-                      </View>
-                    )}
+                    <Text style={[styles.metaSmall, { color: t.acceptTerms ? COLORS.successStrong : COLORS.dangerStrong }]}>
+                      {t.acceptTerms ? 'Términos' : 'Sin términos'}
+                    </Text>
+                    <Text style={styles.metaSep}>|</Text>
+                    <Text style={[styles.metaSmall, { color: t.acceptPrivacy ? COLORS.successStrong : COLORS.dangerStrong }]}>
+                      {t.acceptPrivacy ? 'Privacidad' : 'Sin privacidad'}
+                    </Text>
                   </View>
                 </View>
 
@@ -260,9 +256,10 @@ export default function DocentesPage({ navigation }) {
                   <Pressable
                     style={styles.iconAction}
                     onPress={() => {
+                      const label = t.email || displayName;
                       appAlert(
                         'Confirmar',
-                        `¿Eliminar docente ${t.email || ''}?`,
+                        `¿Eliminar docente ${label}?`,
                         [
                           { text: 'Cancelar', style: 'cancel' },
                           {
@@ -272,13 +269,20 @@ export default function DocentesPage({ navigation }) {
                               try {
                                 if (!authToken) throw new Error('Sesión inválida');
                                 if (!ADMIN_DELETE_TEACHER_URL) throw new Error('API no configurada');
+                                const payload = {
+                                  email: String(t.email || '').trim().toLowerCase(),
+                                  id: String(t.rekognitionId || '').trim(),
+                                };
+                                if (!payload.email && !payload.id) {
+                                  throw new Error('Este registro no tiene correo. No se puede borrar hasta actualizar el servidor.');
+                                }
                                 const resp = await fetch(ADMIN_DELETE_TEACHER_URL, {
                                   method: 'POST',
                                   headers: {
                                     'Content-Type': 'application/json',
                                     'Authorization': `Bearer ${authToken}`,
                                   },
-                                  body: JSON.stringify({ email: t.email }),
+                                  body: JSON.stringify(payload),
                                 });
                                 const text = await resp.text();
                                 let json;
@@ -303,7 +307,7 @@ export default function DocentesPage({ navigation }) {
               </View>
               {(() => {
                 const gaps = teacherGaps(t);
-                if (!gaps.length) return null;
+                if (!gaps.length || !t.email) return null;
                 return (
                   <Pressable
                     onPress={() => requestTeacher(t)}

@@ -23,9 +23,8 @@ import { COLORS } from '../ui/theme';
 import { useAppTheme, useColors } from '../ui/ThemeContext';
 import Animated, { enterDown, listEnter } from '../ui/motion';
 import { useAuth } from '../state/auth';
-import { CLASS_DETAILS_URL, CREATE_ATTENDANCE_QR_URL, MARK_NOTIFICATIONS_READ_URL, MY_CLASSES_URL, DELETE_CLASS_URL, STUDENT_NOTIFICATIONS_URL } from '../config';
+import { CLASS_DETAILS_URL, CREATE_ATTENDANCE_QR_URL, MARK_NOTIFICATIONS_READ_URL, MY_CLASSES_URL, DELETE_CLASS_URL, SET_CONSENT_URL, STUDENT_NOTIFICATIONS_URL } from '../config';
 import { personDisplayName } from '../utils/displayName';
-import { loadLocalProfile } from '../utils/sessionStore';
 import { alertAttendanceQrError } from '../utils/attendanceQr';
 import {
   classStatusMeta,
@@ -37,6 +36,9 @@ import {
 } from '../utils/schedule';
 import { colombiaDateLongFromYmd, colombiaNowMinutes, colombiaTodayYmd, colombiaWeekdayLongFromYmd } from '../utils/formatDateTime';
 import OverlayDismiss from '../components/OverlayDismiss';
+import TermsAndConditionsModal from '../components/TermsAndConditions';
+import PrivacyPolicyModal from '../components/PrivacyPolicy';
+import { loadLocalProfile, loadPersistedSession, saveLocalProfile } from '../utils/sessionStore';
 import { loadTeacherAlerts, syncTeacherAlerts, teacherAlertIsDue } from '../utils/teacherAlerts';
 
 function classCardMeta(c, idx) {
@@ -85,11 +87,38 @@ export default function TeacherHome({ navigation }) {
   const COLORS = useColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const { inAppNotifications } = useAppTheme();
-  const { logout, authToken, fullName, email, photoUri, setPhotoUri, notificationUnread, setNotificationUnread } = useAuth();
+  const { logout, authToken, fullName, email, photoUri, setPhotoUri, notificationUnread, setNotificationUnread, acceptTerms, setAcceptTerms, acceptPrivacy, setAcceptPrivacy, persistSession } = useAuth();
   const [classes, setClasses] = useState([]);
   const [loadingClasses, setLoadingClasses] = useState(false);
   const [statsPanel, setStatsPanel] = useState(null);
   const [adminNotice, setAdminNotice] = useState(null);
+  const legalStep = acceptTerms !== true ? 'terms' : acceptPrivacy !== true ? 'privacy' : null;
+
+  const saveLegalConsent = async (fields) => {
+    try {
+      if (SET_CONSENT_URL && authToken) {
+        await fetch(SET_CONSENT_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${authToken}`,
+          },
+          body: JSON.stringify(fields),
+        });
+      }
+    } catch {
+      // still mark locally so the teacher can use the app on this device
+    }
+    if (fields.acceptTerms) setAcceptTerms(true);
+    if (fields.acceptPrivacy) setAcceptPrivacy(true);
+    await saveLocalProfile(email, fields);
+    try {
+      const saved = await loadPersistedSession();
+      if (saved) await persistSession({ ...saved, ...fields });
+    } catch {
+      // ignore
+    }
+  };
 
   const createAttendanceSession = async (classId) => {
     if (!CREATE_ATTENDANCE_QR_URL) {
@@ -795,6 +824,18 @@ export default function TeacherHome({ navigation }) {
           </View>
         </OverlayDismiss>
       </Modal>
+      <TermsAndConditionsModal
+        visible={legalStep === 'terms'}
+        blocking
+        onClose={() => {}}
+        onAccept={() => saveLegalConsent({ acceptTerms: true })}
+      />
+      <PrivacyPolicyModal
+        visible={legalStep === 'privacy'}
+        blocking
+        onClose={() => {}}
+        onAccept={() => saveLegalConsent({ acceptPrivacy: true })}
+      />
     </View>
   );
 }

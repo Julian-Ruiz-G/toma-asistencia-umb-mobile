@@ -11,7 +11,7 @@ import { LOGIN_ADMIN_URL, LOGIN_STUDENT_URL, LOGIN_TEACHER_URL } from '../../con
 import { COLORS } from '../../ui/theme';
 import { useColors } from '../../ui/ThemeContext';
 import Animated, { PulseGlow, enterDown } from '../../ui/motion';
-import { clearPersistedSession, savePersistedSession } from '../../utils/sessionStore';
+import { clearPersistedSession, loadLocalProfile, savePersistedSession } from '../../utils/sessionStore';
 
 const CREDENTIALS_ERROR = 'Correo o contraseña incorrectos.';
 
@@ -28,6 +28,8 @@ export default function LoginScreen({ navigation }) {
     setProgram,
     setSemester,
     setPhone,
+    setAcceptTerms,
+    setAcceptPrivacy,
   } = useAuth();
   const [formData, setFormData] = useState({
     email: '',
@@ -114,6 +116,9 @@ export default function LoginScreen({ navigation }) {
       const phone = String(r.json?.phone || '').trim();
       const studentCode = String(r.json?.studentCode || '');
       const teacherCode = String(r.json?.teacherCode || '');
+      const local = await loadLocalProfile(e);
+      const acceptTerms = r.json?.acceptTerms === true || local?.acceptTerms === true;
+      const acceptPrivacy = r.json?.acceptPrivacy === true || local?.acceptPrivacy === true;
 
       setAuthToken(token);
       setRole(role);
@@ -124,6 +129,8 @@ export default function LoginScreen({ navigation }) {
       setProgram(program);
       setSemester(semester);
       setPhone(phone);
+      setAcceptTerms(acceptTerms);
+      setAcceptPrivacy(acceptPrivacy);
 
       if (formData.rememberSession) {
         await savePersistedSession({
@@ -136,6 +143,8 @@ export default function LoginScreen({ navigation }) {
           program,
           semester,
           phone,
+          acceptTerms,
+          acceptPrivacy,
         });
       } else {
         await clearPersistedSession();

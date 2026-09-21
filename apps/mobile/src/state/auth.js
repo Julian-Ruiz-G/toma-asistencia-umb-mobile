@@ -15,6 +15,8 @@ export function AuthProvider({ children }) {
   const [semester, setSemester] = useState('');
   const [phone, setPhone] = useState('');
   const [photoUri, setPhotoUri] = useState('');
+  const [acceptTerms, setAcceptTerms] = useState(false);
+  const [acceptPrivacy, setAcceptPrivacy] = useState(false);
   const [notificationUnread, setNotificationUnread] = useState(0);
   const [classesRevision, setClassesRevision] = useState(0);
   const [ready, setReady] = useState(false);
@@ -32,8 +34,12 @@ export function AuthProvider({ children }) {
         setProgram(String(saved.program || ''));
         setSemester(String(saved.semester || ''));
         setPhone(String(saved.phone || ''));
+        setAcceptTerms(saved.acceptTerms === true);
+        setAcceptPrivacy(saved.acceptPrivacy === true);
         const local = await loadLocalProfile(saved.email);
         setPhotoUri(String(local?.photoUri || ''));
+        if (local?.acceptTerms === true) setAcceptTerms(true);
+        if (local?.acceptPrivacy === true) setAcceptPrivacy(true);
       }
       setReady(true);
     })();
@@ -61,6 +67,10 @@ export function AuthProvider({ children }) {
     setPhone,
     photoUri,
     setPhotoUri,
+    acceptTerms,
+    setAcceptTerms,
+    acceptPrivacy,
+    setAcceptPrivacy,
     notificationUnread,
     setNotificationUnread,
     classesRevision,
@@ -79,11 +89,13 @@ export function AuthProvider({ children }) {
       setSemester('');
       setPhone('');
       setPhotoUri('');
+      setAcceptTerms(false);
+      setAcceptPrivacy(false);
       setNotificationUnread(0);
       setClassesRevision(0);
       clearPersistedSession();
     }
-  }), [ready, authToken, role, email, fullName, studentCode, teacherCode, program, semester, phone, photoUri, notificationUnread, classesRevision]);
+  }), [ready, authToken, role, email, fullName, studentCode, teacherCode, program, semester, phone, photoUri, acceptTerms, acceptPrivacy, notificationUnread, classesRevision]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

@@ -157,13 +157,14 @@ La aceptación de estos Términos es **independiente** de la autorización espec
 - **Dirección:** Calle 73 # 73-33, Bogotá D.C., Colombia
 `;
 
-export default function TermsAndConditionsModal({ visible, onClose, onAccept, readOnly = false }) {
+export default function TermsAndConditionsModal({ visible, onClose, onAccept, readOnly = false, blocking = false }) {
   return (
     <LegalDocumentModal
       visible={visible}
       onClose={onClose}
       onAccept={onAccept}
       hideAccept={readOnly}
+      blocking={blocking}
       title="Términos y Condiciones"
       accent={COLORS.primary}
       Icon={FileText}

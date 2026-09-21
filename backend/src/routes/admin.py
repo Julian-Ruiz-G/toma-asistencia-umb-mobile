@@ -269,18 +269,33 @@ def handle_admin_teachers(event, body):
         })
 
     out = []
+    seen_email = set()
     for tu in teacher_users:
+        pk = (_ddb_s(tu, 'RekognitionId') or '').strip()
         te = (_ddb_s(tu, 'Email') or '').strip().lower()
+        if not te and pk.upper().startswith('USER#'):
+            te = pk.split('#', 1)[-1].strip().lower()
+        role = (_ddb_s(tu, 'Role') or '').strip().lower()
+        typ = (_ddb_s(tu, 'Type') or '').strip()
+        if role and role != 'teacher' and typ != 'Teacher':
+            continue
+        if not role and typ != 'Teacher':
+            continue
+        if te and te in seen_email:
+            continue
+        if te:
+            seen_email.add(te)
         terms = _ddb_bool(tu, 'AcceptTerms')
         privacy = _ddb_bool(tu, 'AcceptPrivacy')
         out.append({
+            'id': pk or None,
             'email': te or None,
             'fullName': _ddb_s(tu, 'FullName') or None,
             'teacherCode': _ddb_s(tu, 'TeacherCode') or None,
             'classes': classes_by_teacher.get(te, []),
             'subjectsCount': len(classes_by_teacher.get(te, [])),
-            'acceptTerms': terms,
-            'acceptPrivacy': privacy,
+            'acceptTerms': terms is True,
+            'acceptPrivacy': privacy is True,
         })
 
     out = sorted(out, key=lambda x: str(x.get('email') or ''))
@@ -358,10 +373,36 @@ def handle_admin_delete_teacher(event, body):
     admin_email = str(payload.get('sub') or '').strip().lower()
 
     email = (body.get('email') or body.get('correo') or '').strip().lower()
-    if not email:
+    pk_req = str((body.get('id') or body.get('rekognitionId') or '')).strip()
+    if not email and not pk_req:
         return _response(400, {'error': 'Missing field: email'})
 
-    item = _scan_find_user_by_email(email, roles=['teacher'], types=['Teacher'])
+    item = None
+    if email:
+        try:
+            got = dynamodb.get_item(
+                TableName=DDB_TABLE,
+                Key={'RekognitionId': {'S': f'USER#{email}'}},
+            )
+            cand = (got or {}).get('Item')
+            if cand and (_ddb_s(cand, 'Role') or '').strip().lower() == 'teacher':
+                item = cand
+        except Exception:
+            item = None
+        if not item:
+            item = _scan_find_user_by_email(email, roles=['teacher'], types=['Teacher'])
+    if not item and pk_req:
+        try:
+            got = dynamodb.get_item(TableName=DDB_TABLE, Key={'RekognitionId': {'S': pk_req}})
+            cand = (got or {}).get('Item')
+        except Exception as e:
+            logger.exception('DynamoDB get_item failed (admin-delete-teacher)')
+            return _response(500, {'error': 'DynamoDBGetFailed', 'details': str(e)})
+        role = (_ddb_s(cand, 'Role') or '').strip().lower() if cand else ''
+        typ = (_ddb_s(cand, 'Type') or '').strip() if cand else ''
+        if cand and (role == 'teacher' or typ == 'Teacher'):
+            item = cand
+
     if not item:
         return _response(404, {'error': 'TeacherNotFound'})
 
@@ -502,6 +543,8 @@ def handle_admin_create_teacher(event, body):
         'Role': {'S': 'teacher'},
         'PasswordSalt': {'S': salt_hex},
         'PasswordHash': {'S': pw_hash},
+        'AcceptTerms': {'BOOL': False},
+        'AcceptPrivacy': {'BOOL': False},
     }
     if teacher_code:
         item['TeacherCode'] = {'S': teacher_code}
@@ -679,8 +722,20 @@ def handle_admin_dashboard_stats(event, body):
     students = sorted(students, key=lambda x: str(x.get('fullName') or x.get('email') or ''))
 
     teachers = []
+    seen_teacher = set()
     for tu in teacher_items:
         te = (_ddb_s(tu, 'Email') or '').strip().lower()
+        pk = (_ddb_s(tu, 'RekognitionId') or '').strip()
+        if not te and pk.upper().startswith('USER#'):
+            te = pk.split('#', 1)[-1].strip().lower()
+        role = (_ddb_s(tu, 'Role') or '').strip().lower()
+        if role and role != 'teacher':
+            continue
+        if not te:
+            continue
+        if te in seen_teacher:
+            continue
+        seen_teacher.add(te)
         owned = classes_by_teacher.get(te, [])
         periods = sorted({str(c.get('period') or '').strip() for c in owned if str(c.get('period') or '').strip()})
         teachers.append({
