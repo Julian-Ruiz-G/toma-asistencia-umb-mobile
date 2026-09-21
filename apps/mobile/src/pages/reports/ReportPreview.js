@@ -72,6 +72,12 @@ const STATUS_COLORS = {
   default: { bg: COLORS.surface, text: COLORS.textSecondary, border: COLORS.border },
 };
 
+function metaLabel(raw) {
+  const key = String(raw || '').replace(/_/g, ' ').trim();
+  if (key.toLowerCase() === 'periodo') return 'Corte';
+  return key;
+}
+
 function getCellStyle(colLabel, value) {
   const col = String(colLabel || '').toUpperCase().trim();
   const val = String(value || '').trim().toUpperCase();
@@ -206,7 +212,7 @@ export default function ReportPreview({ navigation, route }) {
               <Text style={styles.metaTitle}>Información del informe</Text>
               {meta.map((row, i) => (
                 <View key={i} style={styles.metaRow}>
-                  <Text style={styles.metaKey}>{String(row[0] || '').replace(/_/g, ' ')}</Text>
+                  <Text style={styles.metaKey}>{metaLabel(row[0])}</Text>
                   <Text style={styles.metaVal}>{String(row[1] || '')}</Text>
                 </View>
               ))}

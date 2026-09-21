@@ -25,6 +25,10 @@ def handle_create_attendance_qr(event, body):
     if not class_item:
         return _response(404, {'error': 'ClassNotFound'})
 
+    class_period = (_ddb_s(class_item, 'Period') or '').strip()
+    if corte not in ('1', '2'):
+        corte = class_period if class_period in ('1', '2') else '1'
+
     owner = _ddb_s(class_item, 'TeacherEmail').strip().lower()
     if owner and owner != teacher_email:
         return _response(403, {'error': 'Forbidden'})
@@ -92,10 +96,8 @@ def handle_create_attendance_qr(event, body):
             'ScheduledStartEpoch': {'N': str(int(scheduled_start))},
             'LateAfterSeconds': {'N': str(15 * 60)},
             'CreatedAt': {'N': str(now)},
+            'Corte': {'S': corte},
         }
-
-        if corte:
-            session_item['Corte'] = {'S': corte}
 
         try:
             dynamodb.put_item(
@@ -863,6 +865,8 @@ def handle_confirm_attendance_photo(event, body):
             att_item['StudentCode'] = {'S': str(base_info.get('studentCode'))}
         if in_photo:
             att_item['PresentInPhoto'] = {'BOOL': True}
+        else:
+            att_item['PresentInPhoto'] = {'BOOL': False}
 
         try:
             dynamodb.put_item(TableName=DDB_TABLE, Item=att_item)
@@ -888,9 +892,19 @@ def handle_confirm_attendance_photo(event, body):
         dynamodb.update_item(
             TableName=DDB_TABLE,
             Key={'RekognitionId': {'S': f"ATTSESSION#{session_id}"}},
-            UpdateExpression='SET #PC = :pc',
-            ExpressionAttributeNames={'#PC': 'PhotoConfirmedAt'},
-            ExpressionAttributeValues={':pc': {'N': str(now_ts)}},
+            UpdateExpression='SET #PC = :pc, #PF = :pf, #PR = :pr, #PU = :pu',
+            ExpressionAttributeNames={
+                '#PC': 'PhotoConfirmedAt',
+                '#PF': 'PhotoFacesDetected',
+                '#PR': 'PhotoRecognizedCount',
+                '#PU': 'PhotoUnmatchedCount',
+            },
+            ExpressionAttributeValues={
+                ':pc': {'N': str(now_ts)},
+                ':pf': {'N': str(int(face_count or 0))},
+                ':pr': {'N': str(int(len(present_set)))},
+                ':pu': {'N': str(max(0, int(face_count or 0) - len(present_set)))},
+            },
         )
     except Exception:
         pass
@@ -1019,7 +1033,7 @@ def handle_attendance_report(event, body):
         w.writerow(['Nombre_Asignatura', _ddb_s(class_item, 'ClassName')])
         w.writerow(['Código_Asignatura', _ddb_s(class_item, 'SubjectCode')])
         w.writerow(['Grupo', _ddb_s(class_item, 'Group')])
-        w.writerow(['Periodo', _ddb_s(class_item, 'Period')])
+        w.writerow(['Corte', corte_override or '1'])
         w.writerow(['Cédula_Docente', teacher_code])
         w.writerow(['Nombre_Docente', teacher_name])
         w.writerow(['#_Estudiantes', str(len(roster_emails))])
@@ -1119,6 +1133,10 @@ def handle_attendance_report(event, body):
     if not class_item:
         return _response(404, {'error': 'ClassNotFound'})
 
+    if corte_val not in ('1', '2'):
+        class_period = (_ddb_s(class_item, 'Period') or '').strip()
+        corte_val = class_period if class_period in ('1', '2') else '1'
+
     class_teacher = (_ddb_s(class_item, 'TeacherEmail') or '').strip().lower()
     if class_teacher and class_teacher != teacher:
         return _response(403, {'error': 'Forbidden'})
@@ -1192,7 +1210,6 @@ def handle_attendance_report(event, body):
         teacher_code = ''
 
     subject_code = _ddb_s(class_item, 'SubjectCode')
-    period = _ddb_s(class_item, 'Period')
 
     out = io.StringIO()
     w = csv.writer(out)
@@ -1200,7 +1217,7 @@ def handle_attendance_report(event, body):
     w.writerow(['Nombre_Asignatura', _ddb_s(class_item, 'ClassName')])
     w.writerow(['Código_Asignatura', subject_code])
     w.writerow(['Grupo', _ddb_s(class_item, 'Group')])
-    w.writerow(['Periodo', period])
+    w.writerow(['Corte', corte_val or '1'])
     w.writerow(['Cédula_Docente', teacher_code])
     w.writerow(['Nombre_Docente', teacher_name])
     w.writerow(['#_Estudiantes', str(len(roster_emails))])
@@ -1382,7 +1399,8 @@ def handle_student_daily_summary(event, body):
 def handle_student_notifications(event, body):
     token = _get_bearer_token(event)
     payload = _verify_token(token)
-    if not payload or payload.get('role') != 'student':
+    role = str((payload or {}).get('role') or '')
+    if not payload or role not in ('student', 'teacher'):
         return _response(401, {'error': 'Unauthorized'})
 
     student_email = str(payload.get('sub') or '').strip().lower()
@@ -1391,38 +1409,6 @@ def handle_student_notifications(event, body):
 
     now = int(time.time())
     session_date = time.strftime('%Y-%m-%d', time.gmtime(now + CO_TZ_OFFSET_SECONDS))
-
-    # Enrollments for this student
-    try:
-        enroll_scan = dynamodb.scan(
-            TableName=DDB_TABLE,
-            FilterExpression='#T = :t AND #SE = :se',
-            ExpressionAttributeNames={'#T': 'Type', '#SE': 'StudentEmail'},
-            ExpressionAttributeValues={':t': {'S': 'Enrollment'}, ':se': {'S': student_email}},
-            Limit=500,
-        )
-        enroll_items = (enroll_scan or {}).get('Items') or []
-    except Exception as e:
-        logger.exception('DynamoDB scan failed (student-notifications enrollments)')
-        return _response(500, {'error': 'DynamoDBScanFailed', 'details': str(e)})
-
-    enrolled_class_ids = set((_ddb_s(en, 'ClassId') or '').strip() for en in enroll_items)
-    enrolled_class_ids = set(cid for cid in enrolled_class_ids if cid)
-    if not enrolled_class_ids:
-        return _response(200, {'ok': True, 'date': session_date, 'notifications': []})
-
-    try:
-        sess_scan = dynamodb.scan(
-            TableName=DDB_TABLE,
-            FilterExpression='#T = :t AND #SD = :sd',
-            ExpressionAttributeNames={'#T': 'Type', '#SD': 'SessionDate'},
-            ExpressionAttributeValues={':t': {'S': 'AttendanceSession'}, ':sd': {'S': session_date}},
-            Limit=800,
-        )
-        sess_items = (sess_scan or {}).get('Items') or []
-    except Exception as e:
-        logger.exception('DynamoDB scan failed (student-notifications sessions)')
-        return _response(500, {'error': 'DynamoDBScanFailed', 'details': str(e)})
 
     notifications = []
     seen = set()
@@ -1433,6 +1419,39 @@ def handle_student_notifications(event, body):
             return
         seen.add(nid)
         notifications.append(n)
+
+    enrolled_class_ids = set()
+    if role == 'student':
+        try:
+            enroll_scan = dynamodb.scan(
+                TableName=DDB_TABLE,
+                FilterExpression='#T = :t AND #SE = :se',
+                ExpressionAttributeNames={'#T': 'Type', '#SE': 'StudentEmail'},
+                ExpressionAttributeValues={':t': {'S': 'Enrollment'}, ':se': {'S': student_email}},
+                Limit=500,
+            )
+            enroll_items = (enroll_scan or {}).get('Items') or []
+        except Exception as e:
+            logger.exception('DynamoDB scan failed (student-notifications enrollments)')
+            return _response(500, {'error': 'DynamoDBScanFailed', 'details': str(e)})
+
+        enrolled_class_ids = set((_ddb_s(en, 'ClassId') or '').strip() for en in enroll_items)
+        enrolled_class_ids = set(cid for cid in enrolled_class_ids if cid)
+
+    sess_items = []
+    if enrolled_class_ids:
+        try:
+            sess_scan = dynamodb.scan(
+                TableName=DDB_TABLE,
+                FilterExpression='#T = :t AND #SD = :sd',
+                ExpressionAttributeNames={'#T': 'Type', '#SD': 'SessionDate'},
+                ExpressionAttributeValues={':t': {'S': 'AttendanceSession'}, ':sd': {'S': session_date}},
+                Limit=800,
+            )
+            sess_items = (sess_scan or {}).get('Items') or []
+        except Exception as e:
+            logger.exception('DynamoDB scan failed (student-notifications sessions)')
+            return _response(500, {'error': 'DynamoDBScanFailed', 'details': str(e)})
 
     today_key = _today_weekday_name_co()
     now_co = datetime.datetime.utcfromtimestamp(now + CO_TZ_OFFSET_SECONDS)
@@ -1554,14 +1573,14 @@ def handle_student_notifications(event, body):
                 ))
 
     try:
-        stored_scan = dynamodb.scan(
-            TableName=DDB_TABLE,
-            FilterExpression='#T = :t AND #SE = :se',
-            ExpressionAttributeNames={'#T': 'Type', '#SE': 'StudentEmail'},
-            ExpressionAttributeValues={':t': {'S': 'Notification'}, ':se': {'S': student_email}},
-            Limit=200,
+        stored_items = _ddb_scan_all(
+            '#T = :t AND #SE = :se',
+            {'#T': 'Type', '#SE': 'StudentEmail'},
+            {':t': {'S': 'Notification'}, ':se': {'S': student_email}},
+            limit_per_page=200,
+            max_pages=8,
         )
-        for it in (stored_scan or {}).get('Items') or []:
+        for it in stored_items:
             _add_notif(_notification_from_item(it, now))
     except Exception:
         pass
@@ -1587,7 +1606,8 @@ def handle_student_notifications(event, body):
 def handle_mark_notifications_read(event, body):
     token = _get_bearer_token(event)
     payload = _verify_token(token)
-    if not payload or payload.get('role') != 'student':
+    role = str((payload or {}).get('role') or '')
+    if not payload or role not in ('student', 'teacher'):
         return _response(401, {'error': 'Unauthorized'})
 
     student_email = str(payload.get('sub') or '').strip().lower()

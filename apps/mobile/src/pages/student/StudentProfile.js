@@ -31,7 +31,7 @@ import { COLORS } from '../../ui/theme';
 import { useColors } from '../../ui/ThemeContext';
 import Animated, { enterDown } from '../../ui/motion';
 import { useAuth } from '../../state/auth';
-import { UPDATE_MY_PROFILE_URL } from '../../config';
+import { UPDATE_MY_PROFILE_URL, SET_CONSENT_URL } from '../../config';
 import { personDisplayName } from '../../utils/displayName';
 import { isStudentProfileComplete, missingStudentProfileFields, studentProfileIncompleteMessage } from '../../utils/studentProfile';
 import {
@@ -74,7 +74,18 @@ export default function StudentProfile({ navigation, route }) {
 
   const profileSnapshot = { fullName, program, semester, phone };
   const profileIncomplete = !isStudentProfileComplete(profileSnapshot);
-  const forceEdit = Boolean(route?.params?.forceEdit) || profileIncomplete;
+  const requestedOpen = String(route?.params?.open || '');
+  const fromAdminRequest = ['edit', 'terms', 'privacy', 'biometric'].includes(requestedOpen);
+  const forceEdit = Boolean(route?.params?.forceEdit) || (profileIncomplete && !fromAdminRequest);
+
+  useEffect(() => {
+    if (requestedOpen === 'privacy' || requestedOpen === 'terms' || requestedOpen === 'biometric') {
+      setLegalDoc(requestedOpen);
+      setShowEdit(false);
+      return;
+    }
+    if (forceEdit || requestedOpen === 'edit') setShowEdit(true);
+  }, [requestedOpen, forceEdit]);
 
   useEffect(() => {
     setDraftName(String(fullName || ''));
@@ -93,15 +104,27 @@ export default function StudentProfile({ navigation, route }) {
     })();
   }, [email]);
 
-  useEffect(() => {
-    if (forceEdit) setShowEdit(true);
-  }, [forceEdit]);
-
   const displayName = personDisplayName(fullName, 'Estudiante');
 
   const handleLogout = () => {
     logout();
     navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] });
+  };
+
+  const saveConsent = async (fields) => {
+    try {
+      if (!SET_CONSENT_URL || !authToken) return;
+      await fetch(SET_CONSENT_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify(fields),
+      });
+    } catch {
+      // ignore
+    }
   };
 
   const persistAuthExtras = async (next) => {
@@ -447,21 +470,21 @@ export default function StudentProfile({ navigation, route }) {
 
       <TermsAndConditionsModal
         visible={legalDoc === 'terms'}
-        readOnly
+        readOnly={!fromAdminRequest}
         onClose={() => setLegalDoc(null)}
-        onAccept={() => setLegalDoc(null)}
+        onAccept={() => { saveConsent({ acceptTerms: true }); setLegalDoc(null); }}
       />
       <PrivacyPolicyModal
         visible={legalDoc === 'privacy'}
-        readOnly
+        readOnly={!fromAdminRequest}
         onClose={() => setLegalDoc(null)}
-        onAccept={() => setLegalDoc(null)}
+        onAccept={() => { saveConsent({ acceptPrivacy: true }); setLegalDoc(null); }}
       />
       <BiometricConsentModal
         visible={legalDoc === 'biometric'}
-        readOnly
+        readOnly={!fromAdminRequest}
         onClose={() => setLegalDoc(null)}
-        onAccept={() => setLegalDoc(null)}
+        onAccept={() => { saveConsent({ biometricConsent: true }); setLegalDoc(null); }}
       />
     </View>
   );

@@ -33,6 +33,7 @@ from routes.admin import (
     handle_admin_consents,
     handle_admin_create_teacher,
     handle_admin_dashboard_stats,
+    handle_admin_request_profile,
 )
 from routes.classes import (
     handle_create_class,
@@ -79,6 +80,7 @@ ROUTE_HANDLERS = [
     ("/admin-consents", handle_admin_consents),
     ("/admin-create-teacher", handle_admin_create_teacher),
     ("/admin-dashboard-stats", handle_admin_dashboard_stats),
+    ("/admin-request-profile", handle_admin_request_profile),
     ("/login-student", handle_login_student),
     ("/create-class", handle_create_class),
     ("/update-class", handle_update_class),
@@ -150,6 +152,13 @@ def lambda_handler(event, context):
             for suffix, handler in ROUTE_HANDLERS:
                 if path.endswith(suffix):
                     return handler(event, body)
+
+        wants_image = False
+        if isinstance(path, str):
+            wants_image = path.endswith("/recognize") or any(path.endswith(s) for s, _ in IMAGE_ROUTES)
+
+        if not wants_image:
+            return _response(404, {"error": "UnknownRoute", "path": path or ""})
 
         image_b64 = body.get("imageBase64") if isinstance(body, dict) else None
         if not image_b64:

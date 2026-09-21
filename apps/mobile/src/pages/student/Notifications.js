@@ -46,6 +46,9 @@ function mapNotification(n, idx) {
     time: formatActionDateTime(n?.createdAt || n?.markedAt || n?.time, String(n?.time || 'Hoy')),
     read: Boolean(n?.read),
     classId: n?.classId ? String(n.classId) : '',
+    action: String(n?.action || ''),
+    open: String(n?.open || ''),
+    missing: String(n?.missing || ''),
   };
 }
 
@@ -232,17 +235,27 @@ export default function Notifications({ navigation }) {
     persistRead({ all: true });
   };
 
-  const markOneRead = (id) => {
-    if (id === 'local-complete-profile') {
-      navigation.navigate('StudentProfile', { forceEdit: true });
+  const openNotification = (n) => {
+    if (!n.read) markOneRead(n.id);
+    if (n.id === 'local-complete-profile' || n.action === 'admin_request' || n.open) {
+      navigation.navigate('StudentProfile', {
+        forceEdit: (n.open || 'edit') === 'edit',
+        open: n.open || 'edit',
+      });
       return;
     }
+    if (String(n.id).startsWith('reminder:')) {
+      navigation.navigate('StudentReminders');
+    }
+  };
+
+  const markOneRead = (id) => {
+    if (id === 'local-complete-profile') return;
     if (String(id).startsWith('reminder:')) {
       const rid = String(id).slice('reminder:'.length);
       const nextReminders = reminders.map((r) => (r.id === rid ? { ...r, read: true } : r));
       setReminders(nextReminders);
       saveReminders(email, nextReminders);
-      navigation.navigate('StudentReminders');
       return;
     }
     if (String(id).startsWith('classsoon:')) {
@@ -299,7 +312,7 @@ export default function Notifications({ navigation }) {
     return (
       <Animated.View key={n.id} entering={listEnter(idx)}>
       <Pressable
-        onPress={() => { if (!n.read) markOneRead(n.id); }}
+        onPress={() => openNotification(n)}
         style={[
           styles.item,
           { borderColor: n.read ? COLORS.border : cfg.border, backgroundColor: n.read ? COLORS.card : cfg.bg },

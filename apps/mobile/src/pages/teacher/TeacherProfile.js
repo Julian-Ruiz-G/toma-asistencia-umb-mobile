@@ -25,18 +25,21 @@ import { useColors } from '../../ui/ThemeContext';
 import Animated, { enterDown } from '../../ui/motion';
 import { useAuth } from '../../state/auth';
 import { personDisplayName } from '../../utils/displayName';
+import { SET_CONSENT_URL } from '../../config';
 import {
   copyLocalAvatar,
   loadLocalProfile,
   saveLocalProfile,
 } from '../../utils/sessionStore';
 
-export default function TeacherProfile({ navigation }) {
+export default function TeacherProfile({ navigation, route }) {
   const COLORS = useColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
-  const { email, logout, teacherCode, fullName, photoUri, setPhotoUri } = useAuth();
+  const { email, logout, teacherCode, fullName, photoUri, setPhotoUri, authToken } = useAuth();
   const [showPrivacyMenu, setShowPrivacyMenu] = useState(false);
   const [legalDoc, setLegalDoc] = useState(null);
+  const requestedOpen = String(route?.params?.open || '');
+  const fromAdminRequest = ['edit', 'terms', 'privacy'].includes(requestedOpen);
 
   useEffect(() => {
     (async () => {
@@ -45,7 +48,29 @@ export default function TeacherProfile({ navigation }) {
     })();
   }, [email, setPhotoUri]);
 
+  useEffect(() => {
+    if (requestedOpen === 'privacy' || requestedOpen === 'terms') {
+      setLegalDoc(requestedOpen);
+    }
+  }, [requestedOpen]);
+
   const displayName = personDisplayName(fullName, 'Docente');
+
+  const saveConsent = async (fields) => {
+    try {
+      if (!SET_CONSENT_URL || !authToken) return;
+      await fetch(SET_CONSENT_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify(fields),
+      });
+    } catch {
+      // ignore
+    }
+  };
 
   const pickLocalPhoto = async () => {
     try {
@@ -190,8 +215,18 @@ export default function TeacherProfile({ navigation }) {
         </OverlayDismiss>
       </Modal>
 
-      <TermsAndConditionsModal visible={legalDoc === 'terms'} onClose={() => setLegalDoc(null)} />
-      <PrivacyPolicyModal visible={legalDoc === 'privacy'} onClose={() => setLegalDoc(null)} />
+      <TermsAndConditionsModal
+        visible={legalDoc === 'terms'}
+        readOnly={!fromAdminRequest}
+        onClose={() => setLegalDoc(null)}
+        onAccept={() => { saveConsent({ acceptTerms: true }); setLegalDoc(null); }}
+      />
+      <PrivacyPolicyModal
+        visible={legalDoc === 'privacy'}
+        readOnly={!fromAdminRequest}
+        onClose={() => setLegalDoc(null)}
+        onAccept={() => { saveConsent({ acceptPrivacy: true }); setLegalDoc(null); }}
+      />
     </View>
   );
 }

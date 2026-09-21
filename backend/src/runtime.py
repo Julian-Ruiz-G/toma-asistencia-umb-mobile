@@ -690,6 +690,9 @@ def _notification_from_item(item: dict, now: int) -> dict:
         'read': read,
         'classId': _ddb_s(item, 'ClassId') or None,
         'sessionId': _ddb_s(item, 'SessionId') or None,
+        'action': _ddb_s(item, 'Action') or None,
+        'open': _ddb_s(item, 'Open') or None,
+        'missing': _ddb_s(item, 'Missing') or None,
     }
 
 

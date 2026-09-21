@@ -10,6 +10,7 @@ import {
   GraduationCap,
   Plus,
   Search,
+  Send,
   Trash2,
   X,
   XCircle,
@@ -21,6 +22,8 @@ import { COLORS } from '../../ui/theme';
 import { useColors } from '../../ui/ThemeContext';
 import { ADMIN_DELETE_STUDENT_URL, ADMIN_STUDENTS_URL, ADMIN_STUDENTS_BY_CLASS_URL, ADMIN_UPDATE_STUDENT_URL } from '../../config';
 import { useAuth } from '../../state/auth';
+import { prettyLabel } from '../../utils/adminDashboard';
+import { gapsLabel, requestProfileCompletion, studentGaps } from '../../utils/profileGaps';
 
 const mockStudents = [
   { id: '1', firstName: 'Juan', lastName: 'Pérez', code: '20231045892', email: 'juan.perez@umb.edu.co', program: 'Ingeniería', semester: '5', status: 'active', biometricRegistered: true },
@@ -43,6 +46,7 @@ export default function EstudiantesPage({ navigation }) {
   const [showEdit, setShowEdit] = useState(false);
   const [editDraft, setEditDraft] = useState({ email: '', fullName: '', studentCode: '' });
   const [deletingId, setDeletingId] = useState('');
+  const [requestingId, setRequestingId] = useState('');
 
   useEffect(() => {
     (async () => {
@@ -68,8 +72,9 @@ export default function EstudiantesPage({ navigation }) {
               lastName: String((x?.fullName || '').split(' ').slice(1).join(' ') || ''),
               code: String(x?.studentCode || ''),
               email: String(x?.email || ''),
-              program: '—',
-              semester: '—',
+              program: String(x?.program || '').trim() || '—',
+              semester: String(x?.semester || '').trim() || '—',
+              phone: String(x?.phone || '').trim(),
               status: 'active',
               biometricRegistered: x?.hasFace === true || x?.biometricConsent === true,
               acceptTerms: x?.acceptTerms === true,
@@ -112,13 +117,45 @@ export default function EstudiantesPage({ navigation }) {
       s.firstName.toLowerCase().includes(q) ||
       s.lastName.toLowerCase().includes(q) ||
       s.code.includes(q) ||
-      s.email.toLowerCase().includes(q)
+      s.email.toLowerCase().includes(q) ||
+      String(s.program || '').toLowerCase().includes(q) ||
+      String(s.semester || '').toLowerCase().includes(q)
     );
   }, [searchQuery, students]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / itemsPerPage));
   const page = Math.min(currentPage, totalPages);
   const paginated = filtered.slice((page - 1) * itemsPerPage, page * itemsPerPage);
+
+  const requestStudent = (s) => {
+    const gaps = studentGaps(s);
+    if (!gaps.length) {
+      appAlert('Al día', 'Este estudiante ya tiene perfil y consentimientos completos.');
+      return;
+    }
+    const name = `${s.firstName || ''} ${s.lastName || ''}`.trim() || s.email;
+    appAlert(
+      'Solicitar datos',
+      `Se enviará una notificación a ${name} para que complete: ${gapsLabel(gaps)}.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Enviar',
+          onPress: async () => {
+            try {
+              setRequestingId(s.id);
+              await requestProfileCompletion(authToken, { email: s.email, role: 'student' });
+              appAlert('Solicitud enviada', 'El estudiante verá la notificación y, al tocarla, irá a completar lo que falta.');
+            } catch (e) {
+              appAlert('No se pudo enviar', e?.message || String(e));
+            } finally {
+              setRequestingId('');
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const deleteStudent = (s) => {
     const name = `${s.firstName || ''} ${s.lastName || ''}`.trim() || s.email;
@@ -239,6 +276,7 @@ export default function EstudiantesPage({ navigation }) {
 
         {paginated.map((s) => {
           const b = statusBadge(s.status);
+          const gaps = studentGaps(s);
           return (
             <View key={s.id} style={styles.card}>
               <View style={styles.cardTop}>
@@ -250,7 +288,8 @@ export default function EstudiantesPage({ navigation }) {
                     </View>
                   </View>
                   <Text style={styles.metaText}>{s.code}</Text>
-                  <Text style={styles.metaText}>{s.program}</Text>
+                  <Text style={styles.profileLine}>Carrera: {prettyLabel(s.program, 'Pendiente en perfil')}</Text>
+                  <Text style={styles.profileLine}>Semestre: {prettyLabel(s.semester, 'Pendiente en perfil')}</Text>
                   <View style={styles.metaRow}>
                     <Text style={styles.metaSmall}>{s.email}</Text>
                   </View>
@@ -275,6 +314,18 @@ export default function EstudiantesPage({ navigation }) {
                       {s.acceptPrivacy ? 'Privacidad' : 'Sin privacidad'}
                     </Text>
                   </View>
+                  {gaps.length ? (
+                    <Pressable
+                      onPress={() => requestStudent(s)}
+                      disabled={requestingId === s.id}
+                      style={styles.requestBtn}
+                    >
+                      <Send size={14} color={COLORS.primary} />
+                      <Text style={styles.requestBtnText}>
+                        {requestingId === s.id ? 'Enviando…' : `Solicitar: ${gapsLabel(gaps)}`}
+                      </Text>
+                    </Pressable>
+                  ) : null}
                 </View>
 
                 <View style={styles.actionsCol}>
@@ -452,11 +503,26 @@ const createStyles = (COLORS) => StyleSheet.create({
   badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
   badgeText: { fontWeight: '900', fontSize: 12 },
   metaText: { marginTop: 4, color: COLORS.muted },
+  profileLine: { marginTop: 4, color: COLORS.textSecondary, fontSize: 13, fontWeight: '800' },
   metaRow: { marginTop: 10, flexDirection: 'row', alignItems: 'center', gap: 8 },
   metaSmall: { fontSize: 12, color: COLORS.muted },
   metaSep: { color: COLORS.border },
   bioRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   consentRow: { marginTop: 8, flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
+  requestBtn: {
+    marginTop: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: COLORS.primarySoft,
+    borderWidth: 1,
+    borderColor: COLORS.primaryBorder,
+  },
+  requestBtnText: { color: COLORS.primary, fontWeight: '800', fontSize: 12, flexShrink: 1 },
   actionsCol: { gap: 10 },
   iconAction: { width: 34, height: 34, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.background, borderWidth: 1, borderColor: COLORS.border },
   deleteBtn: {

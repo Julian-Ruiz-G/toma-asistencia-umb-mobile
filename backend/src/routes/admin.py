@@ -1,5 +1,13 @@
 from runtime import *  # noqa: F401,F403
 
+def _first_s(item, *keys):
+    for k in keys:
+        v = (_ddb_s(item, k) or '').strip()
+        if v:
+            return v
+    return ''
+
+
 def handle_admin_students(event, body):
     token = _get_bearer_token(event)
     payload = _verify_token(token)
@@ -7,18 +15,16 @@ def handle_admin_students(event, body):
         return _response(401, {'error': 'Unauthorized'})
 
     try:
-        scan_resp = dynamodb.scan(
-            TableName=DDB_TABLE,
-            FilterExpression='(#R = :r) OR (#T = :t)',
-            ExpressionAttributeNames={'#R': 'Role', '#T': 'Type'},
-            ExpressionAttributeValues={':r': {'S': 'student'}, ':t': {'S': 'Student'}},
-            Limit=1000,
+        items = _ddb_scan_all(
+            '(#R = :r) OR (#T = :t)',
+            {'#R': 'Role', '#T': 'Type'},
+            {':r': {'S': 'student'}, ':t': {'S': 'Student'}},
         )
     except Exception as e:
         logger.exception('DynamoDB scan failed (admin-students)')
         return _response(500, {'error': 'DynamoDBScanFailed', 'details': str(e)})
 
-    items = (scan_resp or {}).get('Items') or []
+    items = items or []
     out = []
     for it in items:
         email = _ddb_s(it, 'Email') or None
@@ -29,6 +35,9 @@ def handle_admin_students(event, body):
             'email': email,
             'fullName': full_name,
             'studentCode': student_code,
+            'program': _first_s(it, 'Program', 'Carrera', 'Career') or None,
+            'semester': _first_s(it, 'Semester', 'Semestre') or None,
+            'phone': _first_s(it, 'Phone', 'Telefono', 'Tel') or None,
             'acceptTerms': flags['acceptTerms'],
             'acceptPrivacy': flags['acceptPrivacy'],
             'biometricConsent': flags['biometricConsent'],
@@ -262,12 +271,16 @@ def handle_admin_teachers(event, body):
     out = []
     for tu in teacher_users:
         te = (_ddb_s(tu, 'Email') or '').strip().lower()
+        terms = _ddb_bool(tu, 'AcceptTerms')
+        privacy = _ddb_bool(tu, 'AcceptPrivacy')
         out.append({
             'email': te or None,
             'fullName': _ddb_s(tu, 'FullName') or None,
             'teacherCode': _ddb_s(tu, 'TeacherCode') or None,
             'classes': classes_by_teacher.get(te, []),
             'subjectsCount': len(classes_by_teacher.get(te, [])),
+            'acceptTerms': terms,
+            'acceptPrivacy': privacy,
         })
 
     out = sorted(out, key=lambda x: str(x.get('email') or ''))
@@ -411,6 +424,10 @@ def handle_admin_logs(event, body):
     return _response(200, {'ok': True, 'logs': logs})
 
 def handle_admin_consents(event, body):
+    action = str((body or {}).get('action') or '').strip().lower().replace('_', '-')
+    if action in ('request-profile', 'admin-request-profile'):
+        return handle_admin_request_profile(event, body)
+
     token = _get_bearer_token(event)
     payload = _verify_token(token)
     if not payload or payload.get('role') != 'admin':
@@ -513,6 +530,73 @@ def handle_admin_create_teacher(event, body):
         'role': 'teacher',
     })
 
+import unicodedata
+
+
+def _fold_label(raw):
+    text = ' '.join(str(raw or '').split())
+    if not text:
+        return ''
+    nfd = unicodedata.normalize('NFD', text.casefold())
+    return ''.join(ch for ch in nfd if unicodedata.category(ch) != 'Mn')
+
+
+def _pretty_label(raw, empty='Sin dato'):
+    text = ' '.join(str(raw or '').split())
+    if not text:
+        return empty
+    small = {'de', 'del', 'la', 'las', 'el', 'los', 'y', 'e', 'o', 'u', 'en', 'a', 'al', 'para', 'por'}
+    words = text.casefold().split(' ')
+    out = []
+    for i, word in enumerate(words):
+        if i > 0 and word in small:
+            out.append(word)
+        else:
+            out.append(word[:1].upper() + word[1:] if word else word)
+    return ' '.join(out)
+
+
+def _count_by(values):
+    acc = {}
+    for raw in values:
+        text = ' '.join(str(raw or '').split())
+        key = _fold_label(text) or 'sin-dato'
+        label = _pretty_label(text)
+        if key not in acc:
+            acc[key] = {'label': label, 'count': 0}
+        acc[key]['count'] += 1
+    return [
+        {'label': row['label'], 'count': row['count']}
+        for _, row in sorted(acc.items(), key=lambda x: (-x[1]['count'], x[1]['label'].lower()))
+    ]
+
+
+def _co_ymd_from_epoch(raw):
+    try:
+        n = int(raw)
+        if n > 10_000_000_000:
+            n = n // 1000
+        return time.strftime('%Y-%m-%d', time.gmtime(n + CO_TZ_OFFSET_SECONDS))
+    except Exception:
+        return ''
+
+
+def _shift_ymd(ymd, days):
+    try:
+        dt = datetime.datetime.strptime(str(ymd), '%Y-%m-%d')
+        return (dt + datetime.timedelta(days=int(days))).strftime('%Y-%m-%d')
+    except Exception:
+        return ''
+
+
+def _safe_scan(filter_expression, names, values, limit_per_page=300, max_pages=25):
+    try:
+        return _ddb_scan_all(filter_expression, names, values, limit_per_page, max_pages) or []
+    except Exception:
+        logger.exception('DynamoDB scan failed (admin dashboard)')
+        return []
+
+
 def handle_admin_dashboard_stats(event, body):
     token = _get_bearer_token(event)
     payload = _verify_token(token)
@@ -520,82 +604,369 @@ def handle_admin_dashboard_stats(event, body):
         return _response(401, {'error': 'Unauthorized'})
 
     today = _co_today_yyyy_mm_dd()
+    week_start = _shift_ymd(today, -6) or today
+    semester_start = _shift_ymd(today, -120) or week_start
 
-    # Students count
-    students_count = 0
-    try:
-        resp = dynamodb.scan(
-            TableName=DDB_TABLE,
-            FilterExpression='(#R = :r) OR (#T = :t)',
-            ExpressionAttributeNames={'#R': 'Role', '#T': 'Type'},
-            ExpressionAttributeValues={':r': {'S': 'student'}, ':t': {'S': 'Student'}},
-            Select='COUNT',
-        )
-        students_count = int((resp or {}).get('Count') or 0)
-    except Exception:
-        students_count = 0
+    now = int(time.time())
+    t_local = time.gmtime(now + CO_TZ_OFFSET_SECONDS)
+    midnight_utc = int(now) - (t_local.tm_hour * 3600 + t_local.tm_min * 60 + t_local.tm_sec)
+    semester_start_utc = midnight_utc - 120 * 24 * 60 * 60
 
-    # Teachers count
-    teachers_count = 0
-    try:
-        resp = dynamodb.scan(
-            TableName=DDB_TABLE,
-            FilterExpression='(#R = :r) OR (#T = :t)',
-            ExpressionAttributeNames={'#R': 'Role', '#T': 'Type'},
-            ExpressionAttributeValues={':r': {'S': 'teacher'}, ':t': {'S': 'Teacher'}},
-            Select='COUNT',
-        )
-        teachers_count = int((resp or {}).get('Count') or 0)
-    except Exception:
-        teachers_count = 0
+    student_items = _safe_scan(
+        '(#R = :r) OR (#T = :t)',
+        {'#R': 'Role', '#T': 'Type'},
+        {':r': {'S': 'student'}, ':t': {'S': 'Student'}},
+    )
+    teacher_items = _safe_scan(
+        '(#R = :r) OR (#T = :t)',
+        {'#R': 'Role', '#T': 'Type'},
+        {':r': {'S': 'teacher'}, ':t': {'S': 'Teacher'}},
+    )
+    class_items = _safe_scan(
+        '#T = :t',
+        {'#T': 'Type'},
+        {':t': {'S': 'Class'}},
+    )
+    attendance_items = _safe_scan(
+        '#T = :t AND #MA >= :s',
+        {'#T': 'Type', '#MA': 'MarkedAt'},
+        {':t': {'S': 'Attendance'}, ':s': {'N': str(int(semester_start_utc))}},
+    )
+    session_items = _safe_scan(
+        '#T = :t AND #SD >= :sd',
+        {'#T': 'Type', '#SD': 'SessionDate'},
+        {':t': {'S': 'AttendanceSession'}, ':sd': {'S': semester_start}},
+    )
 
-    # Attendance marked today: scan Attendance and count those whose MarkedAt falls in today's CO window
-    attendance_today = 0
-    try:
-        # Colombia day boundaries expressed as UTC epoch
-        now = int(time.time())
-        t_local = time.gmtime(now + CO_TZ_OFFSET_SECONDS)
-        midnight_utc = int(now) - (t_local.tm_hour * 3600 + t_local.tm_min * 60 + t_local.tm_sec)
-        start_utc = midnight_utc
-        end_utc = midnight_utc + 24 * 60 * 60
+    class_meta = {}
+    classes_by_teacher = {}
+    for c in class_items:
+        cid = (_ddb_s(c, 'ClassId') or '').strip()
+        te = (_ddb_s(c, 'TeacherEmail') or '').strip().lower()
+        meta = {
+            'classId': cid or None,
+            'className': _ddb_s(c, 'ClassName') or None,
+            'group': _ddb_s(c, 'Group') or None,
+            'subjectCode': _ddb_s(c, 'SubjectCode') or None,
+            'period': _ddb_s(c, 'Period') or None,
+            'teacherEmail': te or None,
+        }
+        if cid:
+            class_meta[cid] = meta
+        if te:
+            classes_by_teacher.setdefault(te, []).append(meta)
 
-        scan_resp = dynamodb.scan(
-            TableName=DDB_TABLE,
-            FilterExpression='#T = :t AND #MA BETWEEN :s AND :e',
-            ExpressionAttributeNames={'#T': 'Type', '#MA': 'MarkedAt'},
-            ExpressionAttributeValues={
-                ':t': {'S': 'Attendance'},
-                ':s': {'N': str(int(start_utc))},
-                ':e': {'N': str(int(end_utc))},
-            },
-            Select='COUNT',
-        )
-        attendance_today = int((scan_resp or {}).get('Count') or 0)
-    except Exception:
-        attendance_today = 0
+    students = []
+    student_by_email = {}
+    for it in student_items:
+        email = (_ddb_s(it, 'Email') or '').strip().lower()
+        flags = _student_consent_summary(it)
+        row = {
+            'email': email or None,
+            'fullName': _ddb_s(it, 'FullName') or None,
+            'studentCode': _ddb_s(it, 'StudentCode') or None,
+            'program': _first_s(it, 'Program', 'Carrera', 'Career') or None,
+            'semester': _first_s(it, 'Semester', 'Semestre') or None,
+            'phone': _first_s(it, 'Phone', 'Telefono', 'Tel') or None,
+            'hasFace': flags['hasFace'],
+            'biometricConsent': flags['biometricConsent'],
+            'acceptTerms': flags['acceptTerms'],
+            'acceptPrivacy': flags['acceptPrivacy'],
+        }
+        students.append(row)
+        if email:
+            student_by_email[email] = row
+    students = sorted(students, key=lambda x: str(x.get('fullName') or x.get('email') or ''))
 
-    # Sessions created today
-    sessions_today = 0
-    if today:
+    teachers = []
+    for tu in teacher_items:
+        te = (_ddb_s(tu, 'Email') or '').strip().lower()
+        owned = classes_by_teacher.get(te, [])
+        periods = sorted({str(c.get('period') or '').strip() for c in owned if str(c.get('period') or '').strip()})
+        teachers.append({
+            'email': te or None,
+            'fullName': _ddb_s(tu, 'FullName') or None,
+            'teacherCode': _ddb_s(tu, 'TeacherCode') or None,
+            'subjectsCount': len(owned),
+            'periods': periods,
+            'classes': owned,
+            'acceptTerms': _ddb_bool(tu, 'AcceptTerms'),
+            'acceptPrivacy': _ddb_bool(tu, 'AcceptPrivacy'),
+        })
+    teachers = sorted(teachers, key=lambda x: str(x.get('fullName') or x.get('email') or ''))
+
+    with_face = sum(1 for s in students if s.get('hasFace'))
+    with_classes = sum(1 for t in teachers if int(t.get('subjectsCount') or 0) > 0)
+
+    session_by_id = {}
+    for it in session_items:
+        sid = (_ddb_s(it, 'SessionId') or '').strip()
+        if not sid:
+            continue
+        corte_s = (_ddb_s(it, 'Corte') or '').strip()
+        if corte_s not in ('1', '2'):
+            corte_s = '1'
+        session_by_id[sid] = corte_s
+
+    last7 = []
+    for i in range(6, -1, -1):
+        d = _shift_ymd(today, -i)
+        last7.append({
+            'date': d,
+            'asistencia': 0,
+            'retardo': 0,
+            'inasistencia': 0,
+            'total': 0,
+            'sessions': 0,
+        })
+    by_date = {row['date']: row for row in last7 if row.get('date')}
+
+    recent = []
+    status_today = {'asistencia': 0, 'retardo': 0, 'inasistencia': 0}
+    for it in attendance_items:
+        marked_at = _ddb_n(it, 'MarkedAt')
+        ymd = _co_ymd_from_epoch(marked_at)
+        status = _normalize_attendance_status(_ddb_s(it, 'Status'))
+        cid = (_ddb_s(it, 'ClassId') or '').strip()
+        email = (_ddb_s(it, 'StudentEmail') or '').strip().lower()
+        sid = (_ddb_s(it, 'SessionId') or '').strip()
+        stu = student_by_email.get(email) or {}
+        cls = class_meta.get(cid) or {}
+        row = {
+            'studentEmail': email or None,
+            'studentName': _ddb_s(it, 'StudentName') or stu.get('fullName'),
+            'studentCode': _ddb_s(it, 'StudentCode') or stu.get('studentCode'),
+            'status': status,
+            'classId': cid or None,
+            'className': cls.get('className'),
+            'group': cls.get('group'),
+            'teacherEmail': (_ddb_s(it, 'TeacherEmail') or cls.get('teacherEmail') or '').strip().lower() or None,
+            'program': stu.get('program'),
+            'semester': stu.get('semester'),
+            'date': ymd or None,
+            'markedAt': int(marked_at) if str(marked_at).isdigit() else None,
+            'sessionId': sid or None,
+            'corte': session_by_id.get(sid) or '1',
+            'presentInPhoto': _ddb_bool(it, 'PresentInPhoto'),
+        }
+        recent.append(row)
+        bucket = by_date.get(ymd)
+        if bucket and status in bucket:
+            bucket[status] += 1
+            bucket['total'] += 1
+        if ymd == today and status in status_today:
+            status_today[status] += 1
+
+    recent = sorted(recent, key=lambda x: int(x.get('markedAt') or 0), reverse=True)
+    today_list = [r for r in recent if r.get('date') == today]
+
+    for it in session_items:
+        ymd = _ddb_s(it, 'SessionDate')
+        bucket = by_date.get(ymd)
+        if bucket:
+            bucket['sessions'] += 1
+
+    def _as_int(value):
         try:
-            scan_resp = dynamodb.scan(
-                TableName=DDB_TABLE,
-                FilterExpression='#T = :t AND #SD = :sd',
-                ExpressionAttributeNames={'#T': 'Type', '#SD': 'SessionDate'},
-                ExpressionAttributeValues={':t': {'S': 'AttendanceSession'}, ':sd': {'S': today}},
-                Select='COUNT',
-            )
-            sessions_today = int((scan_resp or {}).get('Count') or 0)
+            return int(float(value or 0))
         except Exception:
-            sessions_today = 0
+            return 0
+
+    week_dates = {row['date'] for row in last7 if row.get('date')}
+    sessions_today_list = []
+    photo = {
+        'sessionsWithPhoto': 0,
+        'sessionsWithoutPhoto': 0,
+        'facesDetected': 0,
+        'recognized': 0,
+        'unrecognized': 0,
+    }
+    for it in session_items:
+        ymd = _ddb_s(it, 'SessionDate')
+        cid = (_ddb_s(it, 'ClassId') or '').strip()
+        cls = class_meta.get(cid) or {}
+        has_photo = bool(_ddb_n(it, 'PhotoConfirmedAt'))
+        faces = _as_int(_ddb_n(it, 'PhotoFacesDetected'))
+        recognized = _as_int(_ddb_n(it, 'PhotoRecognizedCount'))
+        unmatched = _as_int(_ddb_n(it, 'PhotoUnmatchedCount'))
+        if not unmatched and faces:
+            unmatched = max(0, faces - recognized)
+        if ymd in week_dates:
+            if has_photo:
+                photo['sessionsWithPhoto'] += 1
+                photo['facesDetected'] += faces
+                photo['recognized'] += recognized
+                photo['unrecognized'] += unmatched
+            else:
+                photo['sessionsWithoutPhoto'] += 1
+        if ymd != today:
+            continue
+        sessions_today_list.append({
+            'sessionId': _ddb_s(it, 'SessionId') or None,
+            'classId': cid or None,
+            'className': cls.get('className'),
+            'group': cls.get('group'),
+            'teacherEmail': (_ddb_s(it, 'TeacherEmail') or cls.get('teacherEmail') or '').strip().lower() or None,
+            'sessionDate': ymd or None,
+            'hasPhoto': has_photo,
+            'facesDetected': faces,
+            'recognized': recognized,
+            'unrecognized': unmatched,
+        })
+    sessions_today_list = sorted(sessions_today_list, key=lambda x: str(x.get('className') or ''))
+    if not photo['recognized']:
+        photo['recognized'] = sum(1 for r in today_list if r.get('presentInPhoto') is True)
+        photo['unrecognized'] = max(
+            photo['unrecognized'],
+            sum(1 for r in today_list if r.get('presentInPhoto') is False),
+        )
+
+    attendance_today = int(status_today['asistencia'] + status_today['retardo'] + status_today['inasistencia'])
+    sessions_today = len(sessions_today_list)
 
     return _response(200, {
         'ok': True,
         'date': today,
-        'students': {'total': students_count},
-        'teachers': {'total': teachers_count},
-        'attendance': {'markedToday': attendance_today},
-        # No existe entidad "Report" en Dynamo actualmente; usamos sesiones del día como proxy.
+        'students': {
+            'total': len(students),
+            'withFace': with_face,
+            'withoutFace': max(0, len(students) - with_face),
+            'byProgram': _count_by(s.get('program') for s in students),
+            'bySemester': _count_by(s.get('semester') for s in students),
+            'list': students,
+        },
+        'teachers': {
+            'total': len(teachers),
+            'withClasses': with_classes,
+            'withoutClasses': max(0, len(teachers) - with_classes),
+            'classesTotal': len(class_items),
+            'byPeriod': _count_by(
+                p
+                for t in teachers
+                for p in (t.get('periods') or [])
+            ),
+            'list': teachers,
+        },
+        'attendance': {
+            'markedToday': attendance_today,
+            'presentToday': status_today['asistencia'],
+            'lateToday': status_today['retardo'],
+            'absentToday': status_today['inasistencia'],
+            'byStatusToday': [
+                {'label': 'Asistencia', 'status': 'asistencia', 'count': status_today['asistencia']},
+                {'label': 'Retardo', 'status': 'retardo', 'count': status_today['retardo']},
+                {'label': 'Inasistencia', 'status': 'inasistencia', 'count': status_today['inasistencia']},
+            ],
+            'last7Days': last7,
+            'byProgramToday': _count_by(r.get('program') for r in today_list),
+            'byClassToday': _count_by(r.get('className') for r in today_list),
+            'todayList': today_list[:200],
+            'recentList': recent[:400],
+        },
+        'sessions': {
+            'today': sessions_today,
+            'last7Days': [{'date': row['date'], 'count': row['sessions']} for row in last7],
+            'todayList': sessions_today_list,
+            'photo': photo,
+        },
         'reports': {'total': sessions_today},
+        'classes': {'total': len(class_items)},
     })
+
+
+def handle_admin_request_profile(event, body):
+    token = _get_bearer_token(event)
+    payload = _verify_token(token)
+    if not payload or payload.get('role') != 'admin':
+        return _response(401, {'error': 'Unauthorized'})
+
+    admin_email = str(payload.get('sub') or '').strip().lower()
+    email = str((body or {}).get('email') or (body or {}).get('correo') or '').strip().lower()
+    role = str((body or {}).get('role') or 'student').strip().lower()
+    if role not in ('student', 'teacher'):
+        role = 'student'
+    if not email:
+        return _response(400, {'error': 'Missing field: email'})
+
+    if role == 'teacher':
+        item = _scan_find_user_by_email(email, roles=['teacher'], types=['Teacher'])
+    else:
+        item = _scan_find_student_by_email(email)
+    if not item:
+        return _response(404, {'error': 'UserNotFound'})
+
+    flags = _student_consent_summary(item)
+    terms = _ddb_bool(item, 'AcceptTerms')
+    privacy = _ddb_bool(item, 'AcceptPrivacy')
+    missing = []
+    if not (_ddb_s(item, 'FullName') or '').strip():
+        missing.append(('name', 'nombre completo'))
+    if role == 'student':
+        if not _first_s(item, 'Program', 'Carrera', 'Career'):
+            missing.append(('program', 'carrera'))
+        if not _first_s(item, 'Semester', 'Semestre'):
+            missing.append(('semester', 'semestre'))
+        if not _first_s(item, 'Phone', 'Telefono', 'Tel'):
+            missing.append(('phone', 'teléfono'))
+        if terms is not True:
+            missing.append(('terms', 'términos y condiciones'))
+        if privacy is not True:
+            missing.append(('privacy', 'política de privacidad'))
+        if not flags.get('biometricConsent') and not flags.get('hasFace'):
+            missing.append(('biometric', 'consentimiento biométrico'))
+    else:
+        if terms is not True:
+            missing.append(('terms', 'términos y condiciones'))
+        if privacy is not True:
+            missing.append(('privacy', 'política de privacidad'))
+
+    if not missing:
+        return _response(400, {'error': 'NothingToRequest'})
+
+    keys = [k for k, _ in missing]
+    if any(k in ('name', 'program', 'semester', 'phone') for k in keys):
+        open_to = 'edit'
+    elif 'biometric' in keys:
+        open_to = 'biometric'
+    elif 'terms' in keys:
+        open_to = 'terms'
+    else:
+        open_to = 'privacy'
+
+    labels = [label for _, label in missing]
+    if len(labels) == 1:
+        message = f'Administración te pide completar: {labels[0]}.'
+    else:
+        message = f'Administración te pide completar: {", ".join(labels[:-1])} y {labels[-1]}.'
+
+    now = int(time.time())
+    notif = _upsert_student_notification(
+        email,
+        f'NOTIF#adminreq#{email}'.lower(),
+        'Completa tus datos',
+        message,
+        'warning',
+        now,
+        extra={
+            'Action': 'admin_request',
+            'Open': open_to,
+            'Missing': ','.join(keys),
+            'Role': role,
+        },
+        keep_created=False,
+    )
+    _audit_log(admin_email, 'admin', 'admin-request-profile', {
+        'userEmail': email,
+        'role': role,
+        'missing': keys,
+        'open': open_to,
+    })
+    return _response(200, {
+        'ok': True,
+        'email': email,
+        'missing': keys,
+        'open': open_to,
+        'notification': notif,
+    })
+
 

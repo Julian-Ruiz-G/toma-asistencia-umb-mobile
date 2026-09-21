@@ -149,8 +149,10 @@ export default function StudentClassDetails({ navigation, route }) {
             <Text style={styles.metaLine}>Código: {c.subjectCode}</Text>
           ) : null}
           {c?.period ? (
-            <Text style={styles.metaLine}>Periodo: {c.period}</Text>
-          ) : null}
+            <Text style={styles.metaLine}>Corte: {String(c.period) === '2' ? '2' : '1'}</Text>
+          ) : (
+            <Text style={styles.metaLine}>Corte: 1</Text>
+          )}
 
           {teacherName ? (
             <View style={styles.infoBlock}>

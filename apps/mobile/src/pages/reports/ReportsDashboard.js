@@ -39,7 +39,7 @@ export default function ReportsDashboard({ navigation }) {
       {
         id: 'summary',
         label: 'Resumen general',
-        desc: 'Totales de la materia: presentes, retardos y ausencias de todo el periodo.',
+        desc: 'Totales de la materia: presentes, retardos y ausencias de todo el corte.',
         Icon: PieChart,
       },
       {

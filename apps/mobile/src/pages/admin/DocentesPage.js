@@ -9,6 +9,7 @@ import {
   Edit2,
   Plus,
   Search,
+  Send,
   Trash2,
   Users,
   XCircle,
@@ -20,6 +21,7 @@ import { COLORS } from '../../ui/theme';
 import { useColors } from '../../ui/ThemeContext';
 import { ADMIN_CREATE_TEACHER_URL, ADMIN_DELETE_TEACHER_URL, ADMIN_TEACHERS_URL, ADMIN_UPDATE_TEACHER_URL } from '../../config';
 import { useAuth } from '../../state/auth';
+import { gapsLabel, requestProfileCompletion, teacherGaps } from '../../utils/profileGaps';
 
 const mockTeachers = [
   { id: '1', code: 'DOC001', firstName: 'Dr. Roberto', lastName: 'Martínez Vega', email: 'roberto.martinez@umb.edu.co', department: 'Ingeniería', specialization: 'Sistemas', status: 'active', subjectsCount: 4, biometricRegistered: true, lastAccess: '2024-01-15' },
@@ -41,6 +43,7 @@ export default function DocentesPage({ navigation }) {
   const [draft, setDraft] = useState({ fullName: '', email: '', password: '', teacherCode: '' });
   const [showEdit, setShowEdit] = useState(false);
   const [editDraft, setEditDraft] = useState({ email: '', fullName: '', teacherCode: '', password: '' });
+  const [requestingId, setRequestingId] = useState('');
 
   const loadTeachers = async () => {
     try {
@@ -76,6 +79,9 @@ export default function DocentesPage({ navigation }) {
           subjectsCount: Number(t?.subjectsCount || 0),
           biometricRegistered: true,
           lastAccess: '',
+          fullName: String(t?.fullName || '').trim(),
+          acceptTerms: t?.acceptTerms === true,
+          acceptPrivacy: t?.acceptPrivacy === true,
         };
       });
       setTeachers(mapped);
@@ -96,7 +102,8 @@ export default function DocentesPage({ navigation }) {
     return teachers.filter((t) =>
       t.firstName.toLowerCase().includes(q) ||
       t.lastName.toLowerCase().includes(q) ||
-      t.code.includes(q)
+      t.code.includes(q) ||
+      String(t.email || '').toLowerCase().includes(q)
     );
   }, [searchQuery, teachers]);
 
@@ -109,6 +116,36 @@ export default function DocentesPage({ navigation }) {
     if (status === 'inactive') return { bg: COLORS.surface, text: COLORS.textSecondary, label: 'Inactivo' };
     if (status === 'on_leave') return { bg: COLORS.warningBg, text: COLORS.warning, label: 'Licencia' };
     return { bg: COLORS.surface, text: COLORS.textSecondary, label: status };
+  };
+
+  const requestTeacher = (t) => {
+    const gaps = teacherGaps(t);
+    if (!gaps.length) {
+      appAlert('Al día', 'Este docente ya tiene perfil y consentimientos completos.');
+      return;
+    }
+    const name = `${t.firstName || ''} ${t.lastName || ''}`.trim() || t.email;
+    appAlert(
+      'Solicitar datos',
+      `Se enviará una notificación a ${name} para que complete: ${gapsLabel(gaps)}.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Enviar',
+          onPress: async () => {
+            try {
+              setRequestingId(t.id);
+              await requestProfileCompletion(authToken, { email: t.email, role: 'teacher' });
+              appAlert('Solicitud enviada', 'El docente verá el aviso y, al tocarlo, irá a completar lo que falta.');
+            } catch (e) {
+              appAlert('No se pudo enviar', e?.message || String(e));
+            } finally {
+              setRequestingId('');
+            }
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -264,6 +301,22 @@ export default function DocentesPage({ navigation }) {
                   </Pressable>
                 </View>
               </View>
+              {(() => {
+                const gaps = teacherGaps(t);
+                if (!gaps.length) return null;
+                return (
+                  <Pressable
+                    onPress={() => requestTeacher(t)}
+                    disabled={requestingId === t.id}
+                    style={styles.requestBtn}
+                  >
+                    <Send size={14} color={COLORS.primary} />
+                    <Text style={styles.requestBtnText}>
+                      {requestingId === t.id ? 'Enviando…' : `Solicitar: ${gapsLabel(gaps)}`}
+                    </Text>
+                  </Pressable>
+                );
+              })()}
             </View>
           );
         })}
@@ -514,6 +567,20 @@ const createStyles = (COLORS) => StyleSheet.create({
   bioRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   actionsCol: { gap: 10 },
   iconAction: { width: 34, height: 34, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.background, borderWidth: 1, borderColor: COLORS.border },
+  requestBtn: {
+    marginTop: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: COLORS.primarySoft,
+    borderWidth: 1,
+    borderColor: COLORS.primaryBorder,
+  },
+  requestBtnText: { color: COLORS.primary, fontWeight: '800', fontSize: 12, flexShrink: 1 },
   pagination: { marginTop: 6, paddingTop: 12, borderTopWidth: 1, borderTopColor: COLORS.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: COLORS.card, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 12 },
   paginationText: { color: COLORS.muted, fontSize: 12 },
   paginationBtns: { flexDirection: 'row', gap: 10 },

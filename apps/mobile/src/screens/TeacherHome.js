@@ -3,6 +3,7 @@ import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'rea
 import { appAlert } from '../ui/appNotice';
 import {
   BarChart3,
+  Bell,
   BookOpen,
   Calendar,
   Camera,
@@ -13,15 +14,16 @@ import {
   QrCode,
   Settings,
   Trash,
+  User,
   Users,
   X,
 } from 'lucide-react-native';
 
 import { COLORS } from '../ui/theme';
-import { useColors } from '../ui/ThemeContext';
+import { useAppTheme, useColors } from '../ui/ThemeContext';
 import Animated, { enterDown, listEnter } from '../ui/motion';
 import { useAuth } from '../state/auth';
-import { CLASS_DETAILS_URL, CREATE_ATTENDANCE_QR_URL, MY_CLASSES_URL, DELETE_CLASS_URL } from '../config';
+import { CLASS_DETAILS_URL, CREATE_ATTENDANCE_QR_URL, MARK_NOTIFICATIONS_READ_URL, MY_CLASSES_URL, DELETE_CLASS_URL, STUDENT_NOTIFICATIONS_URL } from '../config';
 import { personDisplayName } from '../utils/displayName';
 import { loadLocalProfile } from '../utils/sessionStore';
 import { alertAttendanceQrError } from '../utils/attendanceQr';
@@ -35,6 +37,7 @@ import {
 } from '../utils/schedule';
 import { colombiaDateLongFromYmd, colombiaNowMinutes, colombiaTodayYmd, colombiaWeekdayLongFromYmd } from '../utils/formatDateTime';
 import OverlayDismiss from '../components/OverlayDismiss';
+import { loadTeacherAlerts, syncTeacherAlerts, teacherAlertIsDue } from '../utils/teacherAlerts';
 
 function classCardMeta(c, idx) {
   return {
@@ -81,10 +84,12 @@ const STAT_PANELS = {
 export default function TeacherHome({ navigation }) {
   const COLORS = useColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
-  const { logout, authToken, fullName, email, photoUri, setPhotoUri } = useAuth();
+  const { inAppNotifications } = useAppTheme();
+  const { logout, authToken, fullName, email, photoUri, setPhotoUri, notificationUnread, setNotificationUnread } = useAuth();
   const [classes, setClasses] = useState([]);
   const [loadingClasses, setLoadingClasses] = useState(false);
   const [statsPanel, setStatsPanel] = useState(null);
+  const [adminNotice, setAdminNotice] = useState(null);
 
   const createAttendanceSession = async (classId) => {
     if (!CREATE_ATTENDANCE_QR_URL) {
@@ -260,15 +265,75 @@ export default function TeacherHome({ navigation }) {
         throw new Error(msg);
       }
 
-      setClasses(json?.classes || json?.myClasses || json || []);
+      const arr = json?.classes || json?.myClasses || json || [];
+      const list = Array.isArray(arr) ? arr : [];
+      setClasses(list);
+      await syncTeacherAlerts(email, list).catch(() => {});
+      await loadAdminNotice();
     } catch (e) {
       appAlert('Error', e?.message || String(e));
     } finally {
       setLoadingClasses(false);
     }
   };
+
+  const loadAdminNotice = async () => {
+    let serverUnread = 0;
+    let admin = null;
+    if (authToken && STUDENT_NOTIFICATIONS_URL) {
+      try {
+        const resp = await fetch(STUDENT_NOTIFICATIONS_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${authToken}`,
+          },
+          body: JSON.stringify({}),
+        });
+        const json = await resp.json().catch(() => null);
+        if (resp.ok) {
+          const list = Array.isArray(json?.notifications) ? json.notifications : [];
+          admin = list.find((n) => String(n?.action || '') === 'admin_request' && !n?.read) || null;
+          serverUnread = list.filter((n) => !n?.read).length;
+        }
+      } catch {
+        // ignore
+      }
+    }
+    setAdminNotice(admin);
+    let localUnread = 0;
+    try {
+      const stored = await loadTeacherAlerts(email);
+      localUnread = (stored.alerts || []).filter((a) => teacherAlertIsDue(a) && !a.read).length;
+    } catch {
+      localUnread = 0;
+    }
+    setNotificationUnread(inAppNotifications ? serverUnread + localUnread : 0);
+  };
+
+  const openAdminNotice = () => {
+    const notice = adminNotice;
+    if (!notice) return;
+    if (notice.id && authToken && MARK_NOTIFICATIONS_READ_URL) {
+      fetch(MARK_NOTIFICATIONS_READ_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({ ids: [notice.id] }),
+      }).catch(() => {});
+    }
+    setAdminNotice(null);
+    navigation.navigate('TeacherProfile', {
+      forceEdit: (notice.open || 'edit') === 'edit',
+      open: notice.open || 'edit',
+    });
+  };
+
   useEffect(() => {
     loadClasses();
+    loadAdminNotice();
     (async () => {
       const local = await loadLocalProfile(email);
       if (local?.photoUri) setPhotoUri(String(local.photoUri));
@@ -279,6 +344,7 @@ export default function TeacherHome({ navigation }) {
   useEffect(() => {
     const unsub = navigation?.addListener?.('focus', () => {
       loadClasses();
+      loadAdminNotice();
     });
     return unsub;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -378,9 +444,37 @@ export default function TeacherHome({ navigation }) {
               <Text style={styles.quickActionText}>Crear clase</Text>
             </Pressable>
           </View>
+
+          <View style={styles.quickActions}>
+            <Pressable onPress={() => navigation.navigate('TeacherProfile')} style={styles.quickActionBtn}>
+              <User size={18} color={COLORS.white} />
+              <Text style={styles.quickActionText}>Perfil</Text>
+            </Pressable>
+            <Pressable onPress={() => navigation.navigate('TeacherNotifications')} style={styles.quickActionBtn}>
+              <Bell size={18} color={COLORS.white} />
+              <Text style={styles.quickActionText}>Notificaciones</Text>
+              {inAppNotifications && notificationUnread > 0 ? (
+                <View style={styles.notifBadge}>
+                  <Text style={styles.notifBadgeText}>{notificationUnread > 9 ? '9+' : String(notificationUnread)}</Text>
+                </View>
+              ) : null}
+            </Pressable>
+          </View>
         </Animated.View>
 
         <View style={styles.body}>
+          {adminNotice ? (
+            <Pressable onPress={openAdminNotice} style={styles.noticeCard}>
+              <View style={styles.noticeIcon}>
+                <Bell size={18} color={COLORS.white} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.noticeTitle}>{adminNotice.title || 'Completa tus datos'}</Text>
+                <Text style={styles.noticeText}>{adminNotice.message}</Text>
+              </View>
+            </Pressable>
+          ) : null}
+
           <Animated.View entering={enterDown(80)} style={styles.sectionHeader}>
             <View style={styles.sectionTitleRow}>
               <BookOpen size={18} color={COLORS.icon} />
@@ -724,7 +818,40 @@ const createStyles = (COLORS) => StyleSheet.create({
   quickActions: { marginTop: 12, flexDirection: 'row', gap: 10 },
   quickActionBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.12)' },
   quickActionText: { color: COLORS.white, fontWeight: '900', fontSize: 12 },
+  notifBadge: {
+    position: 'absolute',
+    top: 6,
+    right: 8,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: COLORS.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  notifBadgeText: { color: COLORS.primary, fontSize: 10, fontWeight: '900' },
   body: { paddingHorizontal: 16, paddingTop: 16, gap: 12 },
+  noticeCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    backgroundColor: COLORS.warningSoft,
+    borderWidth: 1,
+    borderColor: COLORS.warningBorder,
+    borderRadius: 16,
+    padding: 12,
+  },
+  noticeIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: COLORS.warningStrong,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  noticeTitle: { fontWeight: '900', color: COLORS.text },
+  noticeText: { marginTop: 2, color: COLORS.textSecondary, fontSize: 12 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 4 },
   sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   sectionTitle: { fontWeight: '900', color: COLORS.text },

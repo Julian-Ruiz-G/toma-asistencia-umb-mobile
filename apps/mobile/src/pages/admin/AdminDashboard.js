@@ -1,9 +1,8 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   Activity,
-  ArrowDownRight,
-  ArrowUpRight,
   ClipboardList,
   GraduationCap,
   LogOut,
@@ -18,22 +17,18 @@ import {
 
 import { SideDrawer } from '../../components/SideDrawer';
 import { useColors } from '../../ui/ThemeContext';
-import { ADMIN_DASHBOARD_STATS_URL } from '../../config';
 import { useAuth } from '../../state/auth';
 import { personDisplayName } from '../../utils/displayName';
 import { loadLocalProfile } from '../../utils/sessionStore';
+import { fetchAdminDashboard } from '../../utils/adminDashboard';
 
 export default function AdminDashboard({ navigation }) {
   const COLORS = useColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const { authToken, logout, fullName, email, photoUri, setPhotoUri } = useAuth();
-  const [stats, setStats] = useState({
-    studentsTotal: null,
-    teachersTotal: null,
-    attendanceToday: null,
-    reportsTotal: null,
-  });
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState(null);
 
   useEffect(() => {
     (async () => {
@@ -42,72 +37,58 @@ export default function AdminDashboard({ navigation }) {
     })();
   }, [email, setPhotoUri]);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        if (!authToken) return;
-        if (!ADMIN_DASHBOARD_STATS_URL) return;
-        const resp = await fetch(ADMIN_DASHBOARD_STATS_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${authToken}`,
-          },
-          body: JSON.stringify({}),
-        });
-        const text = await resp.text();
-        let json;
-        try { json = JSON.parse(text); } catch { json = null; }
-        if (!resp.ok) return;
-
-        setStats({
-          studentsTotal: Number(json?.students?.total ?? null),
-          teachersTotal: Number(json?.teachers?.total ?? null),
-          attendanceToday: Number(json?.attendance?.markedToday ?? null),
-          reportsTotal: Number(json?.reports?.total ?? null),
-        });
-      } catch {
-        // ignore
-      }
-    })();
+  const load = useCallback(async () => {
+    if (!authToken) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    try {
+      const next = await fetchAdminDashboard(authToken, { force: true });
+      setData(next);
+    } finally {
+      setLoading(false);
+    }
   }, [authToken]);
+
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load])
+  );
 
   const statsCards = useMemo(
     () => [
       {
-        title: 'Estudiantes activos',
-        value: stats.studentsTotal == null || Number.isNaN(stats.studentsTotal) ? '—' : String(stats.studentsTotal),
-        change: '',
-        trend: 'up',
-        color: COLORS.icon,
+        key: 'students',
+        title: 'Estudiantes',
+        value: fmt(data?.students?.total),
+        hint: 'Solo estadísticas',
         Icon: GraduationCap,
       },
       {
-        title: 'Docentes activos',
-        value: stats.teachersTotal == null || Number.isNaN(stats.teachersTotal) ? '—' : String(stats.teachersTotal),
-        change: '',
-        trend: 'up',
-        color: COLORS.icon,
+        key: 'teachers',
+        title: 'Docentes',
+        value: fmt(data?.teachers?.total),
+        hint: data?.teachers?.classesTotal != null ? `${data.teachers.classesTotal} clases` : 'Solo estadísticas',
         Icon: Users,
       },
       {
-        title: 'Asistencias hoy',
-        value: stats.attendanceToday == null || Number.isNaN(stats.attendanceToday) ? '—' : String(stats.attendanceToday),
-        change: '',
-        trend: 'up',
-        color: COLORS.icon,
+        key: 'attendance',
+        title: 'Asistencia',
+        value: fmt(data?.attendance?.markedToday),
+        hint: data ? `${data.attendance.presentToday} presentes hoy` : 'Toca para analizar',
         Icon: Activity,
       },
       {
-        title: 'Reportes',
-        value: stats.reportsTotal == null || Number.isNaN(stats.reportsTotal) ? '—' : String(stats.reportsTotal),
-        change: '',
-        trend: 'up',
-        color: COLORS.icon,
+        key: 'reports',
+        title: 'Sesiones',
+        value: fmt(data?.reportsTotal),
+        hint: 'Reconocimiento facial',
         Icon: TrendingUp,
       },
     ],
-    [stats, COLORS]
+    [data]
   );
 
   const drawerItems = useMemo(
@@ -123,8 +104,6 @@ export default function AdminDashboard({ navigation }) {
     ],
     [navigation]
   );
-
-  const TrendIcon = (trend) => (trend === 'up' ? ArrowUpRight : ArrowDownRight);
 
   return (
     <View style={styles.root}>
@@ -149,7 +128,10 @@ export default function AdminDashboard({ navigation }) {
               <Pressable onPress={() => setDrawerOpen(true)} style={styles.menuBtn}>
                 <Menu size={22} color={COLORS.white} />
               </Pressable>
-              <Text style={styles.headerTitle}>Tablero</Text>
+              <View>
+                <Text style={styles.headerTitle}>Tablero</Text>
+                <Text style={styles.headerSub}>Resumen institucional</Text>
+              </View>
             </View>
             <Pressable
               onPress={() => {
@@ -164,36 +146,44 @@ export default function AdminDashboard({ navigation }) {
         </View>
 
         <View style={styles.body}>
-          <Text style={styles.sectionTitle}>Resumen</Text>
-          <View style={{ height: 12 }} />
+          <Text style={styles.sectionTitle}>Indicadores</Text>
+          <Text style={styles.sectionHint}>Toca una tarjeta para ver las gráficas. Estudiantes y docentes del menú son para gestionar perfiles.</Text>
           <View style={styles.grid2}>
-            {statsCards.map((c, idx) => {
-              const TIcon = TrendIcon(c.trend);
-              return (
-                <View key={idx} style={styles.statCard}>
-                  <View style={styles.statTop}>
-                    <View style={{ flex: 1 }}>
-                      <Text numberOfLines={1} style={styles.statTitle}>{c.title}</Text>
-                      <Text style={styles.statValue}>{c.value}</Text>
-                      <View style={styles.trendRow}>
-                        <TIcon size={14} color={c.trend === 'up' ? COLORS.successStrong : COLORS.dangerStrong} />
-                        <Text style={[styles.trendText, { color: c.trend === 'up' ? COLORS.successStrong : COLORS.dangerStrong }]}>{c.change}</Text>
-                      </View>
-                    </View>
-                    <View style={[styles.statIconWrap, { backgroundColor: COLORS.surface }]}>
-                      <c.Icon size={18} color={c.color} />
-                    </View>
+            {statsCards.map((c) => (
+              <Pressable
+                key={c.key}
+                onPress={() => navigation.navigate('AdminInsight', { section: c.key })}
+                style={styles.statCard}
+              >
+                <View style={styles.statTop}>
+                  <View style={{ flex: 1 }}>
+                    <Text numberOfLines={1} style={styles.statTitle}>{c.title}</Text>
+                    <Text style={styles.statValue}>{c.value}</Text>
+                    <Text numberOfLines={1} style={styles.statHint}>{c.hint}</Text>
+                  </View>
+                  <View style={styles.statIconWrap}>
+                    <c.Icon size={18} color={COLORS.icon} />
                   </View>
                 </View>
-              );
-            })}
+              </Pressable>
+            ))}
           </View>
 
-          <View style={{ height: 18 }} />
+          {loading && !data ? (
+            <View style={styles.loadingBox}>
+              <ActivityIndicator color={COLORS.primary} />
+              <Text style={styles.sectionHint}>Cargando cifras…</Text>
+            </View>
+          ) : null}
         </View>
       </ScrollView>
     </View>
   );
+}
+
+function fmt(value) {
+  if (value == null || Number.isNaN(Number(value))) return '—';
+  return String(value);
 }
 
 const createStyles = (COLORS) => StyleSheet.create({
@@ -204,15 +194,17 @@ const createStyles = (COLORS) => StyleSheet.create({
   userRow: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1, paddingRight: 12 },
   menuBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
   headerTitle: { color: COLORS.white, fontSize: 20, fontWeight: '900' },
+  headerSub: { marginTop: 2, color: 'rgba(255,255,255,0.72)', fontSize: 12, fontWeight: '700' },
   logoutBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
   body: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 26 },
+  sectionTitle: { fontWeight: '900', color: COLORS.textSecondary },
+  sectionHint: { marginTop: 4, marginBottom: 12, color: COLORS.muted, fontSize: 12, fontWeight: '700' },
   grid2: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   statCard: { width: '48%', backgroundColor: COLORS.card, borderRadius: 14, padding: 12, borderWidth: 1, borderColor: COLORS.border },
   statTop: { flexDirection: 'row', justifyContent: 'space-between', gap: 10 },
-  statTitle: { fontSize: 12, color: COLORS.muted },
-  statValue: { marginTop: 6, fontSize: 18, fontWeight: '900', color: COLORS.text },
-  trendRow: { marginTop: 6, flexDirection: 'row', alignItems: 'center', gap: 6 },
-  trendText: { fontWeight: '800' },
-  statIconWrap: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  sectionTitle: { fontWeight: '900', color: COLORS.textSecondary },
+  statTitle: { fontSize: 12, color: COLORS.muted, fontWeight: '800' },
+  statValue: { marginTop: 6, fontSize: 22, fontWeight: '900', color: COLORS.text },
+  statHint: { marginTop: 6, fontSize: 11, color: COLORS.placeholder, fontWeight: '700' },
+  statIconWrap: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.surface },
+  loadingBox: { marginTop: 18, alignItems: 'center', gap: 8 },
 });

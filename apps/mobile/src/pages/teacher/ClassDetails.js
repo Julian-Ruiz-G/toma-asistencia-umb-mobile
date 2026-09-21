@@ -90,7 +90,7 @@ export default function ClassDetails({ navigation, route }) {
             </View>
           </View>
           {c?.subjectCode ? <Text style={styles.metaLine}>Código: {c.subjectCode}</Text> : null}
-          {c?.period ? <Text style={styles.metaLine}>Periodo: {c.period}</Text> : null}
+          {c?.period ? <Text style={styles.metaLine}>Corte: {String(c.period) === '2' ? '2' : '1'}</Text> : <Text style={styles.metaLine}>Corte: 1</Text>}
         </Animated.View>
 
         <Animated.View entering={enterDown(80)} style={styles.card}>

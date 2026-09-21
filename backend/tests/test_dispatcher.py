@@ -48,6 +48,7 @@ EXPECTED_SUFFIXES = [
     "/admin-consents",
     "/admin-create-teacher",
     "/admin-dashboard-stats",
+    "/admin-request-profile",
     "/login-student",
     "/create-class",
     "/update-class",
@@ -136,6 +137,18 @@ def test_mark_attendance_unauthorized():
     assert resp["statusCode"] == 401
 
 
+def test_unknown_route_does_not_ask_image():
+    resp = lambda_handler(_event("/Prod/admin-request-profile-missing", body={"email": "a@b.c"}), None)
+    assert resp["statusCode"] == 404
+    assert _body(resp)["error"] == "UnknownRoute"
+
+
+def test_admin_request_profile_unauthorized():
+    resp = lambda_handler(_event("/Prod/admin-request-profile", body={"email": "a@b.c", "role": "teacher"}), None)
+    assert resp["statusCode"] == 401
+    assert _body(resp)["error"] == "Unauthorized"
+
+
 def test_captcha_challenge_shape():
     resp = lambda_handler(_event("/Prod/captcha-challenge", body={}), None)
     assert resp["statusCode"] == 200
@@ -155,6 +168,8 @@ if __name__ == "__main__":
         test_create_class_unauthorized,
         test_mark_attendance_unauthorized,
         test_captcha_challenge_shape,
+        test_unknown_route_does_not_ask_image,
+        test_admin_request_profile_unauthorized,
     ]
     for fn in tests:
         fn()

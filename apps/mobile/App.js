@@ -34,6 +34,7 @@ import SessionHistory from './src/pages/teacher/SessionHistory';
 import InformeSessionsList from './src/pages/teacher/InformeSessionsList';
 import TeacherFaceRecognitionScreen from './src/pages/teacher/FaceRecognitionScreen';
 import TeacherProfile from './src/pages/teacher/TeacherProfile';
+import TeacherNotifications from './src/pages/teacher/TeacherNotifications';
 import TeacherAttendanceGuide from './src/pages/teacher/TeacherAttendanceGuide';
 import TeacherManualCorrection from './src/pages/teacher/ManualCorrection';
 import ReportsDashboard from './src/pages/reports/ReportsDashboard';
@@ -41,6 +42,7 @@ import ReportPreview from './src/pages/reports/ReportPreview';
 import ReportActions from './src/pages/reports/ReportActions';
 import ReportHistory from './src/pages/reports/ReportHistory';
 import AdminDashboard from './src/pages/admin/AdminDashboard';
+import AdminInsight from './src/pages/admin/AdminInsight';
 import AdminProfile from './src/pages/admin/AdminProfile';
 import AdminStudents from './src/pages/admin/EstudiantesPage';
 import AdminTeachers from './src/pages/admin/DocentesPage';
@@ -87,6 +89,7 @@ function AppStack() {
 
           <Stack.Screen name="TeacherHome" component={TeacherHome} />
           <Stack.Screen name="TeacherProfile" component={TeacherProfile} />
+          <Stack.Screen name="TeacherNotifications" component={TeacherNotifications} />
           <Stack.Screen name="TeacherAttendanceGuide" component={TeacherAttendanceGuide} />
           <Stack.Screen name="TeacherCreateClass" component={TeacherCreateClass} />
           <Stack.Screen name="TeacherMyClasses" component={TeacherMyClasses} />
@@ -106,6 +109,7 @@ function AppStack() {
           <Stack.Screen name="ReportHistory" component={ReportHistory} />
 
           <Stack.Screen name="AdminDashboard" component={AdminDashboard} />
+          <Stack.Screen name="AdminInsight" component={AdminInsight} />
           <Stack.Screen name="AdminProfile" component={AdminProfile} />
           <Stack.Screen name="AdminStudents" component={AdminStudents} />
           <Stack.Screen name="AdminTeachers" component={AdminTeachers} />
@@ -144,11 +148,16 @@ function ThemedApp() {
         if (cancelled) return;
         unsub = subscribeNotificationResponses((response) => {
           const data = response?.notification?.request?.content?.data;
-          if (data?.type === 'reminder') {
+          const type = String(data?.type || '');
+          if (type === 'reminder') {
             navRef.current?.navigate('StudentReminders');
-          } else {
-            navRef.current?.navigate('StudentNotifications');
+            return;
           }
+          if (type.startsWith('teacher')) {
+            navRef.current?.navigate('TeacherNotifications');
+            return;
+          }
+          navRef.current?.navigate('StudentNotifications');
         });
       } catch {
         // APK preview antigua: sin módulo nativo de notificaciones. La app debe abrir igual.

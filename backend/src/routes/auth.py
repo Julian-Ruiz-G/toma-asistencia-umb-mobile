@@ -156,46 +156,68 @@ def handle_login_admin(event, body):
 def handle_set_consent(event, body):
     token = _get_bearer_token(event)
     payload = _verify_token(token)
-    if not payload or payload.get('role') != 'student':
+    role = str((payload or {}).get('role') or '')
+    if not payload or role not in ('student', 'teacher'):
         return _response(401, {'error': 'Unauthorized'})
 
-    student_email = str(payload.get('sub') or '').strip().lower()
-    if not student_email:
+    user_email = str(payload.get('sub') or '').strip().lower()
+    if not user_email:
         return _response(401, {'error': 'Unauthorized'})
 
-    consent_val = body.get('biometricConsent') if isinstance(body, dict) else None
-    consent = bool(consent_val)
-    now = int(time.time())
-
-    # Find the student item by scan (current schema for students)
-    item = _scan_find_student_by_email(student_email)
+    if role == 'teacher':
+        item = _scan_find_user_by_email(user_email, roles=['teacher'], types=['Teacher'])
+    else:
+        item = _scan_find_student_by_email(user_email)
     if not item:
-        return _response(404, {'error': 'StudentNotFound'})
+        return _response(404, {'error': 'UserNotFound'})
 
     pk = _ddb_s(item, 'RekognitionId')
     if not pk:
-        return _response(500, {'error': 'StudentKeyMissing'})
+        return _response(500, {'error': 'UserKeyMissing'})
+
+    now = int(time.time())
+    names = {'#CU': 'ConsentUpdatedAt'}
+    values = {':t': {'N': str(now)}}
+    parts = ['#CU = :t']
+
+    if isinstance(body, dict) and 'biometricConsent' in body:
+        consent = bool(body.get('biometricConsent'))
+        names['#BC'] = 'BiometricConsent'
+        names['#CB'] = 'ConsentBiometric'
+        names['#BCA'] = 'BiometricConsentUpdatedAt'
+        values[':v'] = {'BOOL': consent}
+        parts.extend(['#BC = :v', '#CB = :v', '#BCA = :t'])
+    if isinstance(body, dict) and 'acceptTerms' in body:
+        names['#AT'] = 'AcceptTerms'
+        values[':at'] = {'BOOL': bool(body.get('acceptTerms'))}
+        parts.append('#AT = :at')
+    if isinstance(body, dict) and 'acceptPrivacy' in body:
+        names['#AP'] = 'AcceptPrivacy'
+        values[':ap'] = {'BOOL': bool(body.get('acceptPrivacy'))}
+        parts.append('#AP = :ap')
+
+    if len(parts) <= 1:
+        return _response(400, {'error': 'Missing consent fields'})
 
     try:
         dynamodb.update_item(
             TableName=DDB_TABLE,
             Key={'RekognitionId': {'S': pk}},
-            UpdateExpression='SET #BC = :v, #CB = :v, #BCA = :t, #CU = :t',
-            ExpressionAttributeNames={
-                '#BC': 'BiometricConsent',
-                '#CB': 'ConsentBiometric',
-                '#BCA': 'BiometricConsentUpdatedAt',
-                '#CU': 'ConsentUpdatedAt',
-            },
-            ExpressionAttributeValues={':v': {'BOOL': bool(consent)}, ':t': {'N': str(now)}},
+            UpdateExpression='SET ' + ', '.join(parts),
+            ExpressionAttributeNames=names,
+            ExpressionAttributeValues=values,
         )
     except Exception as e:
         logger.exception('DynamoDB update_item failed (set-consent)')
         return _response(500, {'error': 'DynamoDBUpdateFailed', 'details': str(e)})
 
-    _audit_log(student_email, 'student', 'set-consent', {'biometricConsent': bool(consent)})
+    _audit_log(user_email, role, 'set-consent', {
+        'biometricConsent': body.get('biometricConsent') if isinstance(body, dict) else None,
+        'acceptTerms': body.get('acceptTerms') if isinstance(body, dict) else None,
+        'acceptPrivacy': body.get('acceptPrivacy') if isinstance(body, dict) else None,
+    })
 
-    return _response(200, {'ok': True, 'biometricConsent': bool(consent), 'updatedAt': now})
+    return _response(200, {'ok': True, 'updatedAt': now})
 
 def handle_update_my_profile(event, body):
     token = _get_bearer_token(event)

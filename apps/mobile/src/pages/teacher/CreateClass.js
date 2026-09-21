@@ -300,7 +300,7 @@ export default function CreateClass({ navigation, route }) {
 
   const [className, setClassName] = useState('');
   const [subjectCode, setSubjectCode] = useState('');
-  const [period, setPeriod] = useState('');
+  const [period, setPeriod] = useState('1');
   const [group, setGroup] = useState('');
   const [scheduleBlocks, setScheduleBlocks] = useState([EMPTY_BLOCK()]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -322,7 +322,8 @@ export default function CreateClass({ navigation, route }) {
         const c = json?.class || json;
         setClassName(String(c?.className || c?.name || ''));
         setSubjectCode(String(c?.subjectCode || ''));
-        setPeriod(String(c?.period || ''));
+        const rawPeriod = String(c?.period || '1').trim();
+        setPeriod(rawPeriod === '2' ? '2' : '1');
         setGroup(String(c?.group || ''));
         const sch = Array.isArray(c?.schedule) ? c.schedule : [];
         if (sch.length > 0) {
@@ -454,6 +455,17 @@ export default function CreateClass({ navigation, route }) {
             onChangeText={setGroup}
             placeholder="Ej: C1, A1, VIR, SIS1"
             autoCapitalize="characters"
+          />
+
+          <PickerField
+            label="Corte"
+            value={period}
+            onChange={setPeriod}
+            options={[
+              { label: 'Corte 1', value: '1' },
+              { label: 'Corte 2', value: '2' },
+            ]}
+            placeholder="Corte 1"
           />
         </View>
 

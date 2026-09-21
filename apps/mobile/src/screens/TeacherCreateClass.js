@@ -11,7 +11,7 @@ export default function TeacherCreateClass({ navigation }) {
   const [className, setClassName] = useState('');
   const [group, setGroup] = useState('');
   const [subjectCode, setSubjectCode] = useState('');
-  const [period, setPeriod] = useState('');
+  const [period, setPeriod] = useState('1');
   const [scheduleText, setScheduleText] = useState('');
 
   const submit = async () => {
@@ -81,8 +81,8 @@ export default function TeacherCreateClass({ navigation }) {
         <Label>Código asignatura</Label>
         <Input value={subjectCode} onChangeText={setSubjectCode} placeholder="Ej: 090201-152" autoCapitalize="none" />
 
-        <Label>Periodo</Label>
-        <Input value={period} onChangeText={setPeriod} placeholder="Ej: 2026-261" autoCapitalize="none" />
+        <Label>Corte</Label>
+        <Input value={period} onChangeText={setPeriod} placeholder="1 o 2" autoCapitalize="none" />
 
         <Label>Grupo</Label>
         <Input value={group} onChangeText={setGroup} placeholder="Ej: 01" autoCapitalize="none" />

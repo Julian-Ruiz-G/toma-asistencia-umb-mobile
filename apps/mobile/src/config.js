@@ -34,6 +34,7 @@ export const SET_ATTENDANCE_STATUS_URL = API_BASE ? `${API_BASE}/set-attendance-
 export const UPDATE_MY_PROFILE_URL = API_BASE ? `${API_BASE}/update-my-profile` : '';
 
 export const SET_CONSENT_URL = API_BASE ? `${API_BASE}/set-consent` : '';
+export const ADMIN_REQUEST_PROFILE_URL = API_BASE ? `${API_BASE}/admin-request-profile` : '';
 
 export const ADMIN_STUDENTS_URL = API_BASE ? `${API_BASE}/admin-students` : '';
 export const ADMIN_STUDENTS_BY_CLASS_URL = API_BASE ? `${API_BASE}/admin-students-by-class` : '';
