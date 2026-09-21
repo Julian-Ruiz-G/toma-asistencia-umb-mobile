@@ -15,7 +15,7 @@ Aplicación móvil para el control de asistencia en la Universidad Manuela Beltr
 
 ## Tecnologías
 
-**Frontend (Móvil)** React Native, Expo SDK 54, React Navigation, NativeWind, Expo Camera, Expo Updates.
+**Frontend (Móvil)** React Native, Expo SDK 57, React Navigation, NativeWind, Expo Camera, Expo Updates.
 
 **Backend:** AWS Lambda (Python 3.12), API Gateway, DynamoDB, Rekognition. S3 está previsto para imágenes de perfil y evidencias.
 
@@ -63,7 +63,7 @@ Aplicación móvil para el control de asistencia en la Universidad Manuela Beltr
 ## Requisitos
 
 - Node.js 18+ y npm
-- Expo Go (SDK 54) o emulador Android / simulador iOS
+- Expo Go (SDK 57) o emulador Android / simulador iOS
 - URL de la API configurada en `app.json`
 - Cuenta de Expo (solo para builds con EAS)
 
