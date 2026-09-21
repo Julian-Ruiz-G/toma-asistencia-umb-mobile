@@ -1,11 +1,15 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { COLORS } from '../../ui/theme';
+import { useColors } from '../../ui/ThemeContext';
 import { ArrowLeft } from 'lucide-react-native';
 import QRCode from 'react-native-qrcode-svg';
 
 import { Button } from '../../components/Button';
 
 export default function AttendanceQr({ navigation, route }) {
+  const COLORS = useColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const attendance = route?.params?.attendance;
   const attendanceToken =
     attendance?.attendanceToken ||
@@ -27,7 +31,7 @@ export default function AttendanceQr({ navigation, route }) {
     <View style={styles.root}>
       <View style={styles.header}>
         <Pressable onPress={() => navigation.goBack()} style={styles.hBtn}>
-          <ArrowLeft size={24} color="#fff" />
+          <ArrowLeft size={24} color={COLORS.white} />
         </Pressable>
         <Text style={styles.hTitle}>QR Asistencia</Text>
         <View style={styles.hBtnPlaceholder} />
@@ -70,8 +74,8 @@ export default function AttendanceQr({ navigation, route }) {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#111827' },
+const createStyles = (COLORS) => StyleSheet.create({
+  root: { flex: 1, backgroundColor: COLORS.text },
   header: {
     paddingTop: 54,
     paddingHorizontal: 24,
@@ -82,12 +86,12 @@ const styles = StyleSheet.create({
   },
   hBtn: { width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(255,255,255,0.10)', alignItems: 'center', justifyContent: 'center' },
   hBtnPlaceholder: { width: 42, height: 42 },
-  hTitle: { color: '#fff', fontWeight: '800' },
+  hTitle: { color: COLORS.white, fontWeight: '800' },
   center: { flex: 1, paddingHorizontal: 24, alignItems: 'center', justifyContent: 'center' },
-  card: { backgroundColor: '#fff', borderRadius: 18, padding: 18, width: '100%', maxWidth: 360, shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 24, shadowOffset: { width: 0, height: 12 }, elevation: 6 },
-  title: { fontSize: 16, fontWeight: '900', color: '#111827', textAlign: 'center' },
-  sub: { marginTop: 6, color: '#6B7280', textAlign: 'center' },
+  card: { backgroundColor: COLORS.card, borderRadius: 18, padding: 18, width: '100%', maxWidth: 360, shadowColor: COLORS.black, shadowOpacity: 0.25, shadowRadius: 24, shadowOffset: { width: 0, height: 12 }, elevation: 6 },
+  title: { fontSize: 16, fontWeight: '900', color: COLORS.text, textAlign: 'center' },
+  sub: { marginTop: 6, color: COLORS.muted, textAlign: 'center' },
   qrWrap: { marginTop: 14, alignItems: 'center' },
-  qrBox: { backgroundColor: '#fff', borderRadius: 16, padding: 10 },
-  muted: { marginTop: 14, color: '#6B7280', textAlign: 'center' },
+  qrBox: { backgroundColor: COLORS.card, borderRadius: 16, padding: 10 },
+  muted: { marginTop: 14, color: COLORS.muted, textAlign: 'center' },
 });

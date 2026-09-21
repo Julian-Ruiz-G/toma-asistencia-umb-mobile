@@ -12,11 +12,14 @@ import {
 
 import { Button } from '../../components/Button';
 import { COLORS } from '../../ui/theme';
+import { useColors } from '../../ui/ThemeContext';
 import Animated, { enterDown, listEnter } from '../../ui/motion';
 import { useAuth } from '../../state/auth';
 import { MY_CLASSES_URL } from '../../config';
 
 export default function ReportsDashboard({ navigation }) {
+  const COLORS = useColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const { authToken } = useAuth();
   const [reportType, setReportType] = useState('session');
   const [classes, setClasses] = useState([]);
@@ -128,14 +131,14 @@ export default function ReportsDashboard({ navigation }) {
     <View style={styles.root}>
       <Animated.View entering={enterDown(0, 360)} style={styles.header}>
         <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <ArrowLeft size={24} color="#374151" />
+          <ArrowLeft size={24} color={COLORS.textSecondary} />
         </Pressable>
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Reportes</Text>
           <Text style={styles.headerSubtitle}>Informes reales de tus clases</Text>
         </View>
         <Pressable onPress={() => navigation.navigate('ReportHistory')} style={styles.iconBtn}>
-          <History size={20} color="#4B5563" />
+          <History size={20} color={COLORS.icon} />
         </Pressable>
       </Animated.View>
 
@@ -151,7 +154,7 @@ export default function ReportsDashboard({ navigation }) {
                 style={[styles.typeCard, active ? styles.typeCardActive : null]}
               >
                 <View style={[styles.typeIcon, active ? styles.typeIconActive : null]}>
-                  <t.Icon size={18} color={active ? COLORS.primary : '#6B7280'} />
+                  <t.Icon size={18} color={active ? COLORS.primary : COLORS.muted} />
                 </View>
                 <Text style={styles.typeTitle}>{t.label}</Text>
                 <Text style={styles.typeDesc}>{t.desc}</Text>
@@ -222,10 +225,10 @@ export default function ReportsDashboard({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (COLORS) => StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.background },
   header: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     paddingHorizontal: 24,
     paddingBottom: 16,
     paddingTop: 48,
@@ -234,57 +237,57 @@ const styles = StyleSheet.create({
   },
   backBtn: { padding: 8, marginLeft: -8, marginRight: 12, borderRadius: 999 },
   iconBtn: { padding: 10, borderRadius: 999 },
-  headerTitle: { fontSize: 20, fontWeight: '800', color: '#111827' },
-  headerSubtitle: { marginTop: 2, fontSize: 14, color: '#6B7280' },
+  headerTitle: { fontSize: 20, fontWeight: '800', color: COLORS.text },
+  headerSubtitle: { marginTop: 2, fontSize: 14, color: COLORS.muted },
   body: { paddingHorizontal: 24, paddingVertical: 18, paddingBottom: 30 },
-  sectionTitle: { fontWeight: '900', color: '#374151' },
+  sectionTitle: { fontWeight: '900', color: COLORS.textSecondary },
   grid2: { marginTop: 12, flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   typeCard: {
     width: '100%',
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     borderRadius: 16,
     padding: 14,
     borderWidth: 2,
-    borderColor: '#E5E7EB',
+    borderColor: COLORS.border,
   },
-  typeCardActive: { borderColor: COLORS.primary, backgroundColor: 'rgba(185,28,28,0.05)' },
+  typeCardActive: { borderColor: COLORS.primary, backgroundColor: COLORS.primarySoft },
   typeIcon: {
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: COLORS.surface,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 10,
   },
-  typeIconActive: { backgroundColor: 'rgba(185,28,28,0.10)' },
-  typeTitle: { fontWeight: '900', color: '#111827' },
-  typeDesc: { marginTop: 4, color: '#6B7280', fontSize: 12, lineHeight: 16 },
+  typeIconActive: { backgroundColor: COLORS.primarySoft },
+  typeTitle: { fontWeight: '900', color: COLORS.text },
+  typeDesc: { marginTop: 4, color: COLORS.muted, fontSize: 12, lineHeight: 16 },
   classRow: {
     marginTop: 10,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: COLORS.border,
     padding: 14,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
   },
-  classRowActive: { borderColor: COLORS.primary, backgroundColor: 'rgba(185,28,28,0.04)' },
-  classTitle: { fontWeight: '800', color: '#111827' },
-  classSub: { marginTop: 4, color: '#6B7280', fontSize: 12 },
-  radio: { width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: '#D1D5DB' },
+  classRowActive: { borderColor: COLORS.primary, backgroundColor: COLORS.primarySoft },
+  classTitle: { fontWeight: '800', color: COLORS.text },
+  classSub: { marginTop: 4, color: COLORS.muted, fontSize: 12 },
+  radio: { width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: COLORS.border },
   radioOn: { borderColor: COLORS.primary, backgroundColor: COLORS.primary },
   corteRow: { flexDirection: 'row', gap: 10, marginTop: 10 },
   corteChip: {
-    flex: 1, paddingVertical: 10, borderRadius: 12, backgroundColor: '#fff',
-    borderWidth: 1, borderColor: '#E5E7EB', alignItems: 'center',
+    flex: 1, paddingVertical: 10, borderRadius: 12, backgroundColor: COLORS.card,
+    borderWidth: 1, borderColor: COLORS.border, alignItems: 'center',
   },
-  corteChipOn: { borderColor: COLORS.primary, backgroundColor: 'rgba(185,28,28,0.06)' },
-  corteText: { fontWeight: '800', color: '#4B5563' },
+  corteChipOn: { borderColor: COLORS.primary, backgroundColor: COLORS.primarySoft },
+  corteText: { fontWeight: '800', color: COLORS.icon },
   corteTextOn: { color: COLORS.primary },
-  hint: { marginTop: 16, color: '#6B7280', fontSize: 12, lineHeight: 17 },
+  hint: { marginTop: 16, color: COLORS.muted, fontSize: 12, lineHeight: 17 },
   centerMini: { paddingVertical: 20, alignItems: 'center' },
-  muted: { marginTop: 10, color: '#6B7280' },
+  muted: { marginTop: 10, color: COLORS.muted },
 });

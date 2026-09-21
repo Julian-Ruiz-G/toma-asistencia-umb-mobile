@@ -1,11 +1,14 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
 import { COLORS } from '../../ui/theme';
+import { useColors } from '../../ui/ThemeContext';
 import Animated, { PulseGlow, enterDown } from '../../ui/motion';
 
 export default function WelcomeScreen({ navigation }) {
+  const COLORS = useColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   return (
     <View style={styles.root}>
       <View style={styles.container}>
@@ -44,7 +47,7 @@ export default function WelcomeScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (COLORS) => StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: COLORS.background,
@@ -73,10 +76,10 @@ const styles = StyleSheet.create({
     width: 96,
     height: 96,
     borderRadius: 48,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.white,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOpacity: 0.14,
     shadowRadius: 18,
     shadowOffset: { width: 0, height: 10 },
@@ -104,5 +107,5 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   card: { padding: 22 },
-  cardText: { color: '#374151', fontSize: 16 },
+  cardText: { color: COLORS.textSecondary, fontSize: 16 },
 });

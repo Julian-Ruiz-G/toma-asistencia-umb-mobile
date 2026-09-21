@@ -1,10 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import { useAuth } from '../../state/auth';
 import { COLORS } from '../../ui/theme';
+import { useColors } from '../../ui/ThemeContext';
 import Animated, { PulseGlow, enterDown, enterFade } from '../../ui/motion';
 
 export default function SplashScreen({ navigation }) {
+  const COLORS = useColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const { ready, authToken, role } = useAuth();
   const [progress, setProgress] = useState(0);
 
@@ -72,7 +75,7 @@ export default function SplashScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (COLORS) => StyleSheet.create({
   root: {
     flex: 1,
     alignItems: 'center',
@@ -95,10 +98,10 @@ const styles = StyleSheet.create({
     width: 128,
     height: 128,
     borderRadius: 64,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.white,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOpacity: 0.2,
     shadowRadius: 22,
     shadowOffset: { width: 0, height: 12 },
@@ -110,7 +113,7 @@ const styles = StyleSheet.create({
     marginTop: 28,
     fontSize: 24,
     fontWeight: '800',
-    color: '#fff',
+    color: COLORS.white,
     textAlign: 'center',
   },
   subtitle: {
@@ -128,11 +131,11 @@ const styles = StyleSheet.create({
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     borderRadius: 999,
   },
   dots: { marginTop: 24, flexDirection: 'row', justifyContent: 'center' },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#fff', marginHorizontal: 6 },
+  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.card, marginHorizontal: 6 },
   version: {
     position: 'absolute',
     bottom: 32,

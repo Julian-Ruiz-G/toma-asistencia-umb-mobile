@@ -1,7 +1,9 @@
 import React, { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { COLORS } from '../ui/theme';
+import { useColors } from '../ui/ThemeContext';
 
-function renderInline(text, keyPrefix) {
+function renderInline(text, keyPrefix, styles) {
   const nodes = [];
   const re = /(\*\*[^*]+\*\*|\*[^*]+\*)/g;
   let last = 0;
@@ -130,6 +132,8 @@ function parseBlocks(source) {
 }
 
 export default function LegalMarkdown({ content }) {
+  const COLORS = useColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const blocks = useMemo(() => parseBlocks(content), [content]);
 
   return (
@@ -162,7 +166,7 @@ export default function LegalMarkdown({ content }) {
         if (block.type === 'quote') {
           return (
             <View key={idx} style={styles.quote}>
-              <Text style={styles.quoteText}>{renderInline(block.text, `q-${idx}`)}</Text>
+              <Text style={styles.quoteText}>{renderInline(block.text, `q-${idx}`, styles)}</Text>
             </View>
           );
         }
@@ -174,7 +178,7 @@ export default function LegalMarkdown({ content }) {
                   <Text style={styles.marker}>
                     {block.type === 'ol' ? `${j + 1}.` : '•'}
                   </Text>
-                  <Text style={styles.liText}>{renderInline(item, `li-${idx}-${j}`)}</Text>
+                  <Text style={styles.liText}>{renderInline(item, `li-${idx}-${j}`, styles)}</Text>
                 </View>
               ))}
             </View>
@@ -182,7 +186,7 @@ export default function LegalMarkdown({ content }) {
         }
         return (
           <Text key={idx} style={styles.p}>
-            {renderInline(block.text, `p-${idx}`)}
+            {renderInline(block.text, `p-${idx}`, styles)}
           </Text>
         );
       })}
@@ -190,11 +194,11 @@ export default function LegalMarkdown({ content }) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (COLORS) => StyleSheet.create({
   h1: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#111827',
+    color: COLORS.text,
     lineHeight: 28,
     marginBottom: 8,
     letterSpacing: -0.3,
@@ -202,7 +206,7 @@ const styles = StyleSheet.create({
   h2: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#1F2937',
+    color: COLORS.text,
     marginTop: 22,
     marginBottom: 8,
     lineHeight: 22,
@@ -210,7 +214,7 @@ const styles = StyleSheet.create({
   h3: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#374151',
+    color: COLORS.textSecondary,
     marginTop: 14,
     marginBottom: 6,
     lineHeight: 21,
@@ -218,12 +222,12 @@ const styles = StyleSheet.create({
   p: {
     fontSize: 14.5,
     lineHeight: 22,
-    color: '#374151',
+    color: COLORS.textSecondary,
     marginBottom: 10,
   },
   bold: {
     fontWeight: '800',
-    color: '#111827',
+    color: COLORS.text,
   },
   italic: {
     fontStyle: 'italic',
@@ -242,24 +246,24 @@ const styles = StyleSheet.create({
     width: 22,
     fontSize: 14.5,
     lineHeight: 22,
-    color: '#6B7280',
+    color: COLORS.muted,
     fontWeight: '700',
   },
   liText: {
     flex: 1,
     fontSize: 14.5,
     lineHeight: 22,
-    color: '#374151',
+    color: COLORS.textSecondary,
   },
   hr: {
     height: 1,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: COLORS.border,
     marginVertical: 18,
   },
   quote: {
     borderLeftWidth: 3,
-    borderLeftColor: '#9CA3AF',
-    backgroundColor: '#F9FAFB',
+    borderLeftColor: COLORS.placeholder,
+    backgroundColor: COLORS.background,
     paddingVertical: 10,
     paddingHorizontal: 12,
     borderRadius: 8,
@@ -268,6 +272,6 @@ const styles = StyleSheet.create({
   quoteText: {
     fontSize: 14,
     lineHeight: 21,
-    color: '#4B5563',
+    color: COLORS.icon,
   },
 });

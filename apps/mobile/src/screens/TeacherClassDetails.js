@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
+import { COLORS } from '../ui/theme';
 import { appAlert } from '../ui/appNotice';
 import { Card, PrimaryButton, Screen, SecondaryButton } from '../ui/components';
 import { CLASS_DETAILS_URL, CREATE_ATTENDANCE_QR_URL, REGENERATE_CLASS_QR_URL } from '../config';
@@ -118,10 +119,10 @@ export default function TeacherClassDetails({ navigation, route }) {
   return (
     <Screen title="Detalle clase" onBack={() => navigation.goBack()}>
       <Card>
-        <Text style={{ fontSize: 18, fontWeight: '900', color: '#111827' }}>{c?.className || 'Clase'}</Text>
-        <Text style={{ marginTop: 6, color: '#6B7280' }}>Grupo: {c?.group || ''}</Text>
+        <Text style={{ fontSize: 18, fontWeight: '900', color: COLORS.text }}>{c?.className || 'Clase'}</Text>
+        <Text style={{ marginTop: 6, color: COLORS.muted }}>Grupo: {c?.group || ''}</Text>
         {scheduleStr ? (
-          <Text style={{ marginTop: 6, color: '#6B7280' }}>Horario:\n{scheduleStr}</Text>
+          <Text style={{ marginTop: 6, color: COLORS.muted }}>Horario:\n{scheduleStr}</Text>
         ) : null}
 
         <View style={{ height: 12 }} />

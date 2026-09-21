@@ -17,8 +17,10 @@ import {
   Search,
 } from 'lucide-react-native';
 
+import OverlayDismiss from '../../components/OverlayDismiss';
 import { Button } from '../../components/Button';
 import { COLORS } from '../../ui/theme';
+import { useColors } from '../../ui/ThemeContext';
 import { ADMIN_LOGS_URL } from '../../config';
 import { useAuth } from '../../state/auth';
 
@@ -34,13 +36,15 @@ const mockLogs = [
 ];
 
 const levelConfig = {
-  info: { Icon: Info, color: '#2563EB', bg: '#DBEAFE', label: 'Info' },
-  warning: { Icon: AlertCircle, color: '#A16207', bg: '#FEF3C7', label: 'Advertencia' },
-  error: { Icon: AlertCircle, color: '#B91C1C', bg: '#FEE2E2', label: 'Error' },
-  success: { Icon: CheckCircle, color: '#16A34A', bg: '#DCFCE7', label: 'Éxito' },
+  info: { Icon: Info, color: COLORS.infoStrong, bg: COLORS.infoBg, label: 'Info' },
+  warning: { Icon: AlertCircle, color: COLORS.warning, bg: COLORS.warningBg, label: 'Advertencia' },
+  error: { Icon: AlertCircle, color: COLORS.danger, bg: COLORS.dangerBg, label: 'Error' },
+  success: { Icon: CheckCircle, color: COLORS.successStrong, bg: COLORS.successBg, label: 'Éxito' },
 };
 
 export default function LogsPage({ navigation }) {
+  const COLORS = useColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const { authToken } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [levelFilter, setLevelFilter] = useState('all');
@@ -127,14 +131,14 @@ export default function LogsPage({ navigation }) {
     <View style={styles.root}>
       <View style={styles.header}>
         <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <ArrowLeft size={20} color="#4B5563" />
+          <ArrowLeft size={20} color={COLORS.icon} />
         </Pressable>
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Logs</Text>
           <Text style={styles.headerSubtitle}>Monitoreo del sistema</Text>
         </View>
         <Pressable onPress={() => {}} style={styles.iconBtn}>
-          <Download size={18} color="#4B5563" />
+          <Download size={18} color={COLORS.icon} />
         </Pressable>
       </View>
 
@@ -155,12 +159,12 @@ export default function LogsPage({ navigation }) {
 
         <View style={styles.filtersCard}>
           <View style={styles.searchWrap}>
-            <Search size={16} color="#9CA3AF" />
+            <Search size={16} color={COLORS.placeholder} />
             <TextInput
               value={searchQuery}
               onChangeText={setSearchQuery}
               placeholder="Buscar..."
-              placeholderTextColor="#9CA3AF"
+              placeholderTextcolor={COLORS.placeholder}
               style={styles.searchInput}
             />
           </View>
@@ -245,7 +249,7 @@ export default function LogsPage({ navigation }) {
       </ScrollView>
 
       <Modal visible={!!selectedLog} transparent animationType="fade" onRequestClose={() => setSelectedLog(null)}>
-        <View style={styles.modalOverlay}>
+        <OverlayDismiss style={styles.modalOverlay} onClose={() => setSelectedLog(null)}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Detalle del Log</Text>
             <Text style={styles.modalText}>ID: {selectedLog?.id || ''}</Text>
@@ -276,51 +280,51 @@ export default function LogsPage({ navigation }) {
             <View style={{ height: 14 }} />
             <Button fullWidth onPress={() => setSelectedLog(null)}>Cerrar</Button>
           </View>
-        </View>
+        </OverlayDismiss>
       </Modal>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#F9FAFB' },
-  header: { backgroundColor: '#fff', paddingTop: 48, paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#E5E7EB', flexDirection: 'row', alignItems: 'center', gap: 12 },
-  backBtn: { padding: 8, borderRadius: 12, backgroundColor: '#F3F4F6' },
-  iconBtn: { padding: 10, borderRadius: 14, backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#E5E7EB' },
-  headerTitle: { fontWeight: '900', color: '#111827', fontSize: 18 },
-  headerSubtitle: { marginTop: 2, color: '#6B7280', fontSize: 12 },
+const createStyles = (COLORS) => StyleSheet.create({
+  root: { flex: 1, backgroundColor: COLORS.background },
+  header: { backgroundColor: COLORS.card, paddingTop: 48, paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: COLORS.border, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  backBtn: { padding: 8, borderRadius: 12, backgroundColor: COLORS.surface },
+  iconBtn: { padding: 10, borderRadius: 14, backgroundColor: COLORS.background, borderWidth: 1, borderColor: COLORS.border },
+  headerTitle: { fontWeight: '900', color: COLORS.text, fontSize: 18 },
+  headerSubtitle: { marginTop: 2, color: COLORS.muted, fontSize: 12 },
   body: { padding: 16, paddingBottom: 26 },
   statsRow: { flexDirection: 'row', gap: 8 },
-  statMini: { flex: 1, backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB', paddingVertical: 10, alignItems: 'center' },
+  statMini: { flex: 1, backgroundColor: COLORS.card, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border, paddingVertical: 10, alignItems: 'center' },
   statIcon: { width: 28, height: 28, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
-  statNum: { fontWeight: '900', color: '#111827', fontSize: 16 },
-  statLbl: { marginTop: 2, color: '#6B7280', fontSize: 10 },
-  filtersCard: { backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: '#E5E7EB', padding: 12 },
-  searchWrap: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10 },
-  searchInput: { flex: 1, color: '#111827' },
+  statNum: { fontWeight: '900', color: COLORS.text, fontSize: 16 },
+  statLbl: { marginTop: 2, color: COLORS.muted, fontSize: 10 },
+  filtersCard: { backgroundColor: COLORS.card, borderRadius: 14, borderWidth: 1, borderColor: COLORS.border, padding: 12 },
+  searchWrap: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: COLORS.border, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10 },
+  searchInput: { flex: 1, color: COLORS.text },
   pillsRow: { gap: 10 },
-  pill: { paddingHorizontal: 12, paddingVertical: 10, borderRadius: 999, backgroundColor: '#fff', borderWidth: 1, borderColor: '#E5E7EB' },
+  pill: { paddingHorizontal: 12, paddingVertical: 10, borderRadius: 999, backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border },
   pillActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-  pillText: { color: '#6B7280', fontWeight: '900', fontSize: 12 },
-  pillTextActive: { color: '#fff' },
-  listCard: { backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: '#E5E7EB', overflow: 'hidden' },
-  logRow: { padding: 12, flexDirection: 'row', gap: 12, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
+  pillText: { color: COLORS.muted, fontWeight: '900', fontSize: 12 },
+  pillTextActive: { color: COLORS.white },
+  listCard: { backgroundColor: COLORS.card, borderRadius: 14, borderWidth: 1, borderColor: COLORS.border, overflow: 'hidden' },
+  logRow: { padding: 12, flexDirection: 'row', gap: 12, borderBottomWidth: 1, borderBottomColor: COLORS.border },
   logIcon: { width: 34, height: 34, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   logMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' },
-  logTime: { color: '#6B7280', fontFamily: 'monospace', fontSize: 10 },
-  logModulePill: { backgroundColor: '#F3F4F6', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 },
-  logModuleText: { color: '#4B5563', fontSize: 10, fontWeight: '800' },
+  logTime: { color: COLORS.muted, fontFamily: 'monospace', fontSize: 10 },
+  logModulePill: { backgroundColor: COLORS.surface, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 },
+  logModuleText: { color: COLORS.icon, fontSize: 10, fontWeight: '800' },
   logLevel: { fontSize: 10, fontWeight: '900' },
-  logMsg: { fontWeight: '900', color: '#111827' },
-  logUser: { marginTop: 2, color: '#6B7280', fontSize: 12 },
+  logMsg: { fontWeight: '900', color: COLORS.text },
+  logUser: { marginTop: 2, color: COLORS.muted, fontSize: 12 },
   emptyWrap: { alignItems: 'center', paddingVertical: 22 },
-  emptyTitle: { fontWeight: '900', color: '#111827' },
-  emptyText: { marginTop: 6, color: '#6B7280' },
+  emptyTitle: { fontWeight: '900', color: COLORS.text },
+  emptyText: { marginTop: 6, color: COLORS.muted },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.50)', alignItems: 'center', justifyContent: 'center', padding: 24 },
-  modalCard: { backgroundColor: '#fff', borderRadius: 18, padding: 18, width: '100%', maxWidth: 360 },
-  modalTitle: { fontWeight: '900', color: '#111827', fontSize: 18 },
-  modalText: { marginTop: 6, color: '#6B7280' },
+  modalCard: { backgroundColor: COLORS.card, borderRadius: 18, padding: 18, width: '100%', maxWidth: 360 },
+  modalTitle: { fontWeight: '900', color: COLORS.text, fontSize: 18 },
+  modalText: { marginTop: 6, color: COLORS.muted },
   detailRow: { marginTop: 10 },
-  detailKey: { color: '#6B7280', fontSize: 12 },
-  detailVal: { marginTop: 2, color: '#111827', fontWeight: '800' },
+  detailKey: { color: COLORS.muted, fontSize: 12 },
+  detailVal: { marginTop: 2, color: COLORS.text, fontWeight: '800' },
 });

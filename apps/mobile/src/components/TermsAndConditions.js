@@ -1,3 +1,4 @@
+import { COLORS } from '../ui/theme';
 import React from 'react';
 import { FileText } from 'lucide-react-native';
 
@@ -164,7 +165,7 @@ export default function TermsAndConditionsModal({ visible, onClose, onAccept, re
       onAccept={onAccept}
       hideAccept={readOnly}
       title="Términos y Condiciones"
-      accent="#1E40AF"
+      accent={COLORS.primary}
       Icon={FileText}
       markdown={TERMS_MARKDOWN}
       acceptLabel="Acepto los Términos y Condiciones"

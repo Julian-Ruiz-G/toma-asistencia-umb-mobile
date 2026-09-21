@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { appAlert } from '../../ui/appNotice';
 import {
@@ -12,8 +12,10 @@ import {
   X,
 } from 'lucide-react-native';
 
+import OverlayDismiss from '../../components/OverlayDismiss';
 import { Button } from '../../components/Button';
 import { COLORS } from '../../ui/theme';
+import { useColors } from '../../ui/ThemeContext';
 import { CLASS_DETAILS_URL, CREATE_CLASS_URL, UPDATE_CLASS_URL } from '../../config';
 import { useAuth } from '../../state/auth';
 import { deriveStartEndFromSchedule } from '../../utils/schedule';
@@ -54,6 +56,8 @@ const GROUPS = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10'].map(
 // ─── Componente desplegable genérico ─────────────────────────────────────────
 
 function PickerField({ label, value, options, onChange, placeholder = 'Seleccionar…' }) {
+  const COLORS = useColors();
+  const pf = useMemo(() => makePf(COLORS), [COLORS]);
   const [open, setOpen] = useState(false);
   const selected = options.find((o) => o.value === value);
 
@@ -67,16 +71,16 @@ function PickerField({ label, value, options, onChange, placeholder = 'Seleccion
         <Text style={[pf.value, !selected && pf.placeholder]}>
           {selected ? selected.label : placeholder}
         </Text>
-        <ChevronDown size={18} color="#6B7280" />
+        <ChevronDown size={18} color={COLORS.muted} />
       </Pressable>
 
       <Modal visible={open} transparent animationType="fade">
-        <Pressable style={pf.overlay} onPress={() => setOpen(false)}>
+        <OverlayDismiss style={pf.overlay} pin="bottom" onClose={() => setOpen(false)}>
           <View style={pf.sheet}>
             <View style={pf.sheetHeader}>
               <Text style={pf.sheetTitle}>{label || 'Seleccionar'}</Text>
               <Pressable onPress={() => setOpen(false)} style={pf.closeBtn}>
-                <X size={20} color="#6B7280" />
+                <X size={20} color={COLORS.muted} />
               </Pressable>
             </View>
             <ScrollView style={{ maxHeight: 340 }}>
@@ -97,36 +101,36 @@ function PickerField({ label, value, options, onChange, placeholder = 'Seleccion
               })}
             </ScrollView>
           </View>
-        </Pressable>
+        </OverlayDismiss>
       </Modal>
     </View>
   );
 }
 
-const pf = StyleSheet.create({
+const makePf = (COLORS) => StyleSheet.create({
   wrap: { marginBottom: 14 },
-  label: { fontSize: 13, fontWeight: '800', color: '#374151', marginBottom: 6 },
+  label: { fontSize: 13, fontWeight: '800', color: COLORS.textSecondary, marginBottom: 6 },
   trigger: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: '#E5E7EB',
+    borderColor: COLORS.border,
     paddingHorizontal: 14,
     paddingVertical: 13,
   },
   triggerOpen: { borderColor: COLORS.primary },
-  value: { fontSize: 15, color: '#111827', fontWeight: '600' },
-  placeholder: { color: '#9CA3AF', fontWeight: '400' },
+  value: { fontSize: 15, color: COLORS.text, fontWeight: '600' },
+  placeholder: { color: COLORS.placeholder, fontWeight: '400' },
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.45)',
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingBottom: 32,
@@ -138,10 +142,10 @@ const pf = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: COLORS.border,
   },
-  sheetTitle: { fontSize: 16, fontWeight: '900', color: '#111827' },
-  closeBtn: { padding: 6, borderRadius: 999, backgroundColor: '#F3F4F6' },
+  sheetTitle: { fontSize: 16, fontWeight: '900', color: COLORS.text },
+  closeBtn: { padding: 6, borderRadius: 999, backgroundColor: COLORS.surface },
   option: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -149,10 +153,10 @@ const pf = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#F9FAFB',
+    borderBottomColor: COLORS.background,
   },
-  optionActive: { backgroundColor: 'rgba(185,28,28,0.05)' },
-  optionText: { fontSize: 15, color: '#374151' },
+  optionActive: { backgroundColor: COLORS.primarySoft },
+  optionText: { fontSize: 15, color: COLORS.textSecondary },
   optionTextActive: { color: COLORS.primary, fontWeight: '800' },
 });
 
@@ -160,6 +164,9 @@ const pf = StyleSheet.create({
 import { TextInput } from 'react-native';
 
 function TextField({ label, value, onChangeText, placeholder, autoCapitalize = 'sentences' }) {
+  const COLORS = useColors();
+  const pf = useMemo(() => makePf(COLORS), [COLORS]);
+  const tf = useMemo(() => makeTf(COLORS), [COLORS]);
   return (
     <View style={{ marginBottom: 14 }}>
       <Text style={pf.label}>{label}</Text>
@@ -167,7 +174,7 @@ function TextField({ label, value, onChangeText, placeholder, autoCapitalize = '
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor="#9CA3AF"
+        placeholderTextcolor={COLORS.placeholder}
         autoCapitalize={autoCapitalize}
         style={tf.input}
       />
@@ -175,16 +182,16 @@ function TextField({ label, value, onChangeText, placeholder, autoCapitalize = '
   );
 }
 
-const tf = StyleSheet.create({
+const makeTf = (COLORS) => StyleSheet.create({
   input: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: '#E5E7EB',
+    borderColor: COLORS.border,
     paddingHorizontal: 14,
     paddingVertical: 13,
     fontSize: 15,
-    color: '#111827',
+    color: COLORS.text,
     fontWeight: '600',
   },
 });
@@ -192,6 +199,8 @@ const tf = StyleSheet.create({
 // ─── Bloque de horario (un día + hora inicio + hora fin) ──────────────────────
 
 function ScheduleBlock({ block, index, onChange, onRemove, canRemove }) {
+  const COLORS = useColors();
+  const sb = useMemo(() => makeSb(COLORS), [COLORS]);
   return (
     <View style={sb.card}>
       <View style={sb.header}>
@@ -201,7 +210,7 @@ function ScheduleBlock({ block, index, onChange, onRemove, canRemove }) {
         </View>
         {canRemove && (
           <Pressable onPress={onRemove} style={sb.removeBtn}>
-            <Trash2 size={16} color="#EF4444" />
+            <Trash2 size={16} color={COLORS.dangerStrong} />
           </Pressable>
         )}
       </View>
@@ -225,7 +234,7 @@ function ScheduleBlock({ block, index, onChange, onRemove, canRemove }) {
           />
         </View>
         <View style={sb.timeSep}>
-          <Clock size={16} color="#9CA3AF" />
+          <Clock size={16} color={COLORS.placeholder} />
         </View>
         <View style={{ flex: 1 }}>
           <PickerField
@@ -241,14 +250,14 @@ function ScheduleBlock({ block, index, onChange, onRemove, canRemove }) {
   );
 }
 
-const sb = StyleSheet.create({
+const makeSb = (COLORS) => StyleSheet.create({
   card: {
-    backgroundColor: '#F9FAFB',
+    backgroundColor: COLORS.background,
     borderRadius: 16,
     padding: 14,
     marginBottom: 12,
     borderWidth: 1.5,
-    borderColor: '#E5E7EB',
+    borderColor: COLORS.border,
   },
   header: {
     flexDirection: 'row',
@@ -260,17 +269,17 @@ const sb = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(185,28,28,0.08)',
+    backgroundColor: COLORS.surface,
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 999,
   },
-  pillText: { fontSize: 12, fontWeight: '800', color: COLORS.primary },
+  pillText: { fontSize: 12, fontWeight: '800', color: COLORS.textSecondary },
   removeBtn: {
     width: 32,
     height: 32,
     borderRadius: 10,
-    backgroundColor: '#FEE2E2',
+    backgroundColor: COLORS.dangerBg,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -283,6 +292,8 @@ const sb = StyleSheet.create({
 const EMPTY_BLOCK = () => ({ day: '', startTime: '', endTime: '' });
 
 export default function CreateClass({ navigation, route }) {
+  const COLORS = useColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const { authToken } = useAuth();
   const editClassId = route?.params?.classId ? String(route.params.classId) : '';
   const isEdit = Boolean(editClassId);
@@ -406,7 +417,7 @@ export default function CreateClass({ navigation, route }) {
       {/* Header */}
       <View style={styles.header}>
         <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <ArrowLeft size={24} color="#374151" />
+          <ArrowLeft size={24} color={COLORS.textSecondary} />
         </Pressable>
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>{isEdit ? 'Editar clase' : 'Crear clase'}</Text>
@@ -481,28 +492,28 @@ export default function CreateClass({ navigation, route }) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (COLORS) => StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.background },
   header: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     paddingHorizontal: 24,
     paddingBottom: 16,
     paddingTop: 48,
     flexDirection: 'row',
     alignItems: 'center',
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: COLORS.border,
   },
   backBtn: { padding: 8, marginLeft: -8, marginRight: 12, borderRadius: 999 },
-  headerTitle: { fontSize: 20, fontWeight: '800', color: '#111827' },
-  headerSubtitle: { marginTop: 2, fontSize: 13, color: '#6B7280' },
+  headerTitle: { fontSize: 20, fontWeight: '800', color: COLORS.text },
+  headerSubtitle: { marginTop: 2, fontSize: 13, color: COLORS.muted },
   body: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 24 },
   section: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     borderRadius: 20,
     padding: 16,
     marginBottom: 16,
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOpacity: 0.06,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 4 },
@@ -517,10 +528,10 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 15,
     fontWeight: '900',
-    color: '#111827',
+    color: COLORS.text,
     marginBottom: 14,
   },
-  sectionHint: { fontSize: 12, color: '#9CA3AF', fontWeight: '600' },
+  sectionHint: { fontSize: 12, color: COLORS.placeholder, fontWeight: '600' },
   addBlockBtn: {
     flexDirection: 'row',
     alignItems: 'center',

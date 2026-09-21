@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { appAlert } from '../../ui/appNotice';
 import {
@@ -11,7 +11,9 @@ import {
   X,
 } from 'lucide-react-native';
 
+import OverlayDismiss from '../../components/OverlayDismiss';
 import { COLORS } from '../../ui/theme';
+import { useColors } from '../../ui/ThemeContext';
 import { ATTENDANCE_REPORT_URL } from '../../config';
 import { useAuth } from '../../state/auth';
 import { exportAttendanceReport } from '../../utils/reportExport';
@@ -64,10 +66,10 @@ function splitHeaderAndTable(rows) {
 }
 
 const STATUS_COLORS = {
-  X_SI: { bg: '#DCFCE7', text: '#15803D', border: '#86EFAC' },   // asistencia
-  X_NO: { bg: '#FEE2E2', text: '#B91C1C', border: '#FCA5A5' },   // inasistencia
-  X_RET: { bg: '#FEF9C3', text: '#854D0E', border: '#FDE047' },  // retardo
-  default: { bg: '#F3F4F6', text: '#374151', border: '#E5E7EB' },
+  X_SI: { bg: COLORS.successBg, text: COLORS.success, border: COLORS.successBorder },   // asistencia
+  X_NO: { bg: COLORS.dangerBg, text: COLORS.primary, border: COLORS.dangerBorder },   // inasistencia
+  X_RET: { bg: COLORS.warningSoft, text: COLORS.warning, border: COLORS.warningBorder },  // retardo
+  default: { bg: COLORS.surface, text: COLORS.textSecondary, border: COLORS.border },
 };
 
 function getCellStyle(colLabel, value) {
@@ -80,6 +82,9 @@ function getCellStyle(colLabel, value) {
 }
 
 export default function ReportPreview({ navigation, route }) {
+  const COLORS = useColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
+  const mp = useMemo(() => makeMp(COLORS), [COLORS]);
   const { authToken } = useAuth();
   const sessionId = String(route?.params?.sessionId || '').trim();
   const classId = String(route?.params?.classId || '').trim();
@@ -152,11 +157,11 @@ export default function ReportPreview({ navigation, route }) {
       {/* Header */}
       <View style={styles.header}>
         <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <ArrowLeft size={22} color="#374151" />
+          <ArrowLeft size={22} color={COLORS.textSecondary} />
         </Pressable>
         <View style={styles.headerCenter}>
           <View style={styles.titleRow}>
-            <FileSpreadsheet size={17} color="#16A34A" />
+            <FileSpreadsheet size={17} color={COLORS.successStrong} />
             <Text style={styles.headerTitle}>Reporte de Asistencia</Text>
           </View>
           <Text style={styles.headerSub} numberOfLines={1}>
@@ -167,7 +172,7 @@ export default function ReportPreview({ navigation, route }) {
         <Pressable onPress={load} style={styles.iconBtn} disabled={loading}>
           {loading
             ? <ActivityIndicator size="small" color={COLORS.primary} />
-            : <RefreshCw size={18} color="#4B5563" />}
+            : <RefreshCw size={18} color={COLORS.icon} />}
         </Pressable>
       </View>
 
@@ -181,7 +186,7 @@ export default function ReportPreview({ navigation, route }) {
         <View style={styles.center}>
           <Text style={styles.errorText}>{error}</Text>
           <Pressable onPress={load} style={styles.retryBtn}>
-            <RefreshCw size={16} color="#fff" />
+            <RefreshCw size={16} color={COLORS.white} />
             <Text style={styles.retryBtnText}>Reintentar</Text>
           </Pressable>
         </View>
@@ -255,15 +260,15 @@ export default function ReportPreview({ navigation, route }) {
               {/* Leyenda */}
               <View style={styles.legend}>
                 <View style={styles.legendItem}>
-                  <View style={[styles.legendDot, { backgroundColor: '#DCFCE7', borderColor: '#86EFAC' }]} />
+                  <View style={[styles.legendDot, { backgroundColor: COLORS.successBg, borderColor: COLORS.successBorder }]} />
                   <Text style={styles.legendText}>Asistió</Text>
                 </View>
                 <View style={styles.legendItem}>
-                  <View style={[styles.legendDot, { backgroundColor: '#FEF9C3', borderColor: '#FDE047' }]} />
+                  <View style={[styles.legendDot, { backgroundColor: COLORS.warningSoft, borderColor: COLORS.warningBorder }]} />
                   <Text style={styles.legendText}>Retardo</Text>
                 </View>
                 <View style={styles.legendItem}>
-                  <View style={[styles.legendDot, { backgroundColor: '#FEE2E2', borderColor: '#FCA5A5' }]} />
+                  <View style={[styles.legendDot, { backgroundColor: COLORS.dangerBg, borderColor: COLORS.dangerBorder }]} />
                   <Text style={styles.legendText}>Inasistencia</Text>
                 </View>
               </View>
@@ -275,7 +280,7 @@ export default function ReportPreview({ navigation, route }) {
             <View style={styles.downloadHeader}>
               <View style={styles.downloadHeaderLine} />
               <View style={styles.downloadHeaderBadge}>
-                <Download size={14} color="#6B7280" />
+                <Download size={14} color={COLORS.muted} />
                 <Text style={styles.downloadTitle}>EXPORTAR INFORME</Text>
               </View>
               <View style={styles.downloadHeaderLine} />
@@ -285,8 +290,8 @@ export default function ReportPreview({ navigation, route }) {
                 style={({ pressed }) => [styles.dlBtn, pressed && styles.dlBtnPressed]}
                 onPress={() => setPreviewFormat('csv')}
               >
-                <View style={[styles.dlBtnIconWrap, { backgroundColor: '#DCFCE7' }]}>
-                  <FileText size={28} color="#16A34A" />
+                <View style={[styles.dlBtnIconWrap, { backgroundColor: COLORS.surface }]}>
+                  <FileText size={28} color={COLORS.icon} />
                 </View>
                 <Text style={styles.dlBtnText}>CSV</Text>
                 <Text style={styles.dlBtnSub}>Texto</Text>
@@ -296,8 +301,8 @@ export default function ReportPreview({ navigation, route }) {
                 style={({ pressed }) => [styles.dlBtn, pressed && styles.dlBtnPressed]}
                 onPress={() => setPreviewFormat('xlsx')}
               >
-                <View style={[styles.dlBtnIconWrap, { backgroundColor: '#DBEAFE' }]}>
-                  <FileSpreadsheet size={28} color="#2563EB" />
+                <View style={[styles.dlBtnIconWrap, { backgroundColor: COLORS.surface }]}>
+                  <FileSpreadsheet size={28} color={COLORS.icon} />
                 </View>
                 <Text style={styles.dlBtnText}>Excel</Text>
                 <Text style={styles.dlBtnSub}>Tabla</Text>
@@ -307,8 +312,8 @@ export default function ReportPreview({ navigation, route }) {
                 style={({ pressed }) => [styles.dlBtn, pressed && styles.dlBtnPressed]}
                 onPress={() => setPreviewFormat('pdf')}
               >
-                <View style={[styles.dlBtnIconWrap, { backgroundColor: '#FEE2E2' }]}>
-                  <FileText size={28} color="#DC2626" />
+                <View style={[styles.dlBtnIconWrap, { backgroundColor: COLORS.surface }]}>
+                  <FileText size={28} color={COLORS.icon} />
                 </View>
                 <Text style={styles.dlBtnText}>PDF</Text>
                 <Text style={styles.dlBtnSub}>Imprimir</Text>
@@ -320,14 +325,14 @@ export default function ReportPreview({ navigation, route }) {
 
       {/* ── Modal de previsualización por formato ── */}
       <Modal visible={!!previewFormat} transparent animationType="slide" onRequestClose={() => setPreviewFormat(null)}>
-        <View style={mp.overlay}>
+        <OverlayDismiss style={mp.overlay} pin="bottom" onClose={() => setPreviewFormat(null)}>
           <View style={mp.sheet}>
             <View style={mp.sheetHeader}>
               <Text style={mp.sheetTitle}>
                 Vista previa — {previewFormat === 'csv' ? 'CSV' : previewFormat === 'xlsx' ? 'Excel' : 'PDF'}
               </Text>
               <Pressable onPress={() => setPreviewFormat(null)} style={mp.closeBtn}>
-                <X size={20} color="#6B7280" />
+                <X size={20} color={COLORS.muted} />
               </Pressable>
             </View>
 
@@ -336,15 +341,15 @@ export default function ReportPreview({ navigation, route }) {
                 activeOpacity={0.8}
                 style={[
                   mp.downloadConfirm,
-                  { backgroundColor: previewFormat === 'csv' ? '#16A34A' : previewFormat === 'xlsx' ? '#2563EB' : '#DC2626' },
+                  { backgroundColor: COLORS.primary },
                   isDownloading && { opacity: 0.5 }
                 ]}
                 onPress={() => handleDownload(previewFormat)}
                 disabled={isDownloading}
               >
                 {isDownloading
-                  ? <ActivityIndicator color="#ffffff" size="small" />
-                  : <Download size={20} color="#ffffff" />}
+                  ? <ActivityIndicator color={COLORS.white} size="small" />
+                  : <Download size={20} color={COLORS.white} />}
                 <Text style={mp.downloadConfirmText}>
                   {isDownloading ? 'Generando…' : 'Descargar'}
                 </Text>
@@ -387,7 +392,7 @@ export default function ReportPreview({ navigation, route }) {
                         ))}
                       </View>
                       {dataRows.slice(0, 8).map((row, ri) => (
-                        <View key={ri} style={[mp.xlsxTr, ri % 2 === 1 && { backgroundColor: '#F2F2F2' }]}>
+                        <View key={ri} style={[mp.xlsxTr, ri % 2 === 1 && { backgroundColor: COLORS.surface }]}>
                           {columns.slice(0, 8).map((col, ci) => {
                             const val = String(row[ci] || '');
                             const bg = xCellBg(col, val);
@@ -444,7 +449,7 @@ export default function ReportPreview({ navigation, route }) {
               )}
             </ScrollView>
           </View>
-        </View>
+        </OverlayDismiss>
       </Modal>
     </View>
   );
@@ -466,10 +471,10 @@ function colWidth(col) {
   return 120;
 }
 
-const styles = StyleSheet.create({
+const createStyles = (COLORS) => StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.background },
   header: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     paddingTop: 48,
     paddingHorizontal: 16,
     paddingBottom: 14,
@@ -477,82 +482,82 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: COLORS.border,
   },
   backBtn: {
     width: 38, height: 38, borderRadius: 999,
-    backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: COLORS.surface, alignItems: 'center', justifyContent: 'center',
   },
   headerCenter: { flex: 1 },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
-  headerTitle: { fontWeight: '900', color: '#111827', fontSize: 15 },
-  headerSub: { marginTop: 3, fontSize: 12, color: '#6B7280' },
+  headerTitle: { fontWeight: '900', color: COLORS.text, fontSize: 15 },
+  headerSub: { marginTop: 3, fontSize: 12, color: COLORS.muted },
   iconBtn: {
     width: 38, height: 38, borderRadius: 12,
-    backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: COLORS.surface, alignItems: 'center', justifyContent: 'center',
   },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
-  loadingText: { marginTop: 12, color: '#6B7280', fontSize: 14 },
-  errorText: { color: '#B91C1C', textAlign: 'center', fontWeight: '700', marginBottom: 16 },
+  loadingText: { marginTop: 12, color: COLORS.muted, fontSize: 14 },
+  errorText: { color: COLORS.danger, textAlign: 'center', fontWeight: '700', marginBottom: 16 },
   retryBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     backgroundColor: COLORS.primary, paddingHorizontal: 18, paddingVertical: 10, borderRadius: 12,
   },
-  retryBtnText: { color: '#fff', fontWeight: '800' },
-  emptyText: { color: '#9CA3AF', fontSize: 15 },
+  retryBtnText: { color: COLORS.white, fontWeight: '800' },
+  emptyText: { color: COLORS.placeholder, fontSize: 15 },
   // Metadatos
   metaCard: {
     margin: 16,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: COLORS.border,
     padding: 14,
   },
-  metaTitle: { fontWeight: '900', color: '#374151', marginBottom: 10, fontSize: 13 },
+  metaTitle: { fontWeight: '900', color: COLORS.textSecondary, marginBottom: 10, fontSize: 13 },
   metaRow: {
     flexDirection: 'row', justifyContent: 'space-between',
-    paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: '#F9FAFB',
+    paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: COLORS.background,
   },
-  metaKey: { color: '#6B7280', fontSize: 12, flex: 1 },
-  metaVal: { color: '#111827', fontWeight: '700', fontSize: 12, flex: 1, textAlign: 'right' },
+  metaKey: { color: COLORS.muted, fontSize: 12, flex: 1 },
+  metaVal: { color: COLORS.text, fontWeight: '700', fontSize: 12, flex: 1, textAlign: 'right' },
   // Tabla
   tableWrap: {
     marginHorizontal: 16,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: COLORS.border,
     overflow: 'hidden',
   },
   tableTitle: {
-    fontWeight: '900', color: '#374151', fontSize: 13,
+    fontWeight: '900', color: COLORS.textSecondary, fontSize: 13,
     paddingHorizontal: 14, paddingTop: 12, paddingBottom: 8,
-    borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
+    borderBottomWidth: 1, borderBottomColor: COLORS.border,
   },
-  theadRow: { flexDirection: 'row', backgroundColor: '#1F2937' },
+  theadRow: { flexDirection: 'row', backgroundColor: COLORS.text },
   th: {
     paddingVertical: 9, paddingHorizontal: 8,
-    borderRightWidth: 1, borderRightColor: '#374151',
+    borderRightWidth: 1, borderRightColor: COLORS.textSecondary,
   },
-  thText: { fontSize: 10, color: '#F9FAFB', fontWeight: '900', textTransform: 'uppercase' },
-  tr: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
-  trAlt: { backgroundColor: '#FAFAFA' },
+  thText: { fontSize: 10, color: COLORS.background, fontWeight: '900', textTransform: 'uppercase' },
+  tr: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  trAlt: { backgroundColor: COLORS.background },
   td: {
     paddingVertical: 8, paddingHorizontal: 8,
-    borderRightWidth: 1, borderRightColor: '#F3F4F6',
+    borderRightWidth: 1, borderRightColor: COLORS.border,
     justifyContent: 'center',
     borderWidth: 0,
   },
-  tdText: { fontSize: 11, color: '#374151' },
+  tdText: { fontSize: 11, color: COLORS.textSecondary },
   // Leyenda
   legend: {
     flexDirection: 'row', gap: 16, paddingHorizontal: 14, paddingVertical: 10,
-    borderTopWidth: 1, borderTopColor: '#F3F4F6', backgroundColor: '#FAFAFA',
+    borderTopWidth: 1, borderTopColor: COLORS.border, backgroundColor: COLORS.background,
   },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   legendDot: { width: 14, height: 14, borderRadius: 4, borderWidth: 1 },
-  legendText: { fontSize: 11, color: '#6B7280' },
+  legendText: { fontSize: 11, color: COLORS.muted },
   // Descarga
   downloadSection: {
     marginTop: 24, paddingHorizontal: 16,
@@ -561,14 +566,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', marginBottom: 16,
   },
   downloadHeaderLine: {
-    flex: 1, height: 1, backgroundColor: '#E5E7EB',
+    flex: 1, height: 1, backgroundColor: COLORS.border,
   },
   downloadHeaderBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     paddingHorizontal: 14,
   },
   downloadTitle: {
-    fontWeight: '900', color: '#6B7280', fontSize: 11, letterSpacing: 1,
+    fontWeight: '900', color: COLORS.muted, fontSize: 11, letterSpacing: 1,
   },
   downloadBtns: {
     flexDirection: 'row', gap: 8, justifyContent: 'space-between',
@@ -576,18 +581,18 @@ const styles = StyleSheet.create({
   },
   dlBtn: {
     flex: 1, paddingVertical: 24, paddingHorizontal: 2,
-    borderRadius: 20, backgroundColor: '#fff',
-    borderWidth: 1, borderColor: '#E5E7EB',
+    borderRadius: 20, backgroundColor: COLORS.card,
+    borderWidth: 1, borderColor: COLORS.border,
     alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 2,
+    shadowColor: COLORS.black, shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 2,
   },
-  dlBtnPressed: { backgroundColor: '#F9FAFB', borderColor: '#D1D5DB', transform: [{ scale: 0.96 }] },
+  dlBtnPressed: { backgroundColor: COLORS.background, borderColor: COLORS.border, transform: [{ scale: 0.96 }] },
   dlBtnIconWrap: {
     width: 52, height: 52, borderRadius: 16,
     alignItems: 'center', justifyContent: 'center', marginBottom: 10,
   },
-  dlBtnText: { color: '#111827', fontWeight: '900', fontSize: 15, textAlign: 'center' },
-  dlBtnSub: { color: '#6B7280', fontSize: 11, marginTop: 4, textAlign: 'center' },
+  dlBtnText: { color: COLORS.text, fontWeight: '900', fontSize: 15, textAlign: 'center' },
+  dlBtnSub: { color: COLORS.muted, fontSize: 11, marginTop: 4, textAlign: 'center' },
 });
 
 // ─── Helpers para anchos de columna en previews ─────
@@ -600,9 +605,9 @@ function xColW(col) {
 }
 function xCellBg(col, val) {
   const c = String(col).toUpperCase(); const v = String(val).toUpperCase();
-  if (c === 'SI' && v === 'X') return '#C6EFCE';
-  if (c === 'NO' && v === 'X') return '#FFC7CE';
-  if (c === 'RETARDO' && v === 'X') return '#FFEB9C';
+  if (c === 'SI' && v === 'X') return COLORS.successBg;
+  if (c === 'NO' && v === 'X') return COLORS.dangerBg;
+  if (c === 'RETARDO' && v === 'X') return COLORS.warningBg;
   return null;
 }
 function pColW(col) {
@@ -614,45 +619,45 @@ function pColW(col) {
 }
 
 // ─── Estilos del modal de previsualización ──────────
-const mp = StyleSheet.create({
+const makeMp = (COLORS) => StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  sheet: { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, height: '85%' },
+  sheet: { backgroundColor: COLORS.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, height: '85%' },
   sheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingVertical: 14 },
-  sheetTitle: { fontWeight: '900', color: '#111827', fontSize: 16 },
-  closeBtn: { width: 34, height: 34, borderRadius: 999, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' },
-  actionArea: { paddingHorizontal: 18, paddingTop: 10, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: '#F3F4F6', zIndex: 10 },
-  downloadConfirm: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, paddingVertical: 16, borderRadius: 16, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 10, shadowOffset: { width: 0, height: 5 }, elevation: 4 },
-  downloadConfirmText: { color: '#ffffff', fontWeight: '900', fontSize: 18 },
+  sheetTitle: { fontWeight: '900', color: COLORS.text, fontSize: 16 },
+  closeBtn: { width: 34, height: 34, borderRadius: 999, backgroundColor: COLORS.surface, alignItems: 'center', justifyContent: 'center' },
+  actionArea: { paddingHorizontal: 18, paddingTop: 10, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: COLORS.border, zIndex: 10 },
+  downloadConfirm: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, paddingVertical: 16, borderRadius: 16, shadowColor: COLORS.black, shadowOpacity: 0.2, shadowRadius: 10, shadowOffset: { width: 0, height: 5 }, elevation: 4 },
+  downloadConfirmText: { color: COLORS.white, fontWeight: '900', fontSize: 18 },
   // CSV
   csvBox: { backgroundColor: '#1E1E1E', padding: 14, minHeight: 200 },
   csvBadge: { color: '#6EE7B7', fontSize: 10, fontWeight: '700', marginBottom: 8, fontFamily: 'monospace' },
   csvLine: { color: '#D4D4D4', fontSize: 10, fontFamily: 'monospace', lineHeight: 16 },
   // Excel
-  xlsxBox: { backgroundColor: '#fff', minHeight: 200 },
+  xlsxBox: { backgroundColor: COLORS.card, minHeight: 200 },
   xlsxBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#217346', paddingHorizontal: 12, paddingVertical: 8 },
-  xlsxBarText: { color: '#fff', fontWeight: '800', fontSize: 12 },
+  xlsxBarText: { color: COLORS.white, fontWeight: '800', fontSize: 12 },
   xlsxBarDot: { color: '#A5D6A7', fontSize: 10 },
   xlsxHead: { flexDirection: 'row', backgroundColor: '#4472C4' },
   xlsxTh: { paddingVertical: 8, paddingHorizontal: 6, borderRightWidth: 1, borderRightColor: '#335C9E' },
-  xlsxThText: { color: '#fff', fontSize: 10, fontWeight: '900' },
-  xlsxTr: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#D9D9D9', backgroundColor: '#fff' },
+  xlsxThText: { color: COLORS.white, fontSize: 10, fontWeight: '900' },
+  xlsxTr: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#D9D9D9', backgroundColor: COLORS.card },
   xlsxTd: { paddingVertical: 6, paddingHorizontal: 6, borderRightWidth: 1, borderRightColor: '#D9D9D9' },
   xlsxTdText: { fontSize: 10, color: '#212121' },
-  xlsxMore: { padding: 8, color: '#9CA3AF', fontSize: 10, textAlign: 'center', backgroundColor: '#F9FAFB' },
+  xlsxMore: { padding: 8, color: COLORS.placeholder, fontSize: 10, textAlign: 'center', backgroundColor: COLORS.background },
   // PDF
-  pdfPage: { backgroundColor: '#fff', padding: 16, minHeight: 200 },
-  pdfHeader: { alignItems: 'center', paddingVertical: 10, borderBottomWidth: 2, borderBottomColor: '#1F2937', marginBottom: 8 },
-  pdfHeaderTitle: { fontWeight: '900', color: '#1F2937', fontSize: 13 },
-  pdfHeaderSub: { color: '#4B5563', fontSize: 10, marginTop: 2 },
+  pdfPage: { backgroundColor: COLORS.card, padding: 16, minHeight: 200 },
+  pdfHeader: { alignItems: 'center', paddingVertical: 10, borderBottomWidth: 2, borderBottomColor: COLORS.text, marginBottom: 8 },
+  pdfHeaderTitle: { fontWeight: '900', color: COLORS.text, fontSize: 13 },
+  pdfHeaderSub: { color: COLORS.icon, fontSize: 10, marginTop: 2 },
   pdfMetaRow: { flexDirection: 'row', gap: 6, paddingVertical: 2 },
-  pdfMetaKey: { fontSize: 10, color: '#6B7280', width: 110 },
-  pdfMetaVal: { fontSize: 10, color: '#111827', fontWeight: '700', flex: 1 },
-  pdfThead: { flexDirection: 'row', backgroundColor: '#1F2937' },
-  pdfTh: { paddingVertical: 6, paddingHorizontal: 4, borderRightWidth: 1, borderRightColor: '#374151' },
-  pdfThText: { fontSize: 9, color: '#F9FAFB', fontWeight: '900' },
-  pdfTr: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
-  pdfTd: { paddingVertical: 5, paddingHorizontal: 4, borderRightWidth: 1, borderRightColor: '#E5E7EB' },
-  pdfTdText: { fontSize: 9, color: '#374151' },
-  pdfMore: { padding: 6, color: '#9CA3AF', fontSize: 9, textAlign: 'center' },
-  pdfFoot: { marginTop: 12, color: '#9CA3AF', fontSize: 8, textAlign: 'center', fontStyle: 'italic', borderTopWidth: 1, borderTopColor: '#E5E7EB', paddingTop: 6 },
+  pdfMetaKey: { fontSize: 10, color: COLORS.muted, width: 110 },
+  pdfMetaVal: { fontSize: 10, color: COLORS.text, fontWeight: '700', flex: 1 },
+  pdfThead: { flexDirection: 'row', backgroundColor: COLORS.text },
+  pdfTh: { paddingVertical: 6, paddingHorizontal: 4, borderRightWidth: 1, borderRightColor: COLORS.textSecondary },
+  pdfThText: { fontSize: 9, color: COLORS.background, fontWeight: '900' },
+  pdfTr: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  pdfTd: { paddingVertical: 5, paddingHorizontal: 4, borderRightWidth: 1, borderRightColor: COLORS.border },
+  pdfTdText: { fontSize: 9, color: COLORS.textSecondary },
+  pdfMore: { padding: 6, color: COLORS.placeholder, fontSize: 9, textAlign: 'center' },
+  pdfFoot: { marginTop: 12, color: COLORS.placeholder, fontSize: 8, textAlign: 'center', fontStyle: 'italic', borderTopWidth: 1, borderTopColor: COLORS.border, paddingTop: 6 },
 });

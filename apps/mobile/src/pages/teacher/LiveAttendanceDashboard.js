@@ -16,6 +16,7 @@ import {
 
 // Importaciones de configuración y contexto
 import { COLORS } from '../../ui/theme';
+import { useColors } from '../../ui/ThemeContext';
 import { ATTENDANCE_DETAILS_URL, REMOVE_STUDENT_FROM_CLASS_URL, SET_ATTENDANCE_STATUS_URL } from '../../config';
 import { useAuth } from '../../state/auth';
 import { alertClassHoursError } from '../../utils/attendanceQr';
@@ -24,6 +25,8 @@ import { formatClockTime } from '../../utils/formatDateTime';
 
 // Componente principal del dashboard de asistencia en vivo
 export default function LiveAttendanceDashboard({ navigation, route }) {
+  const COLORS = useColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   // Obtener token de autenticación desde el contexto
   const { authToken } = useAuth();
   // Obtener sesión de asistencia y metadatos de la clase desde los parámetros de navegación
@@ -278,19 +281,19 @@ export default function LiveAttendanceDashboard({ navigation, route }) {
   const getStatusConfig = (status) => {
     switch (status) {
       case 'asistencia':
-        return { Icon: CheckCircle, label: 'Presente', bg: '#ECFDF5', border: '#BBF7D0', text: '#16A34A' };
+        return { Icon: CheckCircle, label: 'Presente', bg: COLORS.successSoft, border: COLORS.successBorder, text: COLORS.successStrong };
       case 'retardo':
-        return { Icon: Clock3, label: 'Retardo', bg: '#FFFBEB', border: '#FDE68A', text: '#A16207' };
+        return { Icon: Clock3, label: 'Retardo', bg: COLORS.warningSoft, border: COLORS.warningBorder, text: COLORS.warning };
       case 'inasistencia':
-        return { Icon: UserX, label: 'Ausente', bg: '#FEF2F2', border: '#FECACA', text: '#B91C1C' };
+        return { Icon: UserX, label: 'Ausente', bg: COLORS.dangerSoft, border: COLORS.dangerBorder, text: COLORS.danger };
       default:
-        return { Icon: UserX, label: 'Ausente', bg: '#FEF2F2', border: '#FECACA', text: '#B91C1C' };
+        return { Icon: UserX, label: 'Ausente', bg: COLORS.dangerSoft, border: COLORS.dangerBorder, text: COLORS.danger };
     }
   };
 
   // Función para obtener el indicador visual del método de marcación
   const getMethodDot = (method) => {
-    const color = method === 'qr' ? '#3B82F6' : method === 'face' ? '#A855F7' : '#9CA3AF';
+    const color = method === 'qr' ? COLORS.primary : method === 'face' ? COLORS.icon : COLORS.placeholder;
     return <View style={[styles.methodDot, { backgroundColor: color }]} />;
   };
 
@@ -300,7 +303,7 @@ export default function LiveAttendanceDashboard({ navigation, route }) {
     <View style={styles.root}>
       <View style={styles.header}>
         <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <ArrowLeft size={24} color="#374151" />
+          <ArrowLeft size={24} color={COLORS.textSecondary} />
         </Pressable>
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Asistencia en Vivo</Text>
@@ -317,7 +320,7 @@ export default function LiveAttendanceDashboard({ navigation, route }) {
           }}
           style={styles.iconBtn}
         >
-          <RefreshCw size={20} color="#4B5563" />
+          <RefreshCw size={20} color={COLORS.icon} />
         </Pressable>
       </View>
 
@@ -331,7 +334,7 @@ export default function LiveAttendanceDashboard({ navigation, route }) {
               value={sessionId}
               onChangeText={setSessionId}
               placeholder="sessionId"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextcolor={COLORS.placeholder}
               style={styles.sessionInput}
               autoCapitalize="none"
               autoCorrect={false}
@@ -349,15 +352,15 @@ export default function LiveAttendanceDashboard({ navigation, route }) {
             <Text style={styles.statLbl}>Total</Text>
           </View>
           <View style={[styles.statCard, styles.statCardAccentGreen]}>
-            <Text style={[styles.statNum, { color: '#16A34A' }]}>{stats.present}</Text>
+            <Text style={[styles.statNum, { color: COLORS.successStrong }]}>{stats.present}</Text>
             <Text style={styles.statLbl}>Presentes</Text>
           </View>
           <View style={[styles.statCard, styles.statCardAccentYellow]}>
-            <Text style={[styles.statNum, { color: '#A16207' }]}>{stats.late}</Text>
+            <Text style={[styles.statNum, { color: COLORS.warning }]}>{stats.late}</Text>
             <Text style={styles.statLbl}>Retardos</Text>
           </View>
           <View style={[styles.statCard, styles.statCardAccentRed]}>
-            <Text style={[styles.statNum, { color: '#B91C1C' }]}>{stats.absent}</Text>
+            <Text style={[styles.statNum, { color: COLORS.danger }]}>{stats.absent}</Text>
             <Text style={styles.statLbl}>Ausentes</Text>
           </View>
         </View>
@@ -378,12 +381,12 @@ export default function LiveAttendanceDashboard({ navigation, route }) {
         </Text>
 
         <View style={styles.searchWrap}>
-          <Search size={18} color="#9CA3AF" />
+          <Search size={18} color={COLORS.placeholder} />
           <TextInput
             value={searchQuery}
             onChangeText={setSearchQuery}
             placeholder="Buscar estudiante..."
-            placeholderTextColor="#9CA3AF"
+            placeholderTextcolor={COLORS.placeholder}
             style={styles.searchInput}
           />
         </View>
@@ -448,7 +451,7 @@ export default function LiveAttendanceDashboard({ navigation, route }) {
                     student.status === 'asistencia' ? styles.statusBtnGreen : null,
                   ]}
                 >
-                  <CheckCircle size={14} color={student.status === 'asistencia' ? '#fff' : '#16A34A'} />
+                  <CheckCircle size={14} color={student.status === 'asistencia' ? COLORS.white : COLORS.successStrong} />
                   <Text
                     style={[
                       styles.statusBtnText,
@@ -466,7 +469,7 @@ export default function LiveAttendanceDashboard({ navigation, route }) {
                     student.status === 'retardo' ? styles.statusBtnYellow : null,
                   ]}
                 >
-                  <Clock3 size={14} color={student.status === 'retardo' ? '#fff' : '#A16207'} />
+                  <Clock3 size={14} color={student.status === 'retardo' ? COLORS.white : COLORS.warning} />
                   <Text
                     style={[
                       styles.statusBtnText,
@@ -484,7 +487,7 @@ export default function LiveAttendanceDashboard({ navigation, route }) {
                     student.status === 'inasistencia' ? styles.statusBtnRed : null,
                   ]}
                 >
-                  <UserX size={14} color={student.status === 'inasistencia' ? '#fff' : '#B91C1C'} />
+                  <UserX size={14} color={student.status === 'inasistencia' ? COLORS.white : COLORS.primary} />
                   <Text
                     style={[
                       styles.statusBtnText,
@@ -500,7 +503,7 @@ export default function LiveAttendanceDashboard({ navigation, route }) {
                 onPress={() => removeStudent(student.id, student.name)}
                 style={styles.removeBtn}
               >
-                <Trash size={14} color="#DC2626" />
+                <Trash size={14} color={COLORS.dangerStrong} />
                 <Text style={styles.removeBtnText}>Eliminar de la clase</Text>
               </Pressable>
             </View>
@@ -509,7 +512,7 @@ export default function LiveAttendanceDashboard({ navigation, route }) {
 
         {filteredStudents.length === 0 ? (
           <View style={styles.emptyWrap}>
-            <Users size={40} color="#D1D5DB" />
+            <Users size={40} color={COLORS.border} />
             <Text style={styles.emptyText}>No se encontraron estudiantes</Text>
           </View>
         ) : null}
@@ -525,10 +528,10 @@ export default function LiveAttendanceDashboard({ navigation, route }) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (COLORS) => StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.background },
   header: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     paddingHorizontal: 24,
     paddingBottom: 16,
     paddingTop: 48,
@@ -537,90 +540,90 @@ const styles = StyleSheet.create({
   },
   backBtn: { padding: 8, marginLeft: -8, marginRight: 12, borderRadius: 999 },
   iconBtn: { padding: 10, borderRadius: 999 },
-  headerTitle: { fontSize: 20, fontWeight: '800', color: '#111827' },
-  headerSubtitle: { marginTop: 2, fontSize: 14, color: '#6B7280' },
+  headerTitle: { fontSize: 20, fontWeight: '800', color: COLORS.text },
+  headerSubtitle: { marginTop: 2, fontSize: 14, color: COLORS.muted },
   body: { paddingHorizontal: 20, paddingTop: 14, paddingBottom: 24 },
-  infoBox: { backgroundColor: '#fff', borderRadius: 16, padding: 14, borderWidth: 1, borderColor: '#E5E7EB' },
-  infoTitle: { fontWeight: '900', color: '#111827' },
-  infoText: { marginTop: 6, color: '#6B7280', fontSize: 12, lineHeight: 16 },
-  sessionInput: { backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, color: '#111827' },
+  infoBox: { backgroundColor: COLORS.card, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: COLORS.border },
+  infoTitle: { fontWeight: '900', color: COLORS.text },
+  infoText: { marginTop: 6, color: COLORS.muted, fontSize: 12, lineHeight: 16 },
+  sessionInput: { backgroundColor: COLORS.background, borderWidth: 1, borderColor: COLORS.border, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, color: COLORS.text },
   consultBtn: { backgroundColor: COLORS.primary, borderRadius: 12, paddingVertical: 12, alignItems: 'center', justifyContent: 'center' },
-  consultBtnText: { color: '#fff', fontWeight: '900' },
+  consultBtnText: { color: COLORS.white, fontWeight: '900' },
   statsRow: { flexDirection: 'row', gap: 8 },
   statCard: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     borderRadius: 14,
     paddingVertical: 10,
     paddingHorizontal: 8,
     alignItems: 'center',
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOpacity: 0.06,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 6 },
     elevation: 1,
   },
-  statCardAccentGreen: { borderBottomWidth: 2, borderBottomColor: '#22C55E' },
-  statCardAccentYellow: { borderBottomWidth: 2, borderBottomColor: '#EAB308' },
-  statCardAccentRed: { borderBottomWidth: 2, borderBottomColor: '#EF4444' },
-  statNum: { fontSize: 18, fontWeight: '900', color: '#1F2937' },
-  statLbl: { marginTop: 2, fontSize: 11, color: '#6B7280' },
+  statCardAccentGreen: { borderBottomWidth: 2, borderBottomColor: COLORS.successStrong },
+  statCardAccentYellow: { borderBottomWidth: 2, borderBottomColor: COLORS.warningStrong },
+  statCardAccentRed: { borderBottomWidth: 2, borderBottomColor: COLORS.dangerStrong },
+  statNum: { fontSize: 18, fontWeight: '900', color: COLORS.text },
+  statLbl: { marginTop: 2, fontSize: 11, color: COLORS.muted },
   progressCard: {
     marginTop: 12,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     borderRadius: 14,
     padding: 12,
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOpacity: 0.06,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 6 },
     elevation: 1,
   },
   progressTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  progressLabel: { color: '#6B7280' },
+  progressLabel: { color: COLORS.muted },
   progressPct: { fontWeight: '900', color: COLORS.primary },
-  progressBarBg: { marginTop: 10, height: 8, borderRadius: 999, backgroundColor: '#E5E7EB', overflow: 'hidden' },
+  progressBarBg: { marginTop: 10, height: 8, borderRadius: 999, backgroundColor: COLORS.border, overflow: 'hidden' },
   progressBarFill: { height: '100%', backgroundColor: COLORS.primary, borderRadius: 999 },
-  hoursHint: { marginBottom: 10, color: '#6B7280', fontSize: 12, lineHeight: 16 },
+  hoursHint: { marginBottom: 10, color: COLORS.muted, fontSize: 12, lineHeight: 16 },
   searchWrap: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: COLORS.border,
     paddingHorizontal: 12,
     paddingVertical: 10,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
   },
-  searchInput: { flex: 1, color: '#111827' },
+  searchInput: { flex: 1, color: COLORS.text },
   filterRow: { gap: 10, paddingTop: 10, paddingBottom: 2 },
-  filterPill: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 999, backgroundColor: '#fff', borderWidth: 1, borderColor: '#E5E7EB' },
+  filterPill: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 999, backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border },
   filterPillActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-  filterText: { color: '#6B7280', fontWeight: '800' },
-  filterTextActive: { color: '#fff' },
+  filterText: { color: COLORS.muted, fontWeight: '800' },
+  filterTextActive: { color: COLORS.white },
   studentCard: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     borderRadius: 14,
     padding: 12,
     borderWidth: 1,
     marginBottom: 10,
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOpacity: 0.05,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 6 },
     elevation: 1,
   },
   studentTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  avatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#E5E7EB', alignItems: 'center', justifyContent: 'center' },
-  avatarText: { fontWeight: '900', color: '#4B5563' },
+  avatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: COLORS.border, alignItems: 'center', justifyContent: 'center' },
+  avatarText: { fontWeight: '900', color: COLORS.icon },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  studentName: { fontWeight: '900', color: '#111827', flex: 1 },
+  studentName: { fontWeight: '900', color: COLORS.text, flex: 1 },
   methodDot: { width: 8, height: 8, borderRadius: 4 },
-  studentCode: { marginTop: 2, fontSize: 12, color: '#6B7280' },
+  studentCode: { marginTop: 2, fontSize: 12, color: COLORS.muted },
   statusPill: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999 },
   statusText: { fontWeight: '900', fontSize: 12 },
-  timeText: { marginTop: 4, fontSize: 11, color: '#9CA3AF' },
+  timeText: { marginTop: 4, fontSize: 11, color: COLORS.placeholder },
   statusBtns: { marginTop: 12, flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   statusBtn: {
     flexGrow: 1,
@@ -632,20 +635,20 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 8,
     borderRadius: 12,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: COLORS.background,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: COLORS.border,
   },
-  statusBtnGreen: { backgroundColor: '#16A34A', borderColor: '#16A34A' },
-  statusBtnYellow: { backgroundColor: '#CA8A04', borderColor: '#CA8A04' },
-  statusBtnRed: { backgroundColor: '#B91C1C', borderColor: '#B91C1C' },
-  statusBtnText: { fontWeight: '800', fontSize: 12, color: '#4B5563' },
-  statusBtnTextOn: { color: '#fff' },
+  statusBtnGreen: { backgroundColor: COLORS.successStrong, borderColor: COLORS.successStrong },
+  statusBtnYellow: { backgroundColor: COLORS.warningStrong, borderColor: COLORS.warningStrong },
+  statusBtnRed: { backgroundColor: COLORS.dangerStrong, borderColor: COLORS.dangerStrong },
+  statusBtnText: { fontWeight: '800', fontSize: 12, color: COLORS.icon },
+  statusBtnTextOn: { color: COLORS.white },
   removeBtn: { marginTop: 8, flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', paddingVertical: 6 },
-  removeBtnText: { color: '#DC2626', fontWeight: '800', fontSize: 12 },
+  removeBtnText: { color: COLORS.dangerStrong, fontWeight: '800', fontSize: 12 },
   emptyWrap: { alignItems: 'center', paddingVertical: 30 },
-  emptyText: { marginTop: 10, color: '#6B7280' },
+  emptyText: { marginTop: 10, color: COLORS.muted },
   footerInfo: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  footerText: { fontSize: 12, color: '#6B7280' },
+  footerText: { fontSize: 12, color: COLORS.muted },
   footerLink: { color: COLORS.primary, fontWeight: '900' },
 });

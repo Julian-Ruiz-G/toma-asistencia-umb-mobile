@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { appAlert } from '../../ui/appNotice';
 import * as ImagePicker from 'expo-image-picker';
@@ -25,7 +25,10 @@ import { Input } from '../../components/Input';
 import TermsAndConditionsModal from '../../components/TermsAndConditions';
 import PrivacyPolicyModal from '../../components/PrivacyPolicy';
 import BiometricConsentModal from '../../components/BiometricConsent';
+import { AppSettingsBlocks, AppAboutBlock } from '../../components/AppSettingsPanel';
+import OverlayDismiss from '../../components/OverlayDismiss';
 import { COLORS } from '../../ui/theme';
+import { useColors } from '../../ui/ThemeContext';
 import Animated, { enterDown } from '../../ui/motion';
 import { useAuth } from '../../state/auth';
 import { UPDATE_MY_PROFILE_URL } from '../../config';
@@ -40,6 +43,8 @@ import {
 } from '../../utils/sessionStore';
 
 export default function StudentProfile({ navigation, route }) {
+  const COLORS = useColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const {
     email,
     logout,
@@ -204,14 +209,14 @@ export default function StudentProfile({ navigation, route }) {
     <View style={styles.root}>
       <Animated.View entering={enterDown(0, 360)} style={styles.header}>
         <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <ArrowLeft size={24} color="#374151" />
+          <ArrowLeft size={24} color={COLORS.textSecondary} />
         </Pressable>
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Mi Perfil</Text>
           <Text style={styles.headerSubtitle}>Información personal</Text>
         </View>
         <Pressable onPress={() => setShowEdit(true)} style={styles.iconBtn}>
-          <Edit3 size={20} color="#4B5563" />
+          <Edit3 size={20} color={COLORS.icon} />
         </Pressable>
       </Animated.View>
 
@@ -224,17 +229,17 @@ export default function StudentProfile({ navigation, route }) {
                 {photoUri ? (
                   <Image key={photoUri} source={{ uri: photoUri }} style={styles.photoImg} />
                 ) : (
-                  <User size={44} color="#fff" />
+                  <User size={44} color={COLORS.white} />
                 )}
               </View>
               <Pressable onPress={pickLocalPhoto} style={styles.cameraBtn}>
-                <Camera size={16} color="#fff" />
+                <Camera size={16} color={COLORS.white} />
               </Pressable>
             </View>
             <Text style={styles.profileName}>{displayName}</Text>
             <Text style={styles.profileProgram}>{program || email || '—'}</Text>
             <View style={styles.activePill}>
-              <CheckCircle size={16} color="#16A34A" />
+              <CheckCircle size={16} color={COLORS.successStrong} />
               <Text style={styles.activeText}>Activo</Text>
             </View>
           </View>
@@ -249,7 +254,7 @@ export default function StudentProfile({ navigation, route }) {
 
           <View style={styles.infoRow}>
             <View style={styles.infoIcon}>
-              <Hash size={20} color="#4B5563" />
+              <Hash size={20} color={COLORS.icon} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.infoLabel}>Código Estudiantil</Text>
@@ -261,7 +266,7 @@ export default function StudentProfile({ navigation, route }) {
 
           <View style={styles.infoRow}>
             <View style={styles.infoIcon}>
-              <Mail size={20} color="#4B5563" />
+              <Mail size={20} color={COLORS.icon} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.infoLabel}>Correo Institucional</Text>
@@ -273,7 +278,7 @@ export default function StudentProfile({ navigation, route }) {
 
           <View style={styles.infoRow}>
             <View style={styles.infoIcon}>
-              <GraduationCap size={20} color="#4B5563" />
+              <GraduationCap size={20} color={COLORS.icon} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.infoLabel}>Carrera / Programa</Text>
@@ -285,7 +290,7 @@ export default function StudentProfile({ navigation, route }) {
 
           <View style={styles.infoRow}>
             <View style={styles.infoIcon}>
-              <BookOpen size={20} color="#4B5563" />
+              <BookOpen size={20} color={COLORS.icon} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.infoLabel}>Semestre</Text>
@@ -297,7 +302,7 @@ export default function StudentProfile({ navigation, route }) {
 
           <View style={styles.infoRow}>
             <View style={styles.infoIcon}>
-              <Phone size={20} color="#4B5563" />
+              <Phone size={20} color={COLORS.icon} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.infoLabel}>Teléfono</Text>
@@ -309,15 +314,23 @@ export default function StudentProfile({ navigation, route }) {
 
         <View style={{ height: 14 }} />
 
+        <AppSettingsBlocks />
+
+        <View style={{ height: 14 }} />
+
         <Pressable onPress={() => setShowPrivacyMenu(true)} style={[styles.card, styles.linkCard]}>
           <View style={styles.linkLeft}>
-            <View style={[styles.infoIcon, { backgroundColor: '#DBEAFE' }]}>
-              <Shield size={20} color="#2563EB" />
+            <View style={[styles.infoIcon, { backgroundColor: COLORS.primarySoft }]}>
+              <Shield size={20} color={COLORS.primary} />
             </View>
             <Text style={styles.linkText}>Configuración de Privacidad</Text>
           </View>
-          <ChevronRight size={20} color="#9CA3AF" />
+          <ChevronRight size={20} color={COLORS.placeholder} />
         </Pressable>
+
+        <View style={{ height: 14 }} />
+
+        <AppAboutBlock />
 
         <View style={{ height: 14 }} />
 
@@ -332,11 +345,9 @@ export default function StudentProfile({ navigation, route }) {
           )}
           style={[styles.card, styles.logoutCard]}
         >
-          <LogOut size={20} color="#DC2626" />
+          <LogOut size={20} color={COLORS.dangerStrong} />
           <Text style={styles.logoutText}>Cerrar Sesión</Text>
         </Pressable>
-
-        <Text style={styles.versionText}>Toma Asistencia UMB · v1.0.0</Text>
         <View style={{ height: 20 }} />
       </ScrollView>
 
@@ -348,7 +359,10 @@ export default function StudentProfile({ navigation, route }) {
           if (!profileIncomplete) setShowEdit(false);
         }}
       >
-        <View style={styles.modalOverlay}>
+        <OverlayDismiss
+          style={styles.modalOverlay}
+          onClose={profileIncomplete ? undefined : () => setShowEdit(false)}
+        >
           <View style={[styles.modalCard, { maxHeight: '86%' }]}>
             <ScrollView>
               <Text style={styles.modalTitle}>Completa tu perfil</Text>
@@ -393,11 +407,11 @@ export default function StudentProfile({ navigation, route }) {
               </Button>
             </ScrollView>
           </View>
-        </View>
+        </OverlayDismiss>
       </Modal>
 
       <Modal visible={showPrivacyMenu} transparent animationType="fade" onRequestClose={() => setShowPrivacyMenu(false)}>
-        <View style={styles.modalOverlay}>
+        <OverlayDismiss style={styles.modalOverlay} onClose={() => setShowPrivacyMenu(false)}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Privacidad</Text>
             <Text style={styles.modalText}>Consulta los mismos documentos que aceptaste al registrarte.</Text>
@@ -406,21 +420,21 @@ export default function StudentProfile({ navigation, route }) {
               onPress={() => { setShowPrivacyMenu(false); setLegalDoc('terms'); }}
               style={styles.privacyRow}
             >
-              <FileText size={18} color="#1E40AF" />
+              <FileText size={18} color={COLORS.primary} />
               <Text style={styles.privacyRowText}>Términos y Condiciones</Text>
             </Pressable>
             <Pressable
               onPress={() => { setShowPrivacyMenu(false); setLegalDoc('privacy'); }}
               style={styles.privacyRow}
             >
-              <Shield size={18} color="#059669" />
+              <Shield size={18} color={COLORS.primary} />
               <Text style={styles.privacyRowText}>Política de Privacidad</Text>
             </Pressable>
             <Pressable
               onPress={() => { setShowPrivacyMenu(false); setLegalDoc('biometric'); }}
               style={styles.privacyRow}
             >
-              <Shield size={18} color="#7C3AED" />
+              <Shield size={18} color={COLORS.primary} />
               <Text style={styles.privacyRowText}>Autorización biométrica</Text>
             </Pressable>
             <View style={{ height: 12 }} />
@@ -428,7 +442,7 @@ export default function StudentProfile({ navigation, route }) {
               <Text style={styles.privacyClose}>Cerrar</Text>
             </Pressable>
           </View>
-        </View>
+        </OverlayDismiss>
       </Modal>
 
       <TermsAndConditionsModal
@@ -453,25 +467,29 @@ export default function StudentProfile({ navigation, route }) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (COLORS) => StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.background },
   header: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     paddingHorizontal: 24,
     paddingBottom: 16,
     paddingTop: 48,
     flexDirection: 'row',
     alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
   },
   backBtn: { padding: 8, marginLeft: -8, marginRight: 12, borderRadius: 999 },
   iconBtn: { padding: 10, borderRadius: 999 },
-  headerTitle: { fontSize: 20, fontWeight: '800', color: '#111827' },
-  headerSubtitle: { marginTop: 2, fontSize: 14, color: '#6B7280' },
+  headerTitle: { fontSize: 20, fontWeight: '800', color: COLORS.text },
+  headerSubtitle: { marginTop: 2, fontSize: 14, color: COLORS.muted },
   body: { paddingHorizontal: 24, paddingVertical: 18, paddingBottom: 30 },
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     borderRadius: 18,
-    shadowColor: '#000',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    shadowColor: COLORS.black,
     shadowOpacity: 0.08,
     shadowRadius: 14,
     shadowOffset: { width: 0, height: 8 },
@@ -499,10 +517,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: '#fff',
+    borderColor: COLORS.white,
   },
-  profileName: { marginTop: 12, fontSize: 18, fontWeight: '900', color: '#111827', textAlign: 'center' },
-  profileProgram: { marginTop: 4, color: '#6B7280', textAlign: 'center' },
+  profileName: { marginTop: 12, fontSize: 18, fontWeight: '900', color: COLORS.text, textAlign: 'center' },
+  profileProgram: { marginTop: 4, color: COLORS.muted, textAlign: 'center' },
   activePill: {
     marginTop: 10,
     flexDirection: 'row',
@@ -511,25 +529,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 999,
-    backgroundColor: '#DCFCE7',
+    backgroundColor: COLORS.successBg,
   },
-  activeText: { color: '#15803D', fontWeight: '800' },
-  sectionTitle: { fontWeight: '900', color: '#1F2937', marginBottom: 12 },
+  activeText: { color: COLORS.success, fontWeight: '800' },
+  sectionTitle: { fontWeight: '900', color: COLORS.text, marginBottom: 12 },
   infoRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  infoIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' },
-  infoLabel: { fontSize: 12, color: '#6B7280' },
-  infoValue: { fontWeight: '800', color: '#1F2937', marginTop: 2 },
+  infoIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: COLORS.surface, alignItems: 'center', justifyContent: 'center' },
+  infoLabel: { fontSize: 12, color: COLORS.muted },
+  infoValue: { fontWeight: '800', color: COLORS.text, marginTop: 2 },
   linkCard: { padding: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   linkLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
-  linkText: { fontWeight: '800', color: '#1F2937', flex: 1 },
+  linkText: { fontWeight: '800', color: COLORS.text, flex: 1 },
   logoutCard: { padding: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
-  logoutText: { fontWeight: '900', color: '#DC2626' },
-  versionText: { marginTop: 16, textAlign: 'center', color: '#9CA3AF', fontSize: 12 },
+  logoutText: { fontWeight: '900', color: COLORS.dangerStrong },
+  versionText: { marginTop: 16, textAlign: 'center', color: COLORS.placeholder, fontSize: 12 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.50)', alignItems: 'center', justifyContent: 'center', padding: 24 },
-  modalCard: { backgroundColor: '#fff', borderRadius: 18, padding: 18, width: '100%', maxWidth: 360 },
-  modalIcon: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#FEE2E2', alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginTop: 4 },
-  modalTitle: { marginTop: 12, fontSize: 20, fontWeight: '900', textAlign: 'center', color: '#111827' },
-  modalText: { marginTop: 6, textAlign: 'center', color: '#6B7280' },
+  modalCard: { backgroundColor: COLORS.card, borderRadius: 18, padding: 18, width: '100%', maxWidth: 360 },
+  modalIcon: { width: 64, height: 64, borderRadius: 32, backgroundColor: COLORS.dangerBg, alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginTop: 4 },
+  modalTitle: { marginTop: 12, fontSize: 20, fontWeight: '900', textAlign: 'center', color: COLORS.text },
+  modalText: { marginTop: 6, textAlign: 'center', color: COLORS.muted },
   modalButtons: { marginTop: 8 },
   privacyRow: {
     flexDirection: 'row',
@@ -538,8 +556,8 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: COLORS.border,
   },
-  privacyRowText: { fontWeight: '700', color: '#111827' },
-  privacyClose: { marginTop: 8, textAlign: 'center', color: '#6B7280', fontWeight: '700', paddingVertical: 8 },
+  privacyRowText: { fontWeight: '700', color: COLORS.text },
+  privacyClose: { marginTop: 8, textAlign: 'center', color: COLORS.muted, fontWeight: '700', paddingVertical: 8 },
 });

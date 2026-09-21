@@ -15,7 +15,9 @@ import {
 
 // Importaciones de componentes y configuración
 import { Button } from '../../components/Button';
+import OverlayDismiss from '../../components/OverlayDismiss';
 import { COLORS } from '../../ui/theme';
+import { useColors } from '../../ui/ThemeContext';
 import Animated, { enterDown } from '../../ui/motion';
 import { JOIN_CLASS_URL, MARK_ATTENDANCE_URL } from '../../config';
 import { useAuth } from '../../state/auth';
@@ -31,6 +33,8 @@ const ScanState = {
 
 // Componente principal del escáner QR para estudiantes
 export default function QRScanner({ navigation }) {
+  const COLORS = useColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   // Obtener datos de autenticación del contexto
   const { authToken, email, fullName, studentCode, refreshStudentClasses } = useAuth();
   // Estados de permisos de cámara
@@ -91,33 +95,33 @@ export default function QRScanner({ navigation }) {
   const statusConfig = useMemo(() => {
     const map = {
       register: {
-        chipBg: '#EEF2FF',
-        chipText: '#3730A3',
-        iconBg: '#4F46E5',
+        chipBg: COLORS.primarySoft,
+        chipText: COLORS.primaryDark,
+        iconBg: COLORS.primary,
         label: 'Registro',
         message: 'Te uniste a la clase',
         title: '¡Registro Exitoso!',
       },
       present: {
-        chipBg: '#ECFDF5', // Fondo del chip
-        chipText: '#15803D', // Color del texto
-        iconBg: '#22C55E', // Fondo del ícono
+        chipBg: COLORS.successSoft, // Fondo del chip
+        chipText: COLORS.success, // Color del texto
+        iconBg: COLORS.successStrong, // Fondo del ícono
         label: 'Presente', // Etiqueta a mostrar
         message: 'Llegaste a tiempo', // Mensaje de éxito
         title: '¡Asistencia Registrada!', // Título del modal
       },
       late: {
-        chipBg: '#FFFBEB',
-        chipText: '#A16207',
-        iconBg: '#EAB308',
+        chipBg: COLORS.warningSoft,
+        chipText: COLORS.warning,
+        iconBg: COLORS.warningStrong,
         label: 'Retardo',
         message: 'Llegaste tarde',
         title: 'Registro con Retardo',
       },
       absent: {
-        chipBg: '#FEF2F2',
-        chipText: '#B91C1C',
-        iconBg: '#EF4444',
+        chipBg: COLORS.dangerSoft,
+        chipText: COLORS.danger,
+        iconBg: COLORS.dangerStrong,
         label: 'Falta',
         message: 'No registrado a tiempo',
         title: 'No Registrado',
@@ -376,7 +380,7 @@ export default function QRScanner({ navigation }) {
         animationType="fade"
         onRequestClose={() => navigation.goBack()}
       >
-        <View style={styles.modeOverlay}>
+        <OverlayDismiss style={styles.modeOverlay} onClose={() => navigation.goBack()}>
           <Animated.View entering={enterDown(40)} style={styles.modeCard}>
             <Text style={styles.modeTitle}>¿Qué deseas escanear?</Text>
             <Text style={styles.modeText}>Selecciona el tipo de QR antes de abrir la cámara.</Text>
@@ -387,16 +391,16 @@ export default function QRScanner({ navigation }) {
             <View style={{ height: 10 }} />
             <Button fullWidth variant="ghost" onPress={() => navigation.goBack()}>Cancelar</Button>
           </Animated.View>
-        </View>
+        </OverlayDismiss>
       </Modal>
 
       <View style={styles.header}>
         <Pressable onPress={() => navigation.goBack()} style={styles.headerBtn}>
-          <ArrowLeft size={24} color="#fff" />
+          <ArrowLeft size={24} color={COLORS.white} />
         </Pressable>
         <Text style={styles.headerTitle}>Escanear QR</Text>
         <Pressable onPress={() => setFlashOn((v) => !v)} style={styles.headerBtn}>
-          {flashOn ? <Flashlight size={24} color="#FDE047" /> : <FlashlightOff size={24} color="#fff" />}
+          {flashOn ? <Flashlight size={24} color={COLORS.warningBorder} /> : <FlashlightOff size={24} color={COLORS.white} />}
         </Pressable>
       </View>
 
@@ -488,11 +492,21 @@ export default function QRScanner({ navigation }) {
         animationType="fade"
         onRequestClose={() => setScanState(ScanState.scanning)}
       >
-        <View style={styles.overlay}>
+        <OverlayDismiss
+          style={styles.overlay}
+          onClose={() => {
+            if (scanState === ScanState.success) {
+              if (scanMode === 'register') navigation.navigate('StudentHome');
+              else navigation.goBack();
+              return;
+            }
+            handleRetry();
+          }}
+        >
           {scanState === ScanState.success ? (
             <View style={styles.resultCard}>
               <View style={[styles.resultIcon, { backgroundColor: cfg.iconBg }]}>
-                <CheckCircle size={40} color="#fff" />
+                <CheckCircle size={40} color={COLORS.white} />
               </View>
               <Text style={styles.resultTitle}>{cfg.title}</Text>
               {joinResult ? (
@@ -522,8 +536,8 @@ export default function QRScanner({ navigation }) {
             </View>
           ) : scanState === ScanState.error ? (
             <View style={styles.resultCard}>
-              <View style={[styles.resultIcon, { backgroundColor: '#EF4444' }]}>
-                <XCircle size={40} color="#fff" />
+              <View style={[styles.resultIcon, { backgroundColor: COLORS.dangerStrong }]}>
+                <XCircle size={40} color={COLORS.white} />
               </View>
               <Text style={styles.resultTitle}>QR Inválido</Text>
               <Text style={styles.resultMsg}>El código escaneado no corresponde a una clase válida o ha expirado.</Text>
@@ -533,8 +547,8 @@ export default function QRScanner({ navigation }) {
             </View>
           ) : (
             <View style={styles.resultCard}>
-              <View style={[styles.resultIcon, { backgroundColor: '#F59E0B' }]}>
-                <AlertCircle size={40} color="#fff" />
+              <View style={[styles.resultIcon, { backgroundColor: COLORS.warningStrong }]}>
+                <AlertCircle size={40} color={COLORS.white} />
               </View>
               <Text style={styles.resultTitle}>Ya Registrado</Text>
               <Text style={styles.resultMsg}>Tu asistencia ya fue registrada anteriormente para esta clase.</Text>
@@ -543,7 +557,7 @@ export default function QRScanner({ navigation }) {
               </Button>
             </View>
           )}
-        </View>
+        </OverlayDismiss>
       </Modal>
     </View>
   );
@@ -551,8 +565,8 @@ export default function QRScanner({ navigation }) {
 
 const FRAME_SIZE = 288;
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#000' },
+const createStyles = (COLORS) => StyleSheet.create({
+  root: { flex: 1, backgroundColor: COLORS.black },
 
   header: {
     position: 'absolute',
@@ -576,12 +590,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  headerTitle: { color: '#fff', fontWeight: '800' },
+  headerTitle: { color: COLORS.white, fontWeight: '800' },
 
   modeOverlay: { flex: 1, backgroundColor: 'rgba(17,24,39,0.70)', alignItems: 'center', justifyContent: 'center', padding: 24 },
-  modeCard: { width: '100%', maxWidth: 420, backgroundColor: '#fff', borderRadius: 18, padding: 18 },
-  modeTitle: { fontWeight: '900', color: '#111827', fontSize: 16 },
-  modeText: { marginTop: 6, color: '#6B7280', fontSize: 12, lineHeight: 16 },
+  modeCard: { width: '100%', maxWidth: 420, backgroundColor: COLORS.card, borderRadius: 18, padding: 18 },
+  modeTitle: { fontWeight: '900', color: COLORS.text, fontSize: 16 },
+  modeText: { marginTop: 6, color: COLORS.muted, fontSize: 12, lineHeight: 16 },
 
   cameraWrap: { flex: 1, position: 'relative' },
   dimTop: { position: 'absolute', top: 0, left: 0, right: 0, height: '20%', backgroundColor: 'rgba(0,0,0,0.25)' },
@@ -620,7 +634,7 @@ const styles = StyleSheet.create({
     top: -4,
     width: 90,
     height: 12,
-    backgroundColor: 'rgba(185,28,28,0.45)',
+    backgroundColor: COLORS.primaryOverlay,
     transform: [{ translateX: -45 }],
     borderRadius: 10,
   },
@@ -645,28 +659,28 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.45)',
   },
 
-  bottom: { backgroundColor: '#111827', paddingHorizontal: 24, paddingTop: 18, paddingBottom: 22 },
+  bottom: { backgroundColor: COLORS.text, paddingHorizontal: 24, paddingTop: 18, paddingBottom: 22 },
   bottomRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 26 },
-  smallCircleBtn: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#1F2937', alignItems: 'center', justifyContent: 'center' },
-  galleryThumb: { width: 22, height: 22, borderRadius: 6, backgroundColor: '#6B7280' },
-  helpText: { color: '#fff', fontWeight: '900', fontSize: 16 },
-  captureOuter: { width: 80, height: 80, borderRadius: 40, borderWidth: 4, borderColor: '#fff', alignItems: 'center', justifyContent: 'center' },
-  captureInner: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#fff' },
-  bottomHint: { marginTop: 12, textAlign: 'center', color: '#6B7280' },
+  smallCircleBtn: { width: 48, height: 48, borderRadius: 24, backgroundColor: COLORS.text, alignItems: 'center', justifyContent: 'center' },
+  galleryThumb: { width: 22, height: 22, borderRadius: 6, backgroundColor: COLORS.muted },
+  helpText: { color: COLORS.white, fontWeight: '900', fontSize: 16 },
+  captureOuter: { width: 80, height: 80, borderRadius: 40, borderWidth: 4, borderColor: COLORS.white, alignItems: 'center', justifyContent: 'center' },
+  captureInner: { width: 64, height: 64, borderRadius: 32, backgroundColor: COLORS.card },
+  bottomHint: { marginTop: 12, textAlign: 'center', color: COLORS.muted },
 
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.80)', alignItems: 'center', justifyContent: 'center', padding: 24 },
-  resultCard: { backgroundColor: '#fff', borderRadius: 18, padding: 18, width: '100%', maxWidth: 360, alignItems: 'center' },
+  resultCard: { backgroundColor: COLORS.card, borderRadius: 18, padding: 18, width: '100%', maxWidth: 360, alignItems: 'center' },
   resultIcon: { width: 84, height: 84, borderRadius: 42, alignItems: 'center', justifyContent: 'center', marginTop: 4, marginBottom: 12 },
-  resultTitle: { fontSize: 20, fontWeight: '900', color: '#111827', textAlign: 'center' },
-  resultSub: { marginTop: 6, color: '#4B5563' },
-  resultTime: { marginTop: 4, color: '#111827', fontWeight: '800', fontSize: 15 },
-  resultSub2: { marginTop: 2, color: '#6B7280', fontSize: 12, marginBottom: 14 },
+  resultTitle: { fontSize: 20, fontWeight: '900', color: COLORS.text, textAlign: 'center' },
+  resultSub: { marginTop: 6, color: COLORS.icon },
+  resultTime: { marginTop: 4, color: COLORS.text, fontWeight: '800', fontSize: 15 },
+  resultSub2: { marginTop: 2, color: COLORS.muted, fontSize: 12, marginBottom: 14 },
   statusBox: { width: '100%', borderRadius: 14, padding: 14, marginBottom: 14 },
   statusLine1: { fontWeight: '900', textAlign: 'center' },
-  statusLine2: { marginTop: 4, textAlign: 'center', color: '#4B5563' },
-  resultMsg: { marginTop: 8, marginBottom: 14, color: '#6B7280', textAlign: 'center' },
+  statusLine2: { marginTop: 4, textAlign: 'center', color: COLORS.icon },
+  resultMsg: { marginTop: 8, marginBottom: 14, color: COLORS.muted, textAlign: 'center' },
 
   permissionRoot: { flex: 1, backgroundColor: COLORS.background, padding: 24, justifyContent: 'center' },
-  permissionTitle: { fontSize: 20, fontWeight: '900', color: '#111827', textAlign: 'center' },
-  permissionText: { marginTop: 8, textAlign: 'center', color: '#6B7280' },
+  permissionTitle: { fontSize: 20, fontWeight: '900', color: COLORS.text, textAlign: 'center' },
+  permissionText: { marginTop: 8, textAlign: 'center', color: COLORS.muted },
 });

@@ -15,6 +15,7 @@ import { Button } from '../../components/Button';
 import { Input } from '../../components/Input';
 import RobotCaptcha from '../../components/RobotCaptcha';
 import { COLORS } from '../../ui/theme';
+import { useColors } from '../../ui/ThemeContext';
 import Animated, { enterDown } from '../../ui/motion';
 import { REGISTER_STUDENT_URL, VALIDATE_REGISTER_PHOTO_URL } from '../../config';
 import TermsAndConditionsModal from '../../components/TermsAndConditions';
@@ -42,10 +43,12 @@ function passwordChecks(password) {
 }
 
 function FieldMessage({ text }) {
+  const COLORS = useColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   if (!text) return null;
   return (
     <View style={styles.fieldError}>
-      <CircleAlert size={15} color="#B91C1C" />
+      <CircleAlert size={15} color={COLORS.primary} />
       <Text style={styles.fieldErrorText}>{text}</Text>
     </View>
   );
@@ -83,6 +86,8 @@ function formatRegisterError(json, text, status) {
 }
 
 export default function RegisterScreen({ navigation }) {
+  const COLORS = useColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -335,7 +340,7 @@ export default function RegisterScreen({ navigation }) {
     <View style={styles.root}>
       <Animated.View entering={enterDown(0, 360)} style={styles.header}>
         <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <ArrowLeft size={24} color="#374151" />
+          <ArrowLeft size={24} color={COLORS.textSecondary} />
         </Pressable>
         <View>
           <Text style={styles.headerTitle}>Crear Cuenta</Text>
@@ -347,7 +352,7 @@ export default function RegisterScreen({ navigation }) {
         <Animated.View entering={enterDown(90)}>
         {formAlert ? (
           <View style={styles.formAlert}>
-            <CircleAlert size={18} color="#B91C1C" />
+            <CircleAlert size={18} color={COLORS.primary} />
             <Text style={styles.formAlertText}>{formAlert}</Text>
           </View>
         ) : null}
@@ -430,7 +435,7 @@ export default function RegisterScreen({ navigation }) {
           {pwRules.map((rule) => (
             <View key={rule.key} style={styles.ruleRow}>
               <View style={[styles.ruleIcon, rule.ok ? styles.ruleIconOk : styles.ruleIconWait]}>
-                {rule.ok ? <Check size={12} color="#fff" strokeWidth={3} /> : <X size={12} color="#9CA3AF" strokeWidth={3} />}
+                {rule.ok ? <Check size={12} color={COLORS.white} strokeWidth={3} /> : <X size={12} color={COLORS.placeholder} strokeWidth={3} />}
               </View>
               <Text style={[styles.ruleText, rule.ok ? styles.ruleTextOk : styles.ruleTextWait]}>
                 {rule.label}
@@ -457,9 +462,9 @@ export default function RegisterScreen({ navigation }) {
         {formData.confirmPassword ? (
           <View style={[styles.matchRow, passwordsMatch ? styles.matchOk : styles.matchBad]}>
             {passwordsMatch ? (
-              <CheckCircle2 size={16} color="#15803D" />
+              <CheckCircle2 size={16} color={COLORS.success} />
             ) : (
-              <CircleAlert size={16} color="#B91C1C" />
+              <CircleAlert size={16} color={COLORS.primary} />
             )}
             <Text style={[styles.matchText, passwordsMatch ? styles.matchTextOk : styles.matchTextBad]}>
               {passwordsMatch ? 'Las contraseñas coinciden' : 'Las contraseñas no coinciden'}
@@ -554,7 +559,7 @@ export default function RegisterScreen({ navigation }) {
           {photoBase64 ? (
             <View style={styles.photoSuccess}>
               <View style={styles.photoSuccessIcon}>
-                <CheckCircle2 size={32} color="#16A34A" />
+                <CheckCircle2 size={32} color={COLORS.successStrong} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.photoSuccessTitle}>Foto válida</Text>
@@ -581,7 +586,7 @@ export default function RegisterScreen({ navigation }) {
                 Encaja toda la cara en el recuadro.{'\n'}Si solo se ve la mitad, la app te pedirá otra.
               </Text>
               <View style={styles.photoEmptyBtn}>
-                <Camera size={16} color="#fff" />
+                <Camera size={16} color={COLORS.white} />
                 <Text style={styles.photoEmptyBtnText}>Abrir cámara</Text>
               </View>
             </Pressable>
@@ -635,10 +640,10 @@ export default function RegisterScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (COLORS) => StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.background },
   header: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     paddingHorizontal: 24,
     paddingBottom: 16,
     paddingTop: 48,
@@ -646,8 +651,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   backBtn: { padding: 8, marginLeft: -8, marginRight: 12, borderRadius: 999 },
-  headerTitle: { fontSize: 20, fontWeight: '800', color: '#111827' },
-  headerSubtitle: { marginTop: 2, fontSize: 14, color: '#6B7280' },
+  headerTitle: { fontSize: 20, fontWeight: '800', color: COLORS.text },
+  headerSubtitle: { marginTop: 2, fontSize: 14, color: COLORS.muted },
   body: {
     paddingHorizontal: 24,
     paddingVertical: 18,
@@ -657,24 +662,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 10,
-    backgroundColor: '#FEF2F2',
+    backgroundColor: COLORS.dangerSoft,
     borderWidth: 1,
-    borderColor: '#FECACA',
+    borderColor: COLORS.dangerBorder,
     borderRadius: 14,
     padding: 12,
     marginBottom: 16,
   },
-  formAlertText: { flex: 1, color: '#991B1B', fontSize: 14, lineHeight: 20, fontWeight: '600' },
+  formAlertText: { flex: 1, color: COLORS.danger, fontSize: 14, lineHeight: 20, fontWeight: '600' },
   rulesCard: {
     marginTop: 10,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: COLORS.border,
     paddingHorizontal: 12,
     paddingVertical: 12,
   },
-  rulesTitle: { fontSize: 13, fontWeight: '800', color: '#374151', marginBottom: 8 },
+  rulesTitle: { fontSize: 13, fontWeight: '800', color: COLORS.textSecondary, marginBottom: 8 },
   ruleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
   ruleIcon: {
     width: 18,
@@ -683,11 +688,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  ruleIconOk: { backgroundColor: '#16A34A' },
-  ruleIconWait: { backgroundColor: '#E5E7EB' },
+  ruleIconOk: { backgroundColor: COLORS.successStrong },
+  ruleIconWait: { backgroundColor: COLORS.border },
   ruleText: { flex: 1, fontSize: 13, lineHeight: 18 },
-  ruleTextOk: { color: '#15803D', fontWeight: '700' },
-  ruleTextWait: { color: '#6B7280' },
+  ruleTextOk: { color: COLORS.success, fontWeight: '700' },
+  ruleTextWait: { color: COLORS.muted },
   matchRow: {
     marginTop: 8,
     flexDirection: 'row',
@@ -697,24 +702,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 8,
   },
-  matchOk: { backgroundColor: '#F0FDF4', borderWidth: 1, borderColor: '#BBF7D0' },
-  matchBad: { backgroundColor: '#FEF2F2', borderWidth: 1, borderColor: '#FECACA' },
+  matchOk: { backgroundColor: COLORS.successSoft, borderWidth: 1, borderColor: COLORS.successBorder },
+  matchBad: { backgroundColor: COLORS.dangerSoft, borderWidth: 1, borderColor: COLORS.dangerBorder },
   matchText: { flex: 1, fontSize: 13, fontWeight: '700' },
-  matchTextOk: { color: '#15803D' },
-  matchTextBad: { color: '#B91C1C' },
+  matchTextOk: { color: COLORS.success },
+  matchTextBad: { color: COLORS.danger },
   fieldError: {
     marginTop: 6,
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 8,
-    backgroundColor: '#FEF2F2',
+    backgroundColor: COLORS.dangerSoft,
     borderWidth: 1,
-    borderColor: '#FECACA',
+    borderColor: COLORS.dangerBorder,
     borderRadius: 10,
     paddingHorizontal: 10,
     paddingVertical: 8,
   },
-  fieldErrorText: { flex: 1, color: '#B91C1C', fontSize: 13, lineHeight: 18, fontWeight: '600' },
+  fieldErrorText: { flex: 1, color: COLORS.danger, fontSize: 13, lineHeight: 18, fontWeight: '600' },
   checkRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -724,38 +729,38 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     paddingHorizontal: 4,
   },
-  checkRowError: { backgroundColor: '#FEF2F2' },
+  checkRowError: { backgroundColor: COLORS.dangerSoft },
   checkLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
-  checkLabelText: { color: '#374151', fontWeight: '700' },
-  consentText: { flex: 1, color: '#374151', fontSize: 14, lineHeight: 20 },
+  checkLabelText: { color: COLORS.textSecondary, fontWeight: '700' },
+  consentText: { flex: 1, color: COLORS.textSecondary, fontSize: 14, lineHeight: 20 },
   consentLink: { color: COLORS.primary, fontWeight: '800' },
   biometricLink: {
-    color: '#B91C1C',
+    color: COLORS.primary,
     fontWeight: '800',
     textDecorationLine: 'underline',
   },
-  consentHint: { marginTop: 4, color: '#6B7280', fontSize: 12, fontStyle: 'italic' },
+  consentHint: { marginTop: 4, color: COLORS.muted, fontSize: 12, fontStyle: 'italic' },
   footer: {
     paddingHorizontal: 24,
     paddingVertical: 14,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: COLORS.border,
   },
-  loginHint: { marginTop: 12, textAlign: 'center', color: '#6B7280' },
+  loginHint: { marginTop: 12, textAlign: 'center', color: COLORS.muted },
   loginLink: { color: COLORS.primary, fontWeight: '800' },
   photoSection: { marginBottom: 4 },
-  photoLabel: { fontSize: 13, fontWeight: '800', color: '#374151', marginBottom: 8 },
+  photoLabel: { fontSize: 13, fontWeight: '800', color: COLORS.textSecondary, marginBottom: 8 },
   photoTips: {
-    backgroundColor: '#FFF7ED',
+    backgroundColor: COLORS.warningSoft,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#FED7AA',
+    borderColor: COLORS.warningBorder,
     paddingHorizontal: 12,
     paddingVertical: 10,
     marginBottom: 10,
   },
-  photoTip: { fontSize: 12, color: '#9A3412', lineHeight: 18, fontWeight: '600' },
+  photoTip: { fontSize: 12, color: COLORS.warning, lineHeight: 18, fontWeight: '600' },
   photoEmpty: {
     borderWidth: 2,
     borderColor: COLORS.primary,
@@ -763,19 +768,19 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     paddingVertical: 28,
     alignItems: 'center',
-    backgroundColor: 'rgba(185,28,28,0.03)',
+    backgroundColor: COLORS.primarySoft,
   },
   photoEmptyIcon: {
     width: 70,
     height: 70,
     borderRadius: 35,
-    backgroundColor: 'rgba(185,28,28,0.10)',
+    backgroundColor: COLORS.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
   },
-  photoEmptyTitle: { fontSize: 17, fontWeight: '900', color: '#111827', marginBottom: 6 },
-  photoEmptyHint: { fontSize: 13, color: '#6B7280', textAlign: 'center', lineHeight: 19, marginBottom: 16 },
+  photoEmptyTitle: { fontSize: 17, fontWeight: '900', color: COLORS.text, marginBottom: 6 },
+  photoEmptyHint: { fontSize: 13, color: COLORS.muted, textAlign: 'center', lineHeight: 19, marginBottom: 16 },
   photoEmptyBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -785,27 +790,27 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
     borderRadius: 14,
   },
-  photoEmptyBtnText: { color: '#fff', fontWeight: '800', fontSize: 14 },
+  photoEmptyBtnText: { color: COLORS.white, fontWeight: '800', fontSize: 14 },
   photoSuccess: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    backgroundColor: '#F0FDF4',
+    backgroundColor: COLORS.successSoft,
     borderRadius: 16,
     borderWidth: 1.5,
-    borderColor: '#86EFAC',
+    borderColor: COLORS.successBorder,
     padding: 14,
   },
   photoSuccessIcon: {
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: '#DCFCE7',
+    backgroundColor: COLORS.successBg,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  photoSuccessTitle: { fontWeight: '900', color: '#15803D', fontSize: 15 },
-  photoSuccessHint: { marginTop: 3, fontSize: 12, color: '#166534' },
+  photoSuccessTitle: { fontWeight: '900', color: COLORS.success, fontSize: 15 },
+  photoSuccessHint: { marginTop: 3, fontSize: 12, color: COLORS.success },
   retakeBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -815,7 +820,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1.5,
     borderColor: COLORS.primary,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
   },
   retakeBtnText: { color: COLORS.primary, fontWeight: '800', fontSize: 12 },
 });

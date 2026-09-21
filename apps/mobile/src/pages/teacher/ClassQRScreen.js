@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
 import { appAlert } from '../../ui/appNotice';
 import {
@@ -16,12 +16,15 @@ import QRCode from 'react-native-qrcode-svg';
 
 import { Button } from '../../components/Button';
 import { COLORS } from '../../ui/theme';
+import { useColors } from '../../ui/ThemeContext';
 import { CLASS_DETAILS_URL, CREATE_ATTENDANCE_QR_URL, REGENERATE_CLASS_QR_URL } from '../../config';
 import { useAuth } from '../../state/auth';
 import { alertAttendanceQrError } from '../../utils/attendanceQr';
 import { isClassInProgressNow as classIsInProgress } from '../../utils/schedule';
 
 export default function ClassQRScreen({ navigation, route }) {
+  const COLORS = useColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const { authToken } = useAuth();
   const classId = String(route?.params?.classId || '');
   const classIdPayload = Number.isFinite(Number(classId)) ? Number(classId) : classId;
@@ -287,11 +290,11 @@ export default function ClassQRScreen({ navigation, route }) {
     <View style={[styles.root, isFullscreen ? styles.fullscreen : null]}>
       <View style={styles.header}>
         <Pressable onPress={() => navigation.goBack()} style={styles.hBtn}>
-          <ArrowLeft size={24} color="#fff" />
+          <ArrowLeft size={24} color={COLORS.white} />
         </Pressable>
         <Text style={styles.hTitle}>Código QR de Clase</Text>
         <Pressable onPress={() => setIsFullscreen((v) => !v)} style={styles.hBtn}>
-          <Maximize2 size={20} color="#fff" />
+          <Maximize2 size={20} color={COLORS.white} />
         </Pressable>
       </View>
 
@@ -322,7 +325,7 @@ export default function ClassQRScreen({ navigation, route }) {
 
           <View style={styles.timerTop}>
             <View style={styles.timerLabelRow}>
-              <Clock size={16} color="#6B7280" />
+              <Clock size={16} color={COLORS.muted} />
               <Text style={styles.timerLabel}>Expira en:</Text>
             </View>
             <Text style={[styles.timerValue, timeLeft < 60 ? styles.timerDanger : null]}>{formatTime(timeLeft)}</Text>
@@ -333,7 +336,7 @@ export default function ClassQRScreen({ navigation, route }) {
               style={[
                 styles.timerBarFill,
                 {
-                  backgroundColor: timeLeft < 60 ? '#EF4444' : COLORS.primary,
+                  backgroundColor: timeLeft < 60 ? COLORS.dangerStrong : COLORS.primary,
                   width: progressAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }),
                 },
               ]}
@@ -341,7 +344,7 @@ export default function ClassQRScreen({ navigation, route }) {
           </View>
 
           <View style={styles.progressRow}>
-            <Users size={16} color="#6B7280" />
+            <Users size={16} color={COLORS.muted} />
             <Text style={styles.progressText}>
               <Text style={styles.progressPrimary}>{registeredCount}</Text>/{totalStudents} estudiantes registrados
             </Text>
@@ -363,13 +366,13 @@ export default function ClassQRScreen({ navigation, route }) {
             }}
           >
             <View style={styles.btnRow}>
-              <RefreshCw size={16} color="#fff" />
+              <RefreshCw size={16} color={COLORS.white} />
               <Text style={styles.btnOutlineText}>QR registro</Text>
             </View>
           </Button>
           <Button variant="secondary" isLoading={creatingAttendance} onPress={createAttendanceQr}>
             <View style={styles.btnRow}>
-              <QrCode size={16} color="#fff" />
+              <QrCode size={16} color={COLORS.white} />
               <Text style={styles.btnOutlineText}>QR asistencia</Text>
             </View>
           </Button>
@@ -377,8 +380,8 @@ export default function ClassQRScreen({ navigation, route }) {
         <View style={{ height: 12 }} />
         <Button variant="secondary" onPress={() => navigation.goBack()}>
           <View style={styles.btnRow}>
-            <StopCircle size={18} color="#FCA5A5" />
-            <Text style={[styles.btnOutlineText, { color: '#FCA5A5' }]}>Finalizar Sesión</Text>
+            <StopCircle size={18} color={COLORS.dangerBorder} />
+            <Text style={[styles.btnOutlineText, { color: COLORS.dangerBorder }]}>Finalizar Sesión</Text>
           </View>
         </Button>
       </View>
@@ -386,38 +389,38 @@ export default function ClassQRScreen({ navigation, route }) {
   );
 }
 
- const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#111827' },
+ const createStyles = (COLORS) => StyleSheet.create({
+  root: { flex: 1, backgroundColor: COLORS.text },
   fullscreen: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 50 },
   header: { paddingTop: 54, paddingHorizontal: 24, paddingBottom: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   hBtn: { width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(255,255,255,0.10)', alignItems: 'center', justifyContent: 'center' },
-  hTitle: { color: '#fff', fontWeight: '800' },
+  hTitle: { color: COLORS.white, fontWeight: '800' },
   sessionInfo: { paddingHorizontal: 24, paddingBottom: 8, alignItems: 'center' },
-  sessionTitle: { color: '#fff', fontSize: 16, fontWeight: '800', textAlign: 'center' },
+  sessionTitle: { color: COLORS.white, fontSize: 16, fontWeight: '800', textAlign: 'center' },
   sessionSub: { marginTop: 4, color: 'rgba(255,255,255,0.60)', fontSize: 12, textAlign: 'center' },
   center: { flex: 1, paddingHorizontal: 24, alignItems: 'center', justifyContent: 'center' },
-  qrCard: { backgroundColor: '#fff', borderRadius: 18, padding: 18, width: '100%', maxWidth: 360, shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 24, shadowOffset: { width: 0, height: 12 }, elevation: 6 },
-  qrContainer: { aspectRatio: 1, backgroundColor: '#fff', borderRadius: 16, padding: 14, overflow: 'hidden' },
-  qrBox: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', borderRadius: 12 },
-  qrLoading: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F3F4F6', borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB' },
-  qrLoadingText: { color: '#6B7280', fontWeight: '900' },
-  qrDark: { position: 'absolute', left: 14, right: 14, top: 14, bottom: 14, backgroundColor: '#111827' },
+  qrCard: { backgroundColor: COLORS.card, borderRadius: 18, padding: 18, width: '100%', maxWidth: 360, shadowColor: COLORS.black, shadowOpacity: 0.25, shadowRadius: 24, shadowOffset: { width: 0, height: 12 }, elevation: 6 },
+  qrContainer: { aspectRatio: 1, backgroundColor: COLORS.card, borderRadius: 16, padding: 14, overflow: 'hidden' },
+  qrBox: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.card, borderRadius: 12 },
+  qrLoading: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.surface, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border },
+  qrLoadingText: { color: COLORS.muted, fontWeight: '900' },
+  qrDark: { position: 'absolute', left: 14, right: 14, top: 14, bottom: 14, backgroundColor: COLORS.text },
   qrModule: { position: 'absolute', width: '4%', height: '4%' },
-  qrLogoOuter: { position: 'absolute', left: '50%', top: '50%', transform: [{ translateX: -24 }, { translateY: -24 }], width: 48, height: 48, borderRadius: 10, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
+  qrLogoOuter: { position: 'absolute', left: '50%', top: '50%', transform: [{ translateX: -24 }, { translateY: -24 }], width: 48, height: 48, borderRadius: 10, backgroundColor: COLORS.card, alignItems: 'center', justifyContent: 'center' },
   qrLogoInner: { width: 40, height: 40, borderRadius: 8, backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center' },
-  qrLogoText: { color: '#fff', fontWeight: '900', fontSize: 12 },
+  qrLogoText: { color: COLORS.white, fontWeight: '900', fontSize: 12 },
   timerTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   timerLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  timerLabel: { color: '#6B7280' },
+  timerLabel: { color: COLORS.muted },
   timerValue: { fontSize: 18, fontWeight: '900', color: COLORS.primary },
-  timerDanger: { color: '#EF4444' },
-  timerBarBg: { marginTop: 10, height: 8, backgroundColor: '#E5E7EB', borderRadius: 999, overflow: 'hidden' },
+  timerDanger: { color: COLORS.dangerStrong },
+  timerBarBg: { marginTop: 10, height: 8, backgroundColor: COLORS.border, borderRadius: 999, overflow: 'hidden' },
   timerBarFill: { height: '100%', borderRadius: 999 },
   progressRow: { marginTop: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
-  progressText: { color: '#6B7280', textAlign: 'center' },
+  progressText: { color: COLORS.muted, textAlign: 'center' },
   progressPrimary: { color: COLORS.primary, fontWeight: '900' },
   footer: { paddingHorizontal: 24, paddingBottom: 24, paddingTop: 12 },
   footerGrid: { flexDirection: 'row', gap: 12 },
   btnRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  btnOutlineText: { color: '#fff', fontWeight: '900' },
+  btnOutlineText: { color: COLORS.white, fontWeight: '900' },
  });

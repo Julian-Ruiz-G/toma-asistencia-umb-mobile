@@ -2,6 +2,7 @@ import React from 'react';
 import { Shield } from 'lucide-react-native';
 
 import LegalDocumentModal from './LegalDocumentModal';
+import { COLORS } from '../ui/theme';
 
 const BIOMETRIC_MARKDOWN = `
 # Autorización de tratamiento de datos biométricos
@@ -102,7 +103,7 @@ export default function BiometricConsentModal({ visible, onClose, onAccept, read
       onAccept={onAccept}
       hideAccept={readOnly}
       title="Autorización de datos biométricos"
-      accent="#7C3AED"
+      accent={COLORS.primary}
       Icon={Shield}
       markdown={BIOMETRIC_MARKDOWN}
       acceptLabel="Autorizo el tratamiento biométrico"

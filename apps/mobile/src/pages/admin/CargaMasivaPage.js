@@ -13,6 +13,7 @@ import {
 
 import { Button } from '../../components/Button';
 import { COLORS } from '../../ui/theme';
+import { useColors } from '../../ui/ThemeContext';
 
 const mockHistory = [
   { id: '1', name: 'estudiantes_2024.csv', date: '2024-01-15', records: 1250, status: 'success' },
@@ -21,6 +22,8 @@ const mockHistory = [
 ];
 
 export default function CargaMasivaPage({ navigation }) {
+  const COLORS = useColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const [files, setFiles] = useState([]);
   const [uploadType, setUploadType] = useState('estudiantes');
 
@@ -52,14 +55,14 @@ export default function CargaMasivaPage({ navigation }) {
     <View style={styles.root}>
       <View style={styles.header}>
         <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <ArrowLeft size={20} color="#4B5563" />
+          <ArrowLeft size={20} color={COLORS.icon} />
         </Pressable>
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Carga Masiva</Text>
           <Text style={styles.headerSubtitle}>Importa datos desde CSV o Excel</Text>
         </View>
         <Pressable onPress={() => {}} style={styles.iconBtn}>
-          <Download size={18} color="#4B5563" />
+          <Download size={18} color={COLORS.icon} />
         </Pressable>
       </View>
 
@@ -85,7 +88,7 @@ export default function CargaMasivaPage({ navigation }) {
 
           <View style={styles.dropZone}>
             <View style={styles.dropIcon}>
-              <Upload size={24} color="#9CA3AF" />
+              <Upload size={24} color={COLORS.placeholder} />
             </View>
             <Text style={styles.dropTitle}>Arrastra archivos aquí</Text>
             <Text style={styles.dropSub}>CSV, Excel (.xlsx, .xls)</Text>
@@ -103,14 +106,14 @@ export default function CargaMasivaPage({ navigation }) {
             {files.map((f) => (
               <View key={f.id} style={styles.fileRow}>
                 <View style={styles.fileIcon}>
-                  <FileSpreadsheet size={18} color="#16A34A" />
+                  <FileSpreadsheet size={18} color={COLORS.successStrong} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.fileName}>{f.name}</Text>
                   <Text style={styles.fileMeta}>{formatSize(f.size)}</Text>
                 </View>
                 <Pressable onPress={() => removeFile(f.id)} style={styles.removeBtn}>
-                  <X size={16} color="#9CA3AF" />
+                  <X size={16} color={COLORS.placeholder} />
                 </Pressable>
               </View>
             ))}
@@ -127,11 +130,11 @@ export default function CargaMasivaPage({ navigation }) {
           </View>
           {mockHistory.map((h) => (
             <View key={h.id} style={styles.fileRow}>
-              <View style={[styles.fileIcon, { backgroundColor: h.status === 'success' ? '#DCFCE7' : '#FEE2E2' }]}>
+              <View style={[styles.fileIcon, { backgroundColor: h.status === 'success' ? COLORS.successBg : COLORS.dangerBg }]}>
                 {h.status === 'success' ? (
-                  <CheckCircle size={18} color="#16A34A" />
+                  <CheckCircle size={18} color={COLORS.successStrong} />
                 ) : (
-                  <AlertCircle size={18} color="#DC2626" />
+                  <AlertCircle size={18} color={COLORS.dangerStrong} />
                 )}
               </View>
               <View style={{ flex: 1 }}>
@@ -139,7 +142,7 @@ export default function CargaMasivaPage({ navigation }) {
                 <Text style={styles.fileMeta}>{h.date} • {h.status === 'success' ? `${h.records} registros` : 'Error'}</Text>
               </View>
               <Pressable onPress={() => {}} style={styles.removeBtn}>
-                <Download size={16} color="#9CA3AF" />
+                <Download size={16} color={COLORS.placeholder} />
               </Pressable>
             </View>
           ))}
@@ -151,31 +154,31 @@ export default function CargaMasivaPage({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#F9FAFB' },
-  header: { backgroundColor: '#fff', paddingTop: 48, paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#E5E7EB', flexDirection: 'row', alignItems: 'center', gap: 12 },
-  backBtn: { padding: 8, borderRadius: 12, backgroundColor: '#F3F4F6' },
-  iconBtn: { padding: 10, borderRadius: 14, backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#E5E7EB' },
-  headerTitle: { fontWeight: '900', color: '#111827', fontSize: 18 },
-  headerSubtitle: { marginTop: 2, color: '#6B7280', fontSize: 12 },
+const createStyles = (COLORS) => StyleSheet.create({
+  root: { flex: 1, backgroundColor: COLORS.background },
+  header: { backgroundColor: COLORS.card, paddingTop: 48, paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: COLORS.border, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  backBtn: { padding: 8, borderRadius: 12, backgroundColor: COLORS.surface },
+  iconBtn: { padding: 10, borderRadius: 14, backgroundColor: COLORS.background, borderWidth: 1, borderColor: COLORS.border },
+  headerTitle: { fontWeight: '900', color: COLORS.text, fontSize: 18 },
+  headerSubtitle: { marginTop: 2, color: COLORS.muted, fontSize: 12 },
   body: { padding: 16, paddingBottom: 26 },
-  card: { backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: '#E5E7EB', padding: 14 },
-  label: { fontWeight: '900', color: '#374151' },
+  card: { backgroundColor: COLORS.card, borderRadius: 14, borderWidth: 1, borderColor: COLORS.border, padding: 14 },
+  label: { fontWeight: '900', color: COLORS.textSecondary },
   typeGrid: { marginTop: 10, flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  typePill: { paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#fff' },
-  typePillActive: { borderColor: COLORS.primary, backgroundColor: 'rgba(185,28,28,0.06)' },
-  typeText: { fontWeight: '900', color: '#6B7280', textTransform: 'capitalize' },
+  typePill: { paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.card },
+  typePillActive: { borderColor: COLORS.primary, backgroundColor: COLORS.primarySoft },
+  typeText: { fontWeight: '900', color: COLORS.muted, textTransform: 'capitalize' },
   typeTextActive: { color: COLORS.primary },
-  dropZone: { borderWidth: 2, borderColor: '#D1D5DB', borderStyle: 'dashed', borderRadius: 16, padding: 16, alignItems: 'center' },
-  dropIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' },
-  dropTitle: { marginTop: 10, fontWeight: '900', color: '#374151' },
-  dropSub: { marginTop: 6, color: '#6B7280', fontSize: 12 },
-  listHeader: { padding: 12, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
-  listHeaderText: { fontWeight: '900', color: '#111827' },
-  fileRow: { padding: 12, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
-  fileIcon: { width: 36, height: 36, borderRadius: 12, backgroundColor: '#DCFCE7', alignItems: 'center', justifyContent: 'center' },
-  fileName: { fontWeight: '900', color: '#111827' },
-  fileMeta: { marginTop: 2, color: '#6B7280', fontSize: 12 },
-  removeBtn: { width: 34, height: 34, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#F3F4F6' },
+  dropZone: { borderWidth: 2, borderColor: COLORS.border, borderStyle: 'dashed', borderRadius: 16, padding: 16, alignItems: 'center' },
+  dropIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: COLORS.surface, alignItems: 'center', justifyContent: 'center' },
+  dropTitle: { marginTop: 10, fontWeight: '900', color: COLORS.textSecondary },
+  dropSub: { marginTop: 6, color: COLORS.muted, fontSize: 12 },
+  listHeader: { padding: 12, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  listHeaderText: { fontWeight: '900', color: COLORS.text },
+  fileRow: { padding: 12, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  fileIcon: { width: 36, height: 36, borderRadius: 12, backgroundColor: COLORS.successBg, alignItems: 'center', justifyContent: 'center' },
+  fileName: { fontWeight: '900', color: COLORS.text },
+  fileMeta: { marginTop: 2, color: COLORS.muted, fontSize: 12 },
+  removeBtn: { width: 34, height: 34, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.background, borderWidth: 1, borderColor: COLORS.border },
   listFooter: { padding: 12 },
 });

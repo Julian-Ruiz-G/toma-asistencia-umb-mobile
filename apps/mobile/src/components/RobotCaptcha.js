@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { COLORS } from '../ui/theme';
+import { useColors } from '../ui/ThemeContext';
 import { Check, RefreshCw } from 'lucide-react-native';
 
 import { CAPTCHA_CHALLENGE_URL, CAPTCHA_VERIFY_URL } from '../config';
@@ -80,6 +82,8 @@ function makeLocalChallenge() {
 }
 
 export default function RobotCaptcha({ checked, onChange, error }) {
+  const COLORS = useColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
   const [challenge, setChallenge] = useState(null);
@@ -228,7 +232,7 @@ export default function RobotCaptcha({ checked, onChange, error }) {
     <View style={boxStyle}>
       <View style={styles.topRow}>
         <View style={[styles.checkbox, checked ? styles.checkboxOn : null]}>
-          {checked ? <Check size={16} color="#fff" strokeWidth={3} /> : null}
+          {checked ? <Check size={16} color={COLORS.white} strokeWidth={3} /> : null}
         </View>
         <View style={{ flex: 1 }}>
           <Text style={styles.title}>No soy un robot</Text>
@@ -243,7 +247,7 @@ export default function RobotCaptcha({ checked, onChange, error }) {
           </Text>
         </View>
         <Pressable onPress={() => !locked && loadChallenge()} hitSlop={8} style={styles.refresh} disabled={locked}>
-          {loading ? <ActivityIndicator size="small" /> : <RefreshCw size={16} color="#6B7280" />}
+          {loading ? <ActivityIndicator size="small" /> : <RefreshCw size={16} color={COLORS.muted} />}
         </Pressable>
       </View>
 
@@ -269,45 +273,45 @@ export default function RobotCaptcha({ checked, onChange, error }) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (COLORS) => StyleSheet.create({
   box: {
-    backgroundColor: '#F9FAFB',
+    backgroundColor: COLORS.background,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: COLORS.border,
     borderRadius: 14,
     padding: 12,
   },
-  boxError: { borderColor: '#FECACA', backgroundColor: '#FEF2F2' },
-  boxOk: { borderColor: '#BBF7D0', backgroundColor: '#F0FDF4' },
+  boxError: { borderColor: COLORS.dangerBorder, backgroundColor: COLORS.dangerSoft },
+  boxOk: { borderColor: COLORS.successBorder, backgroundColor: COLORS.successSoft },
   topRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   checkbox: {
     width: 24,
     height: 24,
     borderRadius: 6,
     borderWidth: 2,
-    borderColor: '#9CA3AF',
-    backgroundColor: '#fff',
+    borderColor: COLORS.placeholder,
+    backgroundColor: COLORS.card,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  checkboxOn: { backgroundColor: '#16A34A', borderColor: '#16A34A' },
-  title: { fontWeight: '800', color: '#111827', fontSize: 14 },
-  hint: { marginTop: 2, color: '#6B7280', fontSize: 12 },
+  checkboxOn: { backgroundColor: COLORS.successStrong, borderColor: COLORS.successStrong },
+  title: { fontWeight: '800', color: COLORS.text, fontSize: 14 },
+  hint: { marginTop: 2, color: COLORS.muted, fontSize: 12 },
   refresh: { padding: 6 },
-  challenge: { marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#E5E7EB' },
-  prompt: { fontWeight: '800', color: '#374151', marginBottom: 8, lineHeight: 20 },
-  feedback: { color: '#B91C1C', fontWeight: '700', fontSize: 12, marginBottom: 8 },
+  challenge: { marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: COLORS.border },
+  prompt: { fontWeight: '800', color: COLORS.textSecondary, marginBottom: 8, lineHeight: 20 },
+  feedback: { color: COLORS.danger, fontWeight: '700', fontSize: 12, marginBottom: 8 },
   options: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   option: {
     width: '47%',
     flexGrow: 1,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#fff',
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.card,
     borderRadius: 10,
     paddingVertical: 12,
     alignItems: 'center',
   },
   optionDisabled: { opacity: 0.45 },
-  optionText: { fontWeight: '800', color: '#374151', fontSize: 16 },
+  optionText: { fontWeight: '800', color: COLORS.textSecondary, fontSize: 16 },
 });

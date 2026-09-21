@@ -4,9 +4,11 @@ import { appAlert } from '../../ui/appNotice';
 import { useFocusEffect } from '@react-navigation/native';
 import { ArrowLeft, Bell, Clock, Pencil, Plus, Trash2 } from 'lucide-react-native';
 
+import OverlayDismiss from '../../components/OverlayDismiss';
 import { Button } from '../../components/Button';
 import { Input } from '../../components/Input';
 import { COLORS } from '../../ui/theme';
+import { useColors } from '../../ui/ThemeContext';
 import Animated, { enterDown, listEnter } from '../../ui/motion';
 import { useAuth } from '../../state/auth';
 import {
@@ -18,6 +20,7 @@ import {
   saveReminders,
   toIsoDate,
 } from '../../utils/remindersStore';
+import { isDeviceNotificationsEnabled } from '../../utils/appSettings';
 import {
   cancelReminderNotification,
   ensureNotificationPermission,
@@ -74,10 +77,12 @@ async function scheduledIdsFor(item, allowed) {
 }
 
 function TimePickerModal({ visible, hour, minute, onChange, onClose }) {
+  const COLORS = useColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.modalBackdrop} onPress={onClose}>
-        <Pressable style={styles.modalCard} onPress={() => {}}>
+      <OverlayDismiss style={styles.modalBackdrop} pin="bottom" onClose={onClose}>
+        <View style={styles.modalCard}>
           <Text style={styles.modalTitle}>¿A qué hora te avisamos?</Text>
           <Text style={styles.modalPreview}>{hour}:{minute}</Text>
           <View style={styles.wheels}>
@@ -106,13 +111,15 @@ function TimePickerModal({ visible, hour, minute, onChange, onClose }) {
             </ScrollView>
           </View>
           <Button fullWidth onPress={onClose}>Listo</Button>
-        </Pressable>
-      </Pressable>
+        </View>
+      </OverlayDismiss>
     </Modal>
   );
 }
 
 export default function RemindersScreen({ navigation }) {
+  const COLORS = useColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const { email } = useAuth();
   const [items, setItems] = useState([]);
   const [showForm, setShowForm] = useState(false);
@@ -209,12 +216,12 @@ export default function RemindersScreen({ navigation }) {
     setSaving(true);
     try {
       let allowed = false;
-      if (!isExpoGo) {
+      if (!isExpoGo && isDeviceNotificationsEnabled()) {
         allowed = await ensureNotificationPermission();
         if (!allowed) {
           appAlert(
             'Sin avisos en el celular',
-            'Puedes guardar el recordatorio, pero para que suene a esa hora activa las notificaciones en Ajustes.'
+            'Puedes guardar el recordatorio, pero para que suene a esa hora activa las notificaciones del celular en Perfil o en Ajustes.'
           );
         }
       }
@@ -278,7 +285,7 @@ export default function RemindersScreen({ navigation }) {
     <View style={styles.root}>
       <Animated.View entering={enterDown(0, 360)} style={styles.header}>
         <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <ArrowLeft size={24} color="#374151" />
+          <ArrowLeft size={24} color={COLORS.textSecondary} />
         </Pressable>
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Recordatorios</Text>
@@ -347,7 +354,7 @@ export default function RemindersScreen({ navigation }) {
 
         {items.length === 0 && !showForm ? (
           <View style={styles.empty}>
-            <Bell size={36} color="#9CA3AF" />
+            <Bell size={36} color={COLORS.placeholder} />
             <Text style={styles.emptyTitle}>Sin recordatorios</Text>
             <Text style={styles.emptyText}>Crea uno y te avisaremos a la hora que elijas.</Text>
           </View>
@@ -359,7 +366,7 @@ export default function RemindersScreen({ navigation }) {
             <Animated.View key={item.id} entering={listEnter(idx)} style={[styles.item, past ? styles.itemPast : null]}>
               <Pressable onPress={() => openEdit(item)} style={styles.itemMain}>
                 <View style={styles.itemIcon}>
-                  <Clock size={18} color="#fff" />
+                  <Clock size={18} color={COLORS.white} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.itemTitle}>{item.title}</Text>
@@ -371,10 +378,10 @@ export default function RemindersScreen({ navigation }) {
                 </View>
               </Pressable>
               <Pressable onPress={() => openEdit(item)} style={styles.iconAction} hitSlop={8}>
-                <Pencil size={16} color="#6B7280" />
+                <Pencil size={16} color={COLORS.muted} />
               </Pressable>
               <Pressable onPress={() => handleDelete(item)} style={styles.iconAction} hitSlop={8}>
-                <Trash2 size={16} color="#9CA3AF" />
+                <Trash2 size={16} color={COLORS.placeholder} />
               </Pressable>
             </Animated.View>
           );
@@ -396,10 +403,10 @@ export default function RemindersScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (COLORS) => StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.background },
   header: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     paddingHorizontal: 24,
     paddingBottom: 16,
     paddingTop: 48,
@@ -407,61 +414,63 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   backBtn: { padding: 8, marginLeft: -8, marginRight: 12, borderRadius: 999 },
-  headerTitle: { fontSize: 20, fontWeight: '800', color: '#111827' },
-  headerSubtitle: { marginTop: 2, fontSize: 14, color: '#6B7280' },
+  headerTitle: { fontSize: 20, fontWeight: '800', color: COLORS.text },
+  headerSubtitle: { marginTop: 2, fontSize: 14, color: COLORS.muted },
   body: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 28 },
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     borderRadius: 18,
     padding: 16,
     marginBottom: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
-  sectionTitle: { fontWeight: '900', color: '#111827', marginBottom: 12 },
-  fieldLabel: { marginTop: 14, marginBottom: 4, fontWeight: '800', color: '#374151', fontSize: 13 },
-  fieldHint: { marginBottom: 8, fontSize: 12, color: '#6B7280' },
+  sectionTitle: { fontWeight: '900', color: COLORS.text, marginBottom: 12 },
+  fieldLabel: { marginTop: 14, marginBottom: 4, fontWeight: '800', color: COLORS.textSecondary, fontSize: 13 },
+  fieldHint: { marginBottom: 8, fontSize: 12, color: COLORS.muted },
   dayRow: { gap: 8, paddingBottom: 6 },
   dayChip: {
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 999,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: COLORS.surface,
   },
   dayChipActive: { backgroundColor: COLORS.primary },
-  dayChipText: { fontWeight: '800', color: '#4B5563', fontSize: 12 },
-  dayChipTextActive: { color: '#fff' },
+  dayChipText: { fontWeight: '800', color: COLORS.icon, fontSize: 12 },
+  dayChipTextActive: { color: COLORS.white },
   timeButton: {
     marginTop: 4,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: COLORS.background,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: COLORS.border,
     borderRadius: 14,
     paddingVertical: 14,
     paddingHorizontal: 14,
   },
-  timeButtonText: { flex: 1, fontSize: 28, fontWeight: '900', color: '#111827', letterSpacing: 1 },
+  timeButtonText: { flex: 1, fontSize: 28, fontWeight: '900', color: COLORS.text, letterSpacing: 1 },
   timeButtonHint: { fontWeight: '800', color: COLORS.primary, fontSize: 13 },
   addBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     borderRadius: 14,
     padding: 14,
     marginBottom: 14,
     borderWidth: 1,
-    borderColor: '#FECACA',
+    borderColor: COLORS.primaryBorder,
   },
   addBannerText: { fontWeight: '800', color: COLORS.primary },
   empty: { alignItems: 'center', paddingVertical: 40 },
-  emptyTitle: { marginTop: 12, fontWeight: '900', fontSize: 16, color: '#111827' },
-  emptyText: { marginTop: 6, color: '#6B7280', textAlign: 'center', paddingHorizontal: 24 },
+  emptyTitle: { marginTop: 12, fontWeight: '900', fontSize: 16, color: COLORS.text },
+  emptyText: { marginTop: 6, color: COLORS.muted, textAlign: 'center', paddingHorizontal: 24 },
   item: {
     flexDirection: 'row',
     gap: 4,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     borderRadius: 16,
     padding: 10,
     marginBottom: 10,
@@ -473,13 +482,13 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: '#7C3AED',
+    backgroundColor: COLORS.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  itemTitle: { fontWeight: '900', color: '#111827' },
-  itemDesc: { marginTop: 4, color: '#6B7280', fontSize: 13 },
-  itemMeta: { marginTop: 6, color: '#9CA3AF', fontSize: 12, fontWeight: '700' },
+  itemTitle: { fontWeight: '900', color: COLORS.text },
+  itemDesc: { marginTop: 4, color: COLORS.muted, fontSize: 13 },
+  itemMeta: { marginTop: 6, color: COLORS.placeholder, fontSize: 12, fontWeight: '700' },
   iconAction: { padding: 8 },
   modalBackdrop: {
     flex: 1,
@@ -487,13 +496,13 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalCard: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     borderTopLeftRadius: 22,
     borderTopRightRadius: 22,
     padding: 20,
     paddingBottom: 28,
   },
-  modalTitle: { fontWeight: '900', fontSize: 16, color: '#111827', textAlign: 'center' },
+  modalTitle: { fontWeight: '900', fontSize: 16, color: COLORS.text, textAlign: 'center' },
   modalPreview: {
     marginTop: 8,
     fontSize: 36,
@@ -510,14 +519,14 @@ const styles = StyleSheet.create({
     height: 220,
   },
   wheel: { width: 88, maxHeight: 220 },
-  wheelColon: { fontSize: 28, fontWeight: '900', color: '#111827', marginHorizontal: 8 },
+  wheelColon: { fontSize: 28, fontWeight: '900', color: COLORS.text, marginHorizontal: 8 },
   wheelItem: {
     paddingVertical: 10,
     borderRadius: 12,
     alignItems: 'center',
     marginBottom: 4,
   },
-  wheelItemActive: { backgroundColor: '#FEE2E2' },
-  wheelText: { fontSize: 18, fontWeight: '800', color: '#6B7280' },
+  wheelItemActive: { backgroundColor: COLORS.dangerBg },
+  wheelText: { fontSize: 18, fontWeight: '800', color: COLORS.muted },
   wheelTextActive: { color: COLORS.primary },
 });

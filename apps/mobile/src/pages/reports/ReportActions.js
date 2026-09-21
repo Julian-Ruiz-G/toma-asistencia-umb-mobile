@@ -5,10 +5,13 @@ import { ArrowLeft, Eye, FileSpreadsheet } from 'lucide-react-native';
 
 import { Button } from '../../components/Button';
 import { COLORS } from '../../ui/theme';
+import { useColors } from '../../ui/ThemeContext';
 import { useAuth } from '../../state/auth';
 import { exportAttendanceReport } from '../../utils/reportExport';
 
 export default function ReportActions({ navigation, route }) {
+  const COLORS = useColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const { authToken } = useAuth();
   const sessionId = String(route?.params?.sessionId || '').trim();
   const classMeta = route?.params?.classMeta;
@@ -58,7 +61,7 @@ export default function ReportActions({ navigation, route }) {
     <View style={styles.root}>
       <View style={styles.header}>
         <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <ArrowLeft size={24} color="#374151" />
+          <ArrowLeft size={24} color={COLORS.textSecondary} />
         </Pressable>
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Acciones del Reporte</Text>
@@ -69,7 +72,7 @@ export default function ReportActions({ navigation, route }) {
       <ScrollView contentContainerStyle={styles.body}>
         <View style={styles.card}>
           <View style={styles.infoRow}>
-            <View style={styles.infoIcon}><FileSpreadsheet size={24} color="#16A34A" /></View>
+            <View style={styles.infoIcon}><FileSpreadsheet size={24} color={COLORS.successStrong} /></View>
             <View style={{ flex: 1 }}>
               <Text style={styles.infoTitle}>Reporte de Asistencia</Text>
               <Text style={styles.infoSub}>{subtitle}</Text>
@@ -110,25 +113,25 @@ export default function ReportActions({ navigation, route }) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (COLORS) => StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.background },
-  header: { backgroundColor: '#fff', paddingHorizontal: 24, paddingBottom: 16, paddingTop: 48, flexDirection: 'row', alignItems: 'center' },
+  header: { backgroundColor: COLORS.card, paddingHorizontal: 24, paddingBottom: 16, paddingTop: 48, flexDirection: 'row', alignItems: 'center' },
   backBtn: { padding: 8, marginLeft: -8, marginRight: 12, borderRadius: 999 },
-  headerTitle: { fontSize: 20, fontWeight: '800', color: '#111827' },
-  headerSubtitle: { marginTop: 2, fontSize: 14, color: '#6B7280' },
+  headerTitle: { fontSize: 20, fontWeight: '800', color: COLORS.text },
+  headerSubtitle: { marginTop: 2, fontSize: 14, color: COLORS.muted },
   body: { paddingHorizontal: 24, paddingVertical: 18, paddingBottom: 30 },
-  card: { backgroundColor: '#fff', borderRadius: 18, padding: 16, shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 14, shadowOffset: { width: 0, height: 8 }, elevation: 2 },
+  card: { backgroundColor: COLORS.card, borderRadius: 18, padding: 16, shadowColor: COLORS.black, shadowOpacity: 0.08, shadowRadius: 14, shadowOffset: { width: 0, height: 8 }, elevation: 2 },
   infoRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-  infoIcon: { width: 54, height: 54, borderRadius: 16, backgroundColor: '#DCFCE7', alignItems: 'center', justifyContent: 'center' },
-  infoTitle: { fontWeight: '900', color: '#111827' },
-  infoSub: { marginTop: 2, color: '#6B7280' },
-  sessionHint: { marginTop: 6, fontSize: 11, color: '#9CA3AF' },
-  sessionWarn: { marginTop: 6, fontSize: 12, color: '#B45309', fontWeight: '700' },
-  label: { fontWeight: '900', color: '#374151' },
+  infoIcon: { width: 54, height: 54, borderRadius: 16, backgroundColor: COLORS.successBg, alignItems: 'center', justifyContent: 'center' },
+  infoTitle: { fontWeight: '900', color: COLORS.text },
+  infoSub: { marginTop: 2, color: COLORS.muted },
+  sessionHint: { marginTop: 6, fontSize: 11, color: COLORS.placeholder },
+  sessionWarn: { marginTop: 6, fontSize: 12, color: COLORS.warning, fontWeight: '700' },
+  label: { fontWeight: '900', color: COLORS.textSecondary },
   formatWrap: { marginTop: 10, gap: 10 },
-  formatPill: { paddingVertical: 12, paddingHorizontal: 14, borderRadius: 14, backgroundColor: '#fff', borderWidth: 1, borderColor: '#E5E7EB' },
-  formatPillActive: { borderColor: COLORS.primary, backgroundColor: 'rgba(185,28,28,0.06)' },
-  formatText: { color: '#4B5563', fontWeight: '800' },
+  formatPill: { paddingVertical: 12, paddingHorizontal: 14, borderRadius: 14, backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border },
+  formatPillActive: { borderColor: COLORS.primary, backgroundColor: COLORS.primarySoft },
+  formatText: { color: COLORS.icon, fontWeight: '800' },
   formatTextActive: { color: COLORS.primary },
-  formatHint: { marginTop: 4, fontSize: 11, color: '#9CA3AF' },
+  formatHint: { marginTop: 4, fontSize: 11, color: COLORS.placeholder },
 });

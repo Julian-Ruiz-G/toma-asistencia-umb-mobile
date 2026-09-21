@@ -1,19 +1,23 @@
-import React, { useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import React, { useCallback, useState, useMemo } from 'react';
+import { BackHandler, Image, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { appAlert } from '../../ui/appNotice';
 import { ArrowLeft, CircleAlert, KeyRound } from 'lucide-react-native';
+import { useFocusEffect } from '@react-navigation/native';
 
 import { Button } from '../../components/Button';
 import { Input } from '../../components/Input';
 import { useAuth } from '../../state/auth';
 import { LOGIN_ADMIN_URL, LOGIN_STUDENT_URL, LOGIN_TEACHER_URL } from '../../config';
 import { COLORS } from '../../ui/theme';
+import { useColors } from '../../ui/ThemeContext';
 import Animated, { PulseGlow, enterDown } from '../../ui/motion';
 import { clearPersistedSession, savePersistedSession } from '../../utils/sessionStore';
 
 const CREDENTIALS_ERROR = 'Correo o contraseña incorrectos.';
 
 export default function LoginScreen({ navigation }) {
+  const COLORS = useColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const {
     setAuthToken,
     setRole,
@@ -33,6 +37,21 @@ export default function LoginScreen({ navigation }) {
   const [errors, setErrors] = useState({});
   const [loginError, setLoginError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  const goToWelcome = useCallback(() => {
+    if (navigation.canGoBack()) navigation.goBack();
+    else navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] });
+  }, [navigation]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+        goToWelcome();
+        return true;
+      });
+      return () => sub.remove();
+    }, [goToWelcome])
+  );
 
   const validateForm = () => {
     const newErrors = {};
@@ -146,10 +165,10 @@ export default function LoginScreen({ navigation }) {
     <View style={styles.root}>
       <Animated.View entering={enterDown(0, 360)} style={styles.header}>
         <Pressable
-          onPress={() => navigation.goBack()}
+          onPress={goToWelcome}
           style={styles.backBtn}
         >
-          <ArrowLeft size={24} color="#374151" />
+          <ArrowLeft size={24} color={COLORS.textSecondary} />
         </Pressable>
         <View>
           <Text style={styles.headerTitle}>Iniciar Sesión</Text>
@@ -175,7 +194,7 @@ export default function LoginScreen({ navigation }) {
           {loginError ? (
             <View style={styles.errorBanner}>
               <View style={styles.errorIcon}>
-                <CircleAlert size={18} color="#B91C1C" />
+                <CircleAlert size={18} color={COLORS.primary} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.errorTitle}>No se pudo entrar</Text>
@@ -247,7 +266,7 @@ export default function LoginScreen({ navigation }) {
 
       <Animated.View entering={enterDown(260, 360)} style={styles.footer}>
         <View style={styles.footerRow}>
-          <KeyRound size={16} color="#9CA3AF" />
+          <KeyRound size={16} color={COLORS.placeholder} />
           <Text style={styles.footerText}>Conexión segura SSL</Text>
         </View>
       </Animated.View>
@@ -255,27 +274,29 @@ export default function LoginScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (COLORS) => StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.background },
   header: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     paddingHorizontal: 24,
     paddingBottom: 16,
     paddingTop: 48,
     flexDirection: 'row',
     alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
   },
   backBtn: { padding: 8, marginLeft: -8, marginRight: 12, borderRadius: 999 },
-  headerTitle: { fontSize: 20, fontWeight: '800', color: '#111827' },
-  headerSubtitle: { marginTop: 2, fontSize: 14, color: '#6B7280' },
+  headerTitle: { fontSize: 20, fontWeight: '800', color: COLORS.text },
+  headerSubtitle: { marginTop: 2, fontSize: 14, color: COLORS.muted },
   body: { paddingHorizontal: 24, paddingTop: 26, paddingBottom: 18 },
   errorBanner: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 10,
-    backgroundColor: '#FEF2F2',
+    backgroundColor: COLORS.dangerSoft,
     borderWidth: 1,
-    borderColor: '#FECACA',
+    borderColor: COLORS.dangerBorder,
     borderRadius: 14,
     padding: 12,
     marginBottom: 16,
@@ -284,12 +305,12 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#FEE2E2',
+    backgroundColor: COLORS.dangerBg,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  errorTitle: { fontWeight: '800', color: '#991B1B', fontSize: 14 },
-  errorText: { marginTop: 2, color: '#B91C1C', fontSize: 13, lineHeight: 18, fontWeight: '600' },
+  errorTitle: { fontWeight: '800', color: COLORS.danger, fontSize: 14 },
+  errorText: { marginTop: 2, color: COLORS.danger, fontSize: 13, lineHeight: 18, fontWeight: '600' },
   hero: { alignItems: 'center', justifyContent: 'center', marginBottom: 18 },
   logoGlow: {
     position: 'absolute',
@@ -302,10 +323,10 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOpacity: 0.14,
     shadowRadius: 18,
     shadowOffset: { width: 0, height: 10 },
@@ -313,15 +334,15 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   logo: { width: 64, height: 64, resizeMode: 'contain' },
-  title: { marginTop: 18, fontSize: 24, fontWeight: '800', color: '#111827' },
-  subtitle: { marginTop: 8, fontSize: 14, color: '#6B7280', textAlign: 'center' },
+  title: { marginTop: 18, fontSize: 24, fontWeight: '800', color: COLORS.text },
+  subtitle: { marginTop: 8, fontSize: 14, color: COLORS.muted, textAlign: 'center' },
   rememberRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 },
   rememberLeft: { flexDirection: 'row', alignItems: 'center' },
-  rememberText: { marginLeft: 10, fontSize: 14, color: '#4B5563' },
+  rememberText: { marginLeft: 10, fontSize: 14, color: COLORS.icon },
   forgot: { fontSize: 14, color: COLORS.primary, fontWeight: '700' },
-  registerText: { marginTop: 16, textAlign: 'center', color: '#6B7280' },
+  registerText: { marginTop: 16, textAlign: 'center', color: COLORS.muted },
   registerLink: { color: COLORS.primary, fontWeight: '700' },
-  footer: { paddingHorizontal: 24, paddingVertical: 14, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#E5E7EB' },
+  footer: { paddingHorizontal: 24, paddingVertical: 14, backgroundColor: COLORS.card, borderTopWidth: 1, borderTopColor: COLORS.border },
   footerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
-  footerText: { marginLeft: 8, fontSize: 12, color: '#9CA3AF' },
+  footerText: { marginLeft: 8, fontSize: 12, color: COLORS.placeholder },
 });

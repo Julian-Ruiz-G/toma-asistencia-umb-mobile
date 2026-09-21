@@ -14,11 +14,14 @@ import {
 
 import { Button } from '../../components/Button';
 import { COLORS } from '../../ui/theme';
+import { useColors } from '../../ui/ThemeContext';
 import { CONFIRM_ATTENDANCE_PHOTO_URL } from '../../config';
 import { useAuth } from '../../state/auth';
 import { alertClassHoursError } from '../../utils/attendanceQr';
 
 export default function FaceRecognitionScreen({ navigation, route }) {
+  const COLORS = useColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const { authToken } = useAuth();
   const attendanceSession = route?.params?.attendanceSession;
   const classMeta = route?.params?.classMeta;
@@ -188,29 +191,29 @@ export default function FaceRecognitionScreen({ navigation, route }) {
   const totalDetected = detectedFaces.length;
 
   const borderColorFor = (confidence) => {
-    if (confidence > 80) return '#22C55E';
-    if (confidence > 0) return '#EAB308';
-    return '#EF4444';
+    if (confidence > 80) return COLORS.successStrong;
+    if (confidence > 0) return COLORS.warningStrong;
+    return COLORS.dangerStrong;
   };
 
   const labelBgFor = (confidence) => {
-    if (confidence > 80) return '#22C55E';
-    if (confidence > 0) return '#EAB308';
-    return '#EF4444';
+    if (confidence > 80) return COLORS.successStrong;
+    if (confidence > 0) return COLORS.warningStrong;
+    return COLORS.dangerStrong;
   };
 
   return (
     <View style={[styles.root, isFullscreen ? styles.fullscreen : null]}>
       <View style={styles.header}>
         <Pressable onPress={() => navigation.goBack()} style={styles.headerBtn}>
-          <ArrowLeft size={24} color="#fff" />
+          <ArrowLeft size={24} color={COLORS.white} />
         </Pressable>
         <View style={{ alignItems: 'center' }}>
           <Text style={styles.headerTitle}>Reconocimiento Grupal</Text>
           <Text style={styles.headerSub}>Captura el aula completa</Text>
         </View>
         <Pressable onPress={() => setIsFullscreen((v) => !v)} style={styles.headerBtn}>
-          <Maximize2 size={20} color="#fff" />
+          <Maximize2 size={20} color={COLORS.white} />
         </Pressable>
       </View>
 
@@ -287,7 +290,7 @@ export default function FaceRecognitionScreen({ navigation, route }) {
         <View style={styles.resultsPanel}>
           <View style={styles.resultsTop}>
             <View style={styles.resultsTitleRow}>
-              <UserCheck size={18} color="#22C55E" />
+              <UserCheck size={18} color={COLORS.successStrong} />
               <Text style={styles.resultsTitle}>Resultados</Text>
             </View>
             <Text style={styles.resultsCount}>{recognizedCount}/{totalDetected} reconocidos</Text>
@@ -295,16 +298,16 @@ export default function FaceRecognitionScreen({ navigation, route }) {
 
           <View style={styles.resultsGrid}>
             <View style={[styles.resultsMini, { backgroundColor: 'rgba(34,197,94,0.10)' }]}>
-              <Text style={[styles.resultsNum, { color: '#22C55E' }]}>{detectedFaces.filter((f) => f.confidence > 80).length}</Text>
-              <Text style={[styles.resultsLbl, { color: '#22C55E' }]}>Confirmados</Text>
+              <Text style={[styles.resultsNum, { color: COLORS.successStrong }]}>{detectedFaces.filter((f) => f.confidence > 80).length}</Text>
+              <Text style={[styles.resultsLbl, { color: COLORS.successStrong }]}>Confirmados</Text>
             </View>
             <View style={[styles.resultsMini, { backgroundColor: 'rgba(234,179,8,0.10)' }]}>
-              <Text style={[styles.resultsNum, { color: '#EAB308' }]}>{detectedFaces.filter((f) => f.confidence > 0 && f.confidence <= 80).length}</Text>
-              <Text style={[styles.resultsLbl, { color: '#EAB308' }]}>Dudosos</Text>
+              <Text style={[styles.resultsNum, { color: COLORS.warningStrong }]}>{detectedFaces.filter((f) => f.confidence > 0 && f.confidence <= 80).length}</Text>
+              <Text style={[styles.resultsLbl, { color: COLORS.warningStrong }]}>Dudosos</Text>
             </View>
             <View style={[styles.resultsMini, { backgroundColor: 'rgba(239,68,68,0.10)' }]}>
-              <Text style={[styles.resultsNum, { color: '#EF4444' }]}>{detectedFaces.filter((f) => f.confidence === 0).length}</Text>
-              <Text style={[styles.resultsLbl, { color: '#EF4444' }]}>Desconocidos</Text>
+              <Text style={[styles.resultsNum, { color: COLORS.dangerStrong }]}>{detectedFaces.filter((f) => f.confidence === 0).length}</Text>
+              <Text style={[styles.resultsLbl, { color: COLORS.dangerStrong }]}>Desconocidos</Text>
             </View>
           </View>
 
@@ -342,17 +345,17 @@ export default function FaceRecognitionScreen({ navigation, route }) {
         ) : (
           <View style={styles.bottomRow}>
             <Pressable onPress={handlePickFromGallery} disabled={isCapturing} style={[styles.smallCircleBtn, isCapturing ? { opacity: 0.5 } : null]}>
-              <ImagePlus size={20} color="#9CA3AF" />
+              <ImagePlus size={20} color={COLORS.placeholder} />
             </Pressable>
 
             <Pressable onPress={handleCapture} disabled={isCapturing} style={[styles.captureOuter, isCapturing ? { opacity: 0.5 } : null]}>
               <View style={styles.captureInner}>
-                <Camera size={30} color="#111827" />
+                <Camera size={30} color={COLORS.text} />
               </View>
             </Pressable>
 
             <Pressable onPress={() => {}} style={styles.smallCircleBtn}>
-              <Zap size={20} color="#9CA3AF" />
+              <Zap size={20} color={COLORS.placeholder} />
             </Pressable>
           </View>
         )}
@@ -363,8 +366,8 @@ export default function FaceRecognitionScreen({ navigation, route }) {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#000' },
+const createStyles = (COLORS) => StyleSheet.create({
+  root: { flex: 1, backgroundColor: COLORS.black },
   fullscreen: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 50 },
   header: {
     position: 'absolute',
@@ -381,10 +384,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.45)',
   },
   headerBtn: { width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { color: '#fff', fontWeight: '800' },
+  headerTitle: { color: COLORS.white, fontWeight: '800' },
   headerSub: { marginTop: 2, color: 'rgba(255,255,255,0.60)', fontSize: 12 },
   cameraArea: { flex: 1 },
-  fakeCameraBg: { ...StyleSheet.absoluteFillObject, backgroundColor: '#374151' },
+  fakeCameraBg: { ...StyleSheet.absoluteFillObject, backgroundColor: COLORS.textSecondary },
   gridOverlay: {
     ...StyleSheet.absoluteFillObject,
     opacity: 0.20,
@@ -395,29 +398,29 @@ const styles = StyleSheet.create({
 
   faceBox: { position: 'absolute', borderWidth: 2 },
   faceLabel: { position: 'absolute', left: 0, top: -26, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
-  faceLabelText: { color: '#fff', fontWeight: '800', fontSize: 12 },
+  faceLabelText: { color: COLORS.white, fontWeight: '800', fontSize: 12 },
   faceCorner: { position: 'absolute', width: 10, height: 10 },
   faceCornerTL: { top: -2, left: -2, borderTopWidth: 2, borderLeftWidth: 2 },
   faceCornerTR: { top: -2, right: -2, borderTopWidth: 2, borderRightWidth: 2 },
   faceCornerBL: { bottom: -2, left: -2, borderBottomWidth: 2, borderLeftWidth: 2 },
   faceCornerBR: { bottom: -2, right: -2, borderBottomWidth: 2, borderRightWidth: 2 },
 
-  flash: { ...StyleSheet.absoluteFillObject, backgroundColor: '#fff', opacity: 0.35, zIndex: 30 },
+  flash: { ...StyleSheet.absoluteFillObject, backgroundColor: COLORS.card, opacity: 0.35, zIndex: 30 },
 
   progressOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.70)', alignItems: 'center', justifyContent: 'center', zIndex: 30, padding: 24 },
-  progressCard: { backgroundColor: '#fff', borderRadius: 18, padding: 18, width: '100%', maxWidth: 320, alignItems: 'center' },
-  progressTitle: { marginTop: 10, fontWeight: '900', color: '#111827' },
-  progressBarBg: { marginTop: 12, height: 8, width: '100%', borderRadius: 999, backgroundColor: '#E5E7EB', overflow: 'hidden' },
+  progressCard: { backgroundColor: COLORS.card, borderRadius: 18, padding: 18, width: '100%', maxWidth: 320, alignItems: 'center' },
+  progressTitle: { marginTop: 10, fontWeight: '900', color: COLORS.text },
+  progressBarBg: { marginTop: 12, height: 8, width: '100%', borderRadius: 999, backgroundColor: COLORS.border, overflow: 'hidden' },
   progressBarFill: { height: '100%', borderRadius: 999, backgroundColor: COLORS.primary },
-  progressPct: { marginTop: 8, color: '#6B7280' },
+  progressPct: { marginTop: 8, color: COLORS.muted },
 
   instructionWrap: { position: 'absolute', left: 0, right: 0, bottom: 132, alignItems: 'center', paddingHorizontal: 24 },
   instructionText: { color: 'rgba(255,255,255,0.82)', backgroundColor: 'rgba(0,0,0,0.45)', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 999, fontWeight: '700' },
 
-  resultsPanel: { backgroundColor: '#111827', borderTopWidth: 1, borderTopColor: '#1F2937', paddingHorizontal: 24, paddingVertical: 14 },
+  resultsPanel: { backgroundColor: COLORS.text, borderTopWidth: 1, borderTopColor: COLORS.text, paddingHorizontal: 24, paddingVertical: 14 },
   resultsTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   resultsTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  resultsTitle: { color: '#fff', fontWeight: '900' },
+  resultsTitle: { color: COLORS.white, fontWeight: '900' },
   resultsCount: { color: 'rgba(255,255,255,0.60)' },
   resultsGrid: { flexDirection: 'row', gap: 10, marginBottom: 10 },
   resultsMini: { flex: 1, borderRadius: 12, padding: 10, alignItems: 'center' },
@@ -425,13 +428,13 @@ const styles = StyleSheet.create({
   resultsLbl: { marginTop: 2, fontWeight: '800', fontSize: 12 },
   faceRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6, paddingHorizontal: 10, backgroundColor: 'rgba(31,41,55,0.55)', borderRadius: 10 },
   dot: { width: 8, height: 8, borderRadius: 4 },
-  faceRowName: { color: '#fff', flex: 1 },
-  faceRowCode: { color: '#9CA3AF', fontSize: 12 },
-  faceRowPct: { color: '#9CA3AF', fontSize: 12 },
+  faceRowName: { color: COLORS.white, flex: 1 },
+  faceRowCode: { color: COLORS.placeholder, fontSize: 12 },
+  faceRowPct: { color: COLORS.placeholder, fontSize: 12 },
 
-  bottom: { backgroundColor: '#111827', paddingHorizontal: 24, paddingTop: 16, paddingBottom: 22 },
+  bottom: { backgroundColor: COLORS.text, paddingHorizontal: 24, paddingTop: 16, paddingBottom: 22 },
   bottomRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 26 },
-  smallCircleBtn: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#1F2937', alignItems: 'center', justifyContent: 'center' },
-  captureOuter: { width: 80, height: 80, borderRadius: 40, borderWidth: 4, borderColor: '#fff', alignItems: 'center', justifyContent: 'center' },
-  captureInner: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
+  smallCircleBtn: { width: 48, height: 48, borderRadius: 24, backgroundColor: COLORS.text, alignItems: 'center', justifyContent: 'center' },
+  captureOuter: { width: 80, height: 80, borderRadius: 40, borderWidth: 4, borderColor: COLORS.white, alignItems: 'center', justifyContent: 'center' },
+  captureInner: { width: 64, height: 64, borderRadius: 32, backgroundColor: COLORS.card, alignItems: 'center', justifyContent: 'center' },
 });

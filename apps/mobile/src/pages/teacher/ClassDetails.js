@@ -7,6 +7,7 @@ import QRCode from 'react-native-qrcode-svg';
 
 import { Button } from '../../components/Button';
 import { COLORS } from '../../ui/theme';
+import { useColors } from '../../ui/ThemeContext';
 import Animated, { enterDown, listEnter } from '../../ui/motion';
 import { CLASS_DETAILS_URL } from '../../config';
 import { useAuth } from '../../state/auth';
@@ -14,6 +15,8 @@ import { classStatusMeta, formatScheduleLines } from '../../utils/schedule';
 import { personDisplayName } from '../../utils/displayName';
 
 export default function ClassDetails({ navigation, route }) {
+  const COLORS = useColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const { authToken } = useAuth();
   const classId = route?.params?.classId;
   const [details, setDetails] = useState(null);
@@ -58,7 +61,7 @@ export default function ClassDetails({ navigation, route }) {
     <View style={styles.root}>
       <Animated.View entering={enterDown(0, 360)} style={styles.header}>
         <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <ArrowLeft size={24} color="#374151" />
+          <ArrowLeft size={24} color={COLORS.textSecondary} />
         </Pressable>
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Detalle de clase</Text>
@@ -92,7 +95,7 @@ export default function ClassDetails({ navigation, route }) {
 
         <Animated.View entering={enterDown(80)} style={styles.card}>
           <View style={styles.sectionHead}>
-            <Clock size={16} color={COLORS.primary} />
+            <Clock size={16} color={COLORS.icon} />
             <Text style={styles.sectionTitle}>Horario</Text>
           </View>
           {lines.length ? lines.map((line, idx) => (
@@ -106,7 +109,7 @@ export default function ClassDetails({ navigation, route }) {
 
         <Animated.View entering={enterDown(120)} style={styles.card}>
           <View style={styles.sectionHead}>
-            <Users size={16} color={COLORS.primary} />
+            <Users size={16} color={COLORS.icon} />
             <Text style={styles.sectionTitle}>Estudiantes inscritos</Text>
             <Text style={styles.count}>{students.length}</Text>
           </View>
@@ -127,7 +130,7 @@ export default function ClassDetails({ navigation, route }) {
         {classToken ? (
           <Animated.View entering={enterDown(160)} style={styles.card}>
             <View style={styles.sectionHead}>
-              <QrCode size={16} color={COLORS.primary} />
+              <QrCode size={16} color={COLORS.icon} />
               <Text style={styles.sectionTitle}>QR de inscripción</Text>
             </View>
             <Text style={styles.muted}>Los estudiantes lo escanean para unirse a la clase.</Text>
@@ -160,10 +163,10 @@ export default function ClassDetails({ navigation, route }) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (COLORS) => StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.background },
   header: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     paddingHorizontal: 24,
     paddingBottom: 16,
     paddingTop: 48,
@@ -172,31 +175,31 @@ const styles = StyleSheet.create({
   },
   backBtn: { padding: 8, marginLeft: -8, marginRight: 12, borderRadius: 999 },
   iconBtn: { padding: 10, borderRadius: 999 },
-  headerTitle: { fontSize: 20, fontWeight: '800', color: '#111827' },
-  headerSubtitle: { marginTop: 2, fontSize: 14, color: '#6B7280' },
+  headerTitle: { fontSize: 20, fontWeight: '800', color: COLORS.text },
+  headerSubtitle: { marginTop: 2, fontSize: 14, color: COLORS.muted },
   body: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 28 },
-  card: { backgroundColor: '#fff', borderRadius: 18, padding: 16, marginBottom: 12 },
+  card: { backgroundColor: COLORS.card, borderRadius: 18, padding: 16, marginBottom: 12 },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   titleIcon: {
     width: 40, height: 40, borderRadius: 14,
-    backgroundColor: 'rgba(185,28,28,0.10)', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: COLORS.primarySoft, alignItems: 'center', justifyContent: 'center',
   },
-  className: { fontWeight: '900', color: '#111827', fontSize: 16 },
-  classMeta: { marginTop: 2, color: '#6B7280' },
-  metaLine: { marginTop: 10, color: '#4B5563', fontWeight: '700', fontSize: 13 },
+  className: { fontWeight: '900', color: COLORS.text, fontSize: 16 },
+  classMeta: { marginTop: 2, color: COLORS.muted },
+  metaLine: { marginTop: 10, color: COLORS.icon, fontWeight: '700', fontSize: 13 },
   pill: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, borderWidth: 1 },
   pillText: { fontSize: 11, fontWeight: '900' },
   sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
-  sectionTitle: { fontWeight: '900', color: '#111827', flex: 1 },
-  count: { fontWeight: '900', color: COLORS.primary },
+  sectionTitle: { fontWeight: '900', color: COLORS.text, flex: 1 },
+  count: { fontWeight: '900', color: COLORS.text },
   scheduleRow: {
-    backgroundColor: '#F9FAFB', borderRadius: 12,
+    backgroundColor: COLORS.background, borderRadius: 12,
     paddingVertical: 10, paddingHorizontal: 12, marginBottom: 8,
   },
-  scheduleText: { color: '#374151', fontWeight: '700' },
-  muted: { color: '#6B7280' },
+  scheduleText: { color: COLORS.textSecondary, fontWeight: '700' },
+  muted: { color: COLORS.muted },
   studentRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingVertical: 8 },
-  studentDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.primary, marginTop: 6 },
-  studentName: { fontWeight: '800', color: '#111827' },
-  studentCode: { marginTop: 2, color: '#6B7280', fontSize: 12 },
+  studentDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.icon, marginTop: 6 },
+  studentName: { fontWeight: '800', color: COLORS.text },
+  studentCode: { marginTop: 2, color: COLORS.muted, fontSize: 12 },
 });

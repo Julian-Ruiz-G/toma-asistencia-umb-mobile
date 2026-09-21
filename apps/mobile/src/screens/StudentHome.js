@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text } from 'react-native';
+import { COLORS } from '../ui/theme';
 import { Card, PrimaryButton, Screen, SecondaryButton } from '../ui/components';
 import { useAuth } from '../state/auth';
 
@@ -9,7 +10,7 @@ export default function StudentHome({ navigation }) {
     <Screen title="Estudiante">
       <Card>
         <Text style={{ fontSize: 18, fontWeight: '800' }}>Inicio Estudiante</Text>
-        <Text style={{ marginTop: 6, color: '#6B7280' }}>{email || ''}</Text>
+        <Text style={{ marginTop: 6, color: COLORS.muted }}>{email || ''}</Text>
         <View style={{ height: 16 }} />
         <PrimaryButton title="Escanear QR" onPress={() => navigation.navigate('StudentQr')} />
         <View style={{ height: 10 }} />

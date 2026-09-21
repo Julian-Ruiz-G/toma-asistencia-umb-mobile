@@ -1,3 +1,4 @@
+import { COLORS } from '../ui/theme';
 import {
   colombiaNowMinutes,
   colombiaTodayYmd,
@@ -116,9 +117,9 @@ export function isClassInProgressNow(c) {
 
 export function classStatusMeta(c) {
   if (isClassInProgressNow(c)) {
-    return { key: 'in_session', label: 'En curso', pillBg: '#ECFDF5', pillBorder: '#BBF7D0', pillText: '#16A34A' };
+    return { key: 'in_session', label: 'En curso', pillBg: COLORS.successSoft, pillBorder: COLORS.successBorder, pillText: COLORS.successStrong };
   }
-  return { key: 'off', label: 'Fuera de horario', pillBg: '#F3F4F6', pillBorder: '#E5E7EB', pillText: '#4B5563' };
+  return { key: 'off', label: 'Fuera de horario', pillBg: COLORS.surface, pillBorder: COLORS.border, pillText: COLORS.icon };
 }
 
 export function formatScheduleFriendly(c) {

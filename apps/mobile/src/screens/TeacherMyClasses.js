@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { FlatList, Text, TouchableOpacity, View } from 'react-native';
+import { COLORS } from '../ui/theme';
 import { appAlert } from '../ui/appNotice';
 import { Card, PrimaryButton, Screen } from '../ui/components';
 import { MY_CLASSES_URL } from '../config';
@@ -58,13 +59,13 @@ export default function TeacherMyClasses({ navigation }) {
           renderItem={({ item }) => (
             <TouchableOpacity
               onPress={() => navigation.navigate('TeacherClassDetails', { classId: item.classId })}
-              style={{ paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' }}
+              style={{ paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: COLORS.border }}
             >
-              <Text style={{ fontWeight: '800', color: '#111827' }}>{item?.className || 'Clase'}</Text>
-              <Text style={{ marginTop: 3, color: '#6B7280' }}>Grupo: {item?.group || ''}</Text>
+              <Text style={{ fontWeight: '800', color: COLORS.text }}>{item?.className || 'Clase'}</Text>
+              <Text style={{ marginTop: 3, color: COLORS.muted }}>Grupo: {item?.group || ''}</Text>
             </TouchableOpacity>
           )}
-          ListEmptyComponent={<Text style={{ marginTop: 14, color: '#6B7280' }}>No hay clases.</Text>}
+          ListEmptyComponent={<Text style={{ marginTop: 14, color: COLORS.muted }}>No hay clases.</Text>}
         />
       </Card>
     </Screen>

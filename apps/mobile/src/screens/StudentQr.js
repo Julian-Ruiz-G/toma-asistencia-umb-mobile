@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
+import { COLORS } from '../ui/theme';
 import { appAlert } from '../ui/appNotice';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Card, Screen } from '../ui/components';
@@ -20,7 +21,7 @@ export default function StudentQr({ navigation }) {
     return (
       <Screen title="Escanear QR" onBack={() => navigation.goBack()}>
         <Card>
-          <Text style={{ color: '#6B7280' }}>Permiso de cámara requerido.</Text>
+          <Text style={{ color: COLORS.muted }}>Permiso de cámara requerido.</Text>
         </Card>
       </Screen>
     );
@@ -29,7 +30,7 @@ export default function StudentQr({ navigation }) {
   return (
     <Screen title="Escanear QR" onBack={() => navigation.goBack()}>
       <Card>
-        <Text style={{ marginBottom: 10, color: '#6B7280' }}>Apunta al código QR.</Text>
+        <Text style={{ marginBottom: 10, color: COLORS.muted }}>Apunta al código QR.</Text>
         <View style={{ height: 360, borderRadius: 16, overflow: 'hidden' }}>
           <CameraView
             style={{ flex: 1 }}

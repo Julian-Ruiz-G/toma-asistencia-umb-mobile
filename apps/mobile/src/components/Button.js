@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
-import { COLORS } from '../ui/theme';
+import { useColors } from '../ui/ThemeContext';
 
 export function Button({
   children,
@@ -11,6 +11,8 @@ export function Button({
   disabled,
   onPress,
 }) {
+  const COLORS = useColors();
+  const styles = useMemo(() => makeStyles(COLORS), [COLORS]);
   const isDisabled = !!disabled || !!isLoading;
 
   const variantStyle =
@@ -42,7 +44,7 @@ export function Button({
       ]}
     >
       {isLoading ? (
-        <ActivityIndicator color={variant === 'outline' || variant === 'ghost' ? COLORS.primary : '#fff'} />
+        <ActivityIndicator color={variant === 'outline' || variant === 'ghost' ? COLORS.primary : COLORS.white} />
       ) : null}
       <View style={{ marginLeft: isLoading ? 8 : 0 }}>
         <Text style={[styles.textBase, textStyle]}>{children}</Text>
@@ -51,7 +53,8 @@ export function Button({
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(COLORS) {
+  return StyleSheet.create({
   base: {
     borderRadius: 28,
     flexDirection: 'row',
@@ -62,22 +65,22 @@ const styles = StyleSheet.create({
   disabled: { opacity: 0.6 },
   primary: {
     backgroundColor: COLORS.primary,
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOpacity: 0.12,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 6 },
     elevation: 4,
   },
   secondary: {
-    backgroundColor: COLORS.blue,
-    shadowColor: '#000',
+    backgroundColor: COLORS.text,
+    shadowColor: COLORS.black,
     shadowOpacity: 0.12,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 6 },
     elevation: 4,
   },
   outline: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     borderWidth: 2,
     borderColor: COLORS.primary,
   },
@@ -88,7 +91,8 @@ const styles = StyleSheet.create({
   md: { paddingVertical: 12, paddingHorizontal: 24 },
   lg: { paddingVertical: 14, paddingHorizontal: 28 },
   textBase: { fontWeight: '700', fontSize: 16 },
-  textSolid: { color: '#fff' },
+  textSolid: { color: COLORS.white },
   textOutline: { color: COLORS.primary },
-  textGhost: { color: '#4B5563' },
-});
+  textGhost: { color: COLORS.icon },
+  });
+}

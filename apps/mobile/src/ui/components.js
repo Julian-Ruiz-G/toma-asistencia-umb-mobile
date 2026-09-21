@@ -1,8 +1,15 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, TextInput, StyleSheet } from 'react-native';
-import { COLORS } from './theme';
+import { useColors } from './ThemeContext';
+
+function useUiStyles() {
+  const COLORS = useColors();
+  const styles = useMemo(() => makeStyles(COLORS), [COLORS]);
+  return { COLORS, styles };
+}
 
 export function Screen({ title, onBack, children }) {
+  const { styles } = useUiStyles();
   return (
     <View style={styles.screen}>
       <View style={styles.header}>
@@ -22,10 +29,12 @@ export function Screen({ title, onBack, children }) {
 }
 
 export function Card({ children }) {
+  const { styles } = useUiStyles();
   return <View style={styles.card}>{children}</View>;
 }
 
 export function PrimaryButton({ title, onPress }) {
+  const { styles } = useUiStyles();
   return (
     <TouchableOpacity onPress={onPress} style={styles.primaryBtn}>
       <Text style={styles.primaryText}>{title}</Text>
@@ -34,6 +43,7 @@ export function PrimaryButton({ title, onPress }) {
 }
 
 export function SecondaryButton({ title, onPress }) {
+  const { styles } = useUiStyles();
   return (
     <TouchableOpacity onPress={onPress} style={styles.secondaryBtn}>
       <Text style={styles.secondaryText}>{title}</Text>
@@ -42,10 +52,12 @@ export function SecondaryButton({ title, onPress }) {
 }
 
 export function Label({ children }) {
+  const { styles } = useUiStyles();
   return <Text style={styles.label}>{children}</Text>;
 }
 
 export function Input(props) {
+  const { COLORS, styles } = useUiStyles();
   return (
     <TextInput
       {...props}
@@ -55,26 +67,28 @@ export function Input(props) {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: COLORS.background },
-  header: {
-    paddingTop: 54,
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: COLORS.text },
-  backBtn: { paddingVertical: 8, paddingHorizontal: 10, backgroundColor: COLORS.card, borderRadius: 10, borderWidth: 1, borderColor: COLORS.border },
-  backText: { color: COLORS.text, fontWeight: '600' },
-  backBtnPlaceholder: { width: 64 },
-  body: { flex: 1, padding: 16 },
-  card: { backgroundColor: COLORS.card, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: COLORS.border },
-  primaryBtn: { backgroundColor: COLORS.primary, paddingVertical: 14, borderRadius: 14, alignItems: 'center' },
-  primaryText: { color: '#fff', fontWeight: '700' },
-  secondaryBtn: { backgroundColor: COLORS.card, paddingVertical: 14, borderRadius: 14, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
-  secondaryText: { color: COLORS.text, fontWeight: '700' },
-  label: { marginTop: 12, marginBottom: 6, color: COLORS.text, fontWeight: '600' },
-  input: { backgroundColor: '#fff', borderWidth: 1, borderColor: COLORS.border, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12, color: COLORS.text },
-});
+function makeStyles(COLORS) {
+  return StyleSheet.create({
+    screen: { flex: 1, backgroundColor: COLORS.background },
+    header: {
+      paddingTop: 54,
+      paddingHorizontal: 16,
+      paddingBottom: 12,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    headerTitle: { fontSize: 18, fontWeight: '700', color: COLORS.text },
+    backBtn: { paddingVertical: 8, paddingHorizontal: 10, backgroundColor: COLORS.card, borderRadius: 10, borderWidth: 1, borderColor: COLORS.border },
+    backText: { color: COLORS.text, fontWeight: '600' },
+    backBtnPlaceholder: { width: 64 },
+    body: { flex: 1, padding: 16 },
+    card: { backgroundColor: COLORS.card, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: COLORS.border },
+    primaryBtn: { backgroundColor: COLORS.primary, paddingVertical: 14, borderRadius: 14, alignItems: 'center' },
+    primaryText: { color: COLORS.white, fontWeight: '700' },
+    secondaryBtn: { backgroundColor: COLORS.card, paddingVertical: 14, borderRadius: 14, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
+    secondaryText: { color: COLORS.text, fontWeight: '700' },
+    label: { marginTop: 12, marginBottom: 6, color: COLORS.text, fontWeight: '600' },
+    input: { backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12, color: COLORS.text },
+  });
+}

@@ -19,6 +19,7 @@ import {
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
 import { COLORS } from '../../ui/theme';
+import { useColors } from '../../ui/ThemeContext';
 import { useAuth } from '../../state/auth';
 import { ATTENDANCE_DETAILS_URL, CLASS_DETAILS_URL } from '../../config';
 import {
@@ -71,6 +72,8 @@ function mapClassSession(s, classDetails, extras = {}) {
 
 // Componente principal del historial de sesiones
 export default function SessionHistory({ navigation, route }) {
+  const COLORS = useColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   // Obtener datos de autenticación y parámetros de navegación
   const { authToken, email } = useAuth();
   const { classId, className, group, room } = route.params || {};
@@ -359,7 +362,7 @@ export default function SessionHistory({ navigation, route }) {
     <View style={styles.root}>
       <View style={styles.header}>
         <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <ArrowLeft size={24} color="#374151" />
+          <ArrowLeft size={24} color={COLORS.textSecondary} />
         </Pressable>
         <View style={{ flex: 1, justifyContent: 'center' }}>
           <Text style={styles.headerTitle}>Historial de Sesiones</Text>
@@ -370,14 +373,14 @@ export default function SessionHistory({ navigation, route }) {
           )}
         </View>
         <Pressable onPress={handleRefresh} style={styles.iconBtn}>
-          <RefreshCw size={20} color="#4B5563" />
+          <RefreshCw size={20} color={COLORS.icon} />
         </Pressable>
       </View>
 
       <ScrollView contentContainerStyle={styles.body}>
         {sessions.length === 0 && !loadingSessions ? (
           <View style={styles.emptyState}>
-            <Calendar size={48} color="#9CA3AF" />
+            <Calendar size={48} color={COLORS.placeholder} />
             <Text style={styles.emptyTitle}>No hay sesiones registradas</Text>
             <Text style={styles.emptySubtitle}>
               Las sesiones de asistencia aparecerán aquí
@@ -402,7 +405,7 @@ export default function SessionHistory({ navigation, route }) {
                 </View>
                 <View style={[
                   styles.statusPill,
-                  { backgroundColor: session.status === 'completed' ? '#10B981' : session.status === 'active' ? '#F59E0B' : '#6B7280' }
+                  { backgroundColor: session.status === 'completed' ? COLORS.successStrong : session.status === 'active' ? COLORS.warningStrong : COLORS.muted }
                 ]}>
                   <Text style={styles.statusText}>
                     {session.status === 'completed' ? 'Completada' : session.status === 'active' ? 'Activa' : 'Pendiente'}
@@ -413,13 +416,13 @@ export default function SessionHistory({ navigation, route }) {
               <View style={styles.metaChips}>
                 {hoursLabel ? (
                   <View style={styles.chip}>
-                    <Clock size={14} color="#6B7280" />
+                    <Clock size={14} color={COLORS.muted} />
                     <Text style={styles.chipText}>{hoursLabel}</Text>
                   </View>
                 ) : null}
                 {roomLabel ? (
                   <View style={styles.chip}>
-                    <Calendar size={14} color="#6B7280" />
+                    <Calendar size={14} color={COLORS.muted} />
                     <Text style={styles.chipText}>{roomLabel}</Text>
                   </View>
                 ) : null}
@@ -463,12 +466,12 @@ export default function SessionHistory({ navigation, route }) {
               <View style={styles.sessionStats}>
                 <View style={styles.statRow}>
                   <View style={styles.statItem}>
-                    <Users size={16} color="#6B7280" />
+                    <Users size={16} color={COLORS.muted} />
                     <Text style={styles.statText}>{session.totalStudents} estudiantes</Text>
                   </View>
                   <View style={styles.statItem}>
                     <Text style={styles.statLabel}>Asistencia</Text>
-                    <Text style={[styles.statValue, { color: pct >= 80 ? '#10B981' : '#F59E0B' }]}>
+                    <Text style={[styles.statValue, { color: pct >= 80 ? COLORS.successStrong : COLORS.warningStrong }]}>
                       {pct}%
                     </Text>
                   </View>
@@ -476,15 +479,15 @@ export default function SessionHistory({ navigation, route }) {
 
                 <View style={styles.attendanceBreakdown}>
                   <View style={styles.breakdownCol}>
-                    <Text style={[styles.breakdownNum, { color: '#10B981' }]}>{session.presentCount}</Text>
+                    <Text style={[styles.breakdownNum, { color: COLORS.successStrong }]}>{session.presentCount}</Text>
                     <Text style={styles.breakdownText}>Presentes</Text>
                   </View>
                   <View style={styles.breakdownCol}>
-                    <Text style={[styles.breakdownNum, { color: '#F59E0B' }]}>{session.lateCount}</Text>
+                    <Text style={[styles.breakdownNum, { color: COLORS.warningStrong }]}>{session.lateCount}</Text>
                     <Text style={styles.breakdownText}>Retardos</Text>
                   </View>
                   <View style={styles.breakdownCol}>
-                    <Text style={[styles.breakdownNum, { color: '#EF4444' }]}>{session.absentCount}</Text>
+                    <Text style={[styles.breakdownNum, { color: COLORS.dangerStrong }]}>{session.absentCount}</Text>
                     <Text style={styles.breakdownText}>Ausentes</Text>
                   </View>
                 </View>
@@ -502,33 +505,33 @@ export default function SessionHistory({ navigation, route }) {
               <View style={styles.sessionActions}>
                 <Pressable
                   onPress={() => handleViewSession(session)}
-                  style={[styles.actionBtn, { backgroundColor: '#EBF8FF' }]}
+                  style={styles.actionBtn}
                 >
-                  <Eye size={16} color="#0284C7" />
-                  <Text style={[styles.actionText, { color: '#0284C7' }]}>Ver</Text>
+                  <Eye size={16} color={COLORS.icon} />
+                  <Text style={styles.actionText}>Ver</Text>
                 </Pressable>
                 <Pressable
                   onPress={() => handleGenerateQR(session)}
                   style={[
                     styles.actionBtn,
-                    { backgroundColor: session.status === 'active' ? '#F0FDF4' : '#F3F4F6' }
+                    { backgroundColor: session.status === 'active' ? COLORS.successSoft : COLORS.surface }
                   ]}
                   disabled={session.status !== 'active'}
                 >
-                  <QrCode size={16} color={session.status === 'active' ? '#16A34A' : '#9CA3AF'} />
+                  <QrCode size={16} color={session.status === 'active' ? COLORS.successStrong : COLORS.placeholder} />
                   <Text style={[
                     styles.actionText,
-                    { color: session.status === 'active' ? '#16A34A' : '#9CA3AF' }
+                    { color: session.status === 'active' ? COLORS.successStrong : COLORS.placeholder }
                   ]}>
                     QR
                   </Text>
                 </Pressable>
                 <Pressable
                   onPress={() => handleDownloadReport(session)}
-                  style={[styles.actionBtn, { backgroundColor: '#FFFBEB' }]}
+                  style={styles.actionBtn}
                 >
-                  <Download size={16} color="#D97706" />
-                  <Text style={[styles.actionText, { color: '#D97706' }]}>Reporte</Text>
+                  <Download size={16} color={COLORS.icon} />
+                  <Text style={styles.actionText}>Reporte</Text>
                 </Pressable>
               </View>
             </Card>
@@ -541,10 +544,10 @@ export default function SessionHistory({ navigation, route }) {
 }
 
 // Estilos del componente
-const styles = StyleSheet.create({
+const createStyles = (COLORS) => StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: COLORS.background,
   },
   header: {
     flexDirection: 'row',
@@ -552,10 +555,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 50, // Aumentar para espacio de status bar
     paddingBottom: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.card,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-    shadowColor: '#000',
+    borderBottomColor: COLORS.border,
+    shadowColor: COLORS.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 3,
@@ -565,23 +568,23 @@ const styles = StyleSheet.create({
     padding: 8,
     marginRight: 12,
     borderRadius: 8,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: COLORS.surface,
   },
   headerTitle: {
     fontSize: 22, // Aumentar tamaño
     fontWeight: '700',
-    color: '#111827',
+    color: COLORS.text,
     flex: 1, // Permitir que ocupe espacio disponible
   },
   headerSubtitle: {
     fontSize: 14,
-    color: '#6B7280',
+    color: COLORS.muted,
     marginTop: 2,
   },
   iconBtn: {
     padding: 8,
     borderRadius: 8,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: COLORS.surface,
     marginLeft: 12, // Espacio a la izquierda
   },
   body: {
@@ -597,12 +600,12 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#374151',
+    color: COLORS.textSecondary,
     marginTop: 16,
   },
   emptySubtitle: {
     fontSize: 14,
-    color: '#9CA3AF',
+    color: COLORS.placeholder,
     marginTop: 4,
   },
   sessionCard: {
@@ -630,7 +633,7 @@ const styles = StyleSheet.create({
   sessionDate: {
     fontSize: 17,
     fontWeight: '800',
-    color: '#111827',
+    color: COLORS.text,
     textTransform: 'capitalize',
     lineHeight: 24,
   },
@@ -644,7 +647,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: COLORS.surface,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 999,
@@ -652,11 +655,11 @@ const styles = StyleSheet.create({
   chipText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#4B5563',
+    color: COLORS.icon,
   },
   sessionClass: {
     fontSize: 14,
-    color: '#4B5563',
+    color: COLORS.icon,
     fontWeight: '600',
     marginBottom: 14,
     lineHeight: 20,
@@ -669,10 +672,10 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: COLORS.white,
   },
   classDetails: {
-    backgroundColor: '#F9FAFB',
+    backgroundColor: COLORS.background,
     padding: 14,
     borderRadius: 14,
     marginBottom: 14,
@@ -686,13 +689,13 @@ const styles = StyleSheet.create({
   },
   detailLabel: {
     fontSize: 12,
-    color: '#6B7280',
+    color: COLORS.muted,
     fontWeight: '700',
     width: 90,
   },
   detailValue: {
     fontSize: 13,
-    color: '#111827',
+    color: COLORS.text,
     fontWeight: '700',
     flex: 1,
     textAlign: 'right',
@@ -703,12 +706,12 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: COLORS.border,
     gap: 8,
   },
   timeLabel: {
     fontSize: 12,
-    color: '#6B7280',
+    color: COLORS.muted,
     fontWeight: '600',
     flex: 1,
   },
@@ -728,12 +731,12 @@ const styles = StyleSheet.create({
   },
   statText: {
     fontSize: 14,
-    color: '#6B7280',
+    color: COLORS.muted,
     fontWeight: '600',
   },
   statLabel: {
     fontSize: 13,
-    color: '#6B7280',
+    color: COLORS.muted,
     marginRight: 6,
   },
   statValue: {
@@ -742,7 +745,7 @@ const styles = StyleSheet.create({
   },
   attendanceBreakdown: {
     flexDirection: 'row',
-    backgroundColor: '#F9FAFB',
+    backgroundColor: COLORS.background,
     borderRadius: 14,
     paddingVertical: 12,
     marginBottom: 4,
@@ -757,7 +760,7 @@ const styles = StyleSheet.create({
   },
   breakdownText: {
     fontSize: 11,
-    color: '#6B7280',
+    color: COLORS.muted,
     fontWeight: '700',
     marginTop: 4,
   },
@@ -773,9 +776,11 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 12,
     gap: 6,
+    backgroundColor: COLORS.surface,
   },
   actionText: {
     fontSize: 13,
     fontWeight: '800',
+    color: COLORS.textSecondary,
   },
 });

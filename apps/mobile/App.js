@@ -6,7 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AuthProvider } from './src/state/auth';
-import { COLORS } from './src/ui/theme';
+import { ThemeProvider, useAppTheme, useColors } from './src/ui/ThemeContext';
 import { setupLocalNotifications, subscribeNotificationResponses } from './src/utils/localNotify';
 import { AppNoticeHost } from './src/ui/appNotice';
 
@@ -41,6 +41,7 @@ import ReportPreview from './src/pages/reports/ReportPreview';
 import ReportActions from './src/pages/reports/ReportActions';
 import ReportHistory from './src/pages/reports/ReportHistory';
 import AdminDashboard from './src/pages/admin/AdminDashboard';
+import AdminProfile from './src/pages/admin/AdminProfile';
 import AdminStudents from './src/pages/admin/EstudiantesPage';
 import AdminTeachers from './src/pages/admin/DocentesPage';
 import AdminBulkUpload from './src/pages/admin/CargaMasivaPage';
@@ -54,16 +55,19 @@ const Stack = createNativeStackNavigator();
 function AppStack() {
   const insets = useSafeAreaInsets();
   const bottomPad = Math.max(insets.bottom, 0);
+  const COLORS = useColors();
+  const { resolved } = useAppTheme();
 
   return (
     <View style={{ flex: 1, paddingBottom: bottomPad, backgroundColor: COLORS.background }}>
-      <StatusBar style="auto" />
+      <StatusBar style={resolved === 'dark' ? 'light' : 'dark'} />
       <Stack.Navigator
         screenOptions={{
           headerShown: false,
           animation: 'slide_from_right',
           animationDuration: 280,
           animationTypeForReplace: 'push',
+          contentStyle: { backgroundColor: COLORS.background },
         }}
         initialRouteName="Splash"
       >
@@ -102,6 +106,7 @@ function AppStack() {
           <Stack.Screen name="ReportHistory" component={ReportHistory} />
 
           <Stack.Screen name="AdminDashboard" component={AdminDashboard} />
+          <Stack.Screen name="AdminProfile" component={AdminProfile} />
           <Stack.Screen name="AdminStudents" component={AdminStudents} />
           <Stack.Screen name="AdminTeachers" component={AdminTeachers} />
           <Stack.Screen name="AdminBulkUpload" component={AdminBulkUpload} />
@@ -115,7 +120,20 @@ function AppStack() {
 }
 
 export default function App() {
+  return (
+    <SafeAreaProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <ThemedApp />
+        </AuthProvider>
+      </ThemeProvider>
+    </SafeAreaProvider>
+  );
+}
+
+function ThemedApp() {
   const navRef = useRef(null);
+  const { navigationTheme } = useAppTheme();
 
   useEffect(() => {
     let unsub = () => {};
@@ -143,15 +161,11 @@ export default function App() {
   }, []);
 
   return (
-    <SafeAreaProvider>
-      <AuthProvider>
-        <View style={{ flex: 1 }}>
-          <AppNoticeHost />
-          <NavigationContainer ref={navRef}>
-            <AppStack />
-          </NavigationContainer>
-        </View>
-      </AuthProvider>
-    </SafeAreaProvider>
+    <View style={{ flex: 1 }}>
+      <AppNoticeHost />
+      <NavigationContainer ref={navRef} theme={navigationTheme}>
+        <AppStack />
+      </NavigationContainer>
+    </View>
   );
 }

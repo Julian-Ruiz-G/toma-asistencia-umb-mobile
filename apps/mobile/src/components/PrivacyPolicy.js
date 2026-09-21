@@ -1,3 +1,4 @@
+import { COLORS } from '../ui/theme';
 import React from 'react';
 import { Shield } from 'lucide-react-native';
 
@@ -299,7 +300,7 @@ export default function PrivacyPolicyModal({ visible, onClose, onAccept, readOnl
       onAccept={onAccept}
       hideAccept={readOnly}
       title="Política de Privacidad"
-      accent="#059669"
+      accent={COLORS.primary}
       Icon={Shield}
       markdown={PRIVACY_MARKDOWN}
       acceptLabel="Acepto la Política de Privacidad"

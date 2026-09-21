@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { appAlert } from '../../ui/appNotice';
 import { useFocusEffect } from '@react-navigation/native';
@@ -6,12 +6,15 @@ import { ArrowLeft, BookOpen, ChevronRight, Clock, Plus } from 'lucide-react-nat
 
 import { Button } from '../../components/Button';
 import { COLORS } from '../../ui/theme';
+import { useColors } from '../../ui/ThemeContext';
 import Animated, { enterDown, listEnter } from '../../ui/motion';
 import { MY_CLASSES_URL } from '../../config';
 import { useAuth } from '../../state/auth';
 import { classStatusMeta, formatScheduleFriendly } from '../../utils/schedule';
 
 export default function MyClasses({ navigation }) {
+  const COLORS = useColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const { authToken } = useAuth();
   const [classes, setClasses] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -48,7 +51,7 @@ export default function MyClasses({ navigation }) {
     <View style={styles.root}>
       <Animated.View entering={enterDown(0, 360)} style={styles.header}>
         <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <ArrowLeft size={24} color="#374151" />
+          <ArrowLeft size={24} color={COLORS.textSecondary} />
         </Pressable>
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Mis clases</Text>
@@ -73,7 +76,7 @@ export default function MyClasses({ navigation }) {
                   <Text style={styles.className}>{c?.className || 'Clase'}</Text>
                   <Text style={styles.classMeta}>{c?.group ? `Grupo ${c.group}` : 'Sin grupo'}</Text>
                   <View style={styles.schedRow}>
-                    <Clock size={12} color="#9CA3AF" />
+                    <Clock size={12} color={COLORS.placeholder} />
                     <Text style={styles.schedText}>{schedule || 'Sin horario'}</Text>
                   </View>
                 </View>
@@ -81,7 +84,7 @@ export default function MyClasses({ navigation }) {
                   <View style={[styles.pill, { backgroundColor: status.pillBg, borderColor: status.pillBorder }]}>
                     <Text style={[styles.pillText, { color: status.pillText }]}>{status.label}</Text>
                   </View>
-                  <ChevronRight size={18} color="#9CA3AF" />
+                  <ChevronRight size={18} color={COLORS.placeholder} />
                 </View>
               </Pressable>
             </Animated.View>
@@ -90,7 +93,7 @@ export default function MyClasses({ navigation }) {
 
         {classes.length === 0 && !loading ? (
           <View style={styles.emptyWrap}>
-            <BookOpen size={36} color="#9CA3AF" />
+            <BookOpen size={36} color={COLORS.placeholder} />
             <Text style={styles.emptyTitle}>No hay clases</Text>
             <Text style={styles.emptyText}>Crea un curso para que los estudiantes puedan inscribirse.</Text>
             <View style={{ height: 14 }} />
@@ -110,10 +113,10 @@ export default function MyClasses({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (COLORS) => StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.background },
   header: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     paddingHorizontal: 24,
     paddingBottom: 16,
     paddingTop: 48,
@@ -121,11 +124,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   backBtn: { padding: 8, marginLeft: -8, marginRight: 12, borderRadius: 999 },
-  headerTitle: { fontSize: 20, fontWeight: '800', color: '#111827' },
-  headerSubtitle: { marginTop: 2, fontSize: 14, color: '#6B7280' },
+  headerTitle: { fontSize: 20, fontWeight: '800', color: COLORS.text },
+  headerSubtitle: { marginTop: 2, fontSize: 14, color: COLORS.muted },
   body: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 28 },
   classCard: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     borderRadius: 18,
     padding: 14,
     marginBottom: 12,
@@ -135,23 +138,23 @@ const styles = StyleSheet.create({
   },
   classIcon: {
     width: 40, height: 40, borderRadius: 14,
-    backgroundColor: 'rgba(185,28,28,0.10)',
+    backgroundColor: COLORS.primarySoft,
     alignItems: 'center', justifyContent: 'center',
   },
-  className: { fontWeight: '900', color: '#111827' },
-  classMeta: { marginTop: 2, color: '#6B7280', fontSize: 13 },
+  className: { fontWeight: '900', color: COLORS.text },
+  classMeta: { marginTop: 2, color: COLORS.muted, fontSize: 13 },
   schedRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
-  schedText: { color: '#9CA3AF', fontSize: 12, flex: 1, fontWeight: '700' },
+  schedText: { color: COLORS.placeholder, fontSize: 12, flex: 1, fontWeight: '700' },
   rightCol: { alignItems: 'flex-end', gap: 10 },
   pill: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999, borderWidth: 1 },
   pillText: { fontSize: 10, fontWeight: '900' },
   emptyWrap: { alignItems: 'center', paddingVertical: 40 },
-  emptyTitle: { marginTop: 12, fontWeight: '900', fontSize: 16, color: '#111827' },
-  emptyText: { marginTop: 6, color: '#6B7280', textAlign: 'center', paddingHorizontal: 24 },
+  emptyTitle: { marginTop: 12, fontWeight: '900', fontSize: 16, color: COLORS.text },
+  emptyText: { marginTop: 6, color: COLORS.muted, textAlign: 'center', paddingHorizontal: 24 },
   addRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: '#fff', borderRadius: 14, padding: 14,
-    borderWidth: 1, borderColor: '#FECACA',
+    backgroundColor: COLORS.card, borderRadius: 14, padding: 14,
+    borderWidth: 1, borderColor: COLORS.border,
   },
   addText: { fontWeight: '800', color: COLORS.primary },
 });

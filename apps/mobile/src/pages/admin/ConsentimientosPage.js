@@ -9,8 +9,10 @@ import {
   XCircle,
 } from 'lucide-react-native';
 
+import OverlayDismiss from '../../components/OverlayDismiss';
 import { Button } from '../../components/Button';
 import { COLORS } from '../../ui/theme';
+import { useColors } from '../../ui/ThemeContext';
 import { ADMIN_CONSENTS_URL } from '../../config';
 import { useAuth } from '../../state/auth';
 
@@ -24,15 +26,15 @@ const mockConsentimientos = [
 ];
 
 const typeConfig = {
-  biometric: { label: 'Datos biométricos', color: '#7C3AED', bg: '#F3E8FF' },
-  terms: { label: 'Términos', color: '#2563EB', bg: '#DBEAFE' },
-  privacy: { label: 'Privacidad', color: '#059669', bg: '#D1FAE5' },
+  biometric: { label: 'Datos biométricos', color: COLORS.textSecondary, bg: COLORS.surface },
+  terms: { label: 'Términos', color: COLORS.textSecondary, bg: COLORS.surface },
+  privacy: { label: 'Privacidad', color: COLORS.textSecondary, bg: COLORS.surface },
 };
 
 const statusConfig = {
-  pending: { Icon: Clock, color: '#A16207', bg: '#FEF3C7', label: 'Pendiente' },
-  approved: { Icon: CheckCircle, color: '#16A34A', bg: '#DCFCE7', label: 'Aprobado' },
-  rejected: { Icon: XCircle, color: '#B91C1C', bg: '#FEE2E2', label: 'No otorgado' },
+  pending: { Icon: Clock, color: COLORS.warning, bg: COLORS.warningBg, label: 'Pendiente' },
+  approved: { Icon: CheckCircle, color: COLORS.successStrong, bg: COLORS.successBg, label: 'Aprobado' },
+  rejected: { Icon: XCircle, color: COLORS.danger, bg: COLORS.dangerBg, label: 'No otorgado' },
 };
 
 function formatConsentDate(value) {
@@ -47,6 +49,8 @@ function formatConsentDate(value) {
 }
 
 export default function ConsentimientosPage({ navigation }) {
+  const COLORS = useColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const { authToken } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
@@ -128,35 +132,35 @@ export default function ConsentimientosPage({ navigation }) {
     <View style={styles.root}>
       <View style={styles.header}>
         <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <ArrowLeft size={20} color="#4B5563" />
+          <ArrowLeft size={20} color={COLORS.icon} />
         </Pressable>
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Consentimientos</Text>
           <Text style={styles.headerSubtitle}>Gestión de permisos</Text>
         </View>
         <Pressable onPress={() => setShowNewRequestModal(true)} style={styles.sendBtn}>
-          <Send size={18} color="#fff" />
+          <Send size={18} color={COLORS.white} />
         </Pressable>
       </View>
 
       <ScrollView contentContainerStyle={styles.body}>
         <View style={styles.statsRow}>
           <View style={styles.statMini}><Text style={styles.statNum}>{stats.total}</Text><Text style={styles.statLbl}>Total</Text></View>
-          <View style={styles.statMini}><Text style={[styles.statNum, { color: '#A16207' }]}>{stats.pending}</Text><Text style={styles.statLbl}>Pend.</Text></View>
-          <View style={styles.statMini}><Text style={[styles.statNum, { color: '#16A34A' }]}>{stats.approved}</Text><Text style={styles.statLbl}>Ap.</Text></View>
-          <View style={styles.statMini}><Text style={[styles.statNum, { color: '#DC2626' }]}>{stats.rejected}</Text><Text style={styles.statLbl}>No</Text></View>
+          <View style={styles.statMini}><Text style={[styles.statNum, { color: COLORS.warning }]}>{stats.pending}</Text><Text style={styles.statLbl}>Pend.</Text></View>
+          <View style={styles.statMini}><Text style={[styles.statNum, { color: COLORS.successStrong }]}>{stats.approved}</Text><Text style={styles.statLbl}>Ap.</Text></View>
+          <View style={styles.statMini}><Text style={[styles.statNum, { color: COLORS.dangerStrong }]}>{stats.rejected}</Text><Text style={styles.statLbl}>No</Text></View>
         </View>
 
         <View style={{ height: 12 }} />
 
         <View style={styles.filtersCard}>
           <View style={styles.searchWrap}>
-            <Search size={16} color="#9CA3AF" />
+            <Search size={16} color={COLORS.placeholder} />
             <TextInput
               value={searchQuery}
               onChangeText={setSearchQuery}
               placeholder="Buscar estudiante..."
-              placeholderTextColor="#9CA3AF"
+              placeholderTextcolor={COLORS.placeholder}
               style={styles.searchInput}
             />
           </View>
@@ -239,7 +243,7 @@ export default function ConsentimientosPage({ navigation }) {
       </ScrollView>
 
       <Modal visible={showNewRequestModal} transparent animationType="fade" onRequestClose={() => setShowNewRequestModal(false)}>
-        <View style={styles.modalOverlay}>
+        <OverlayDismiss style={styles.modalOverlay} onClose={() => setShowNewRequestModal(false)}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Nueva Solicitud</Text>
             <Text style={styles.modalText}>Formulario simplificado (mock)</Text>
@@ -253,49 +257,49 @@ export default function ConsentimientosPage({ navigation }) {
               Cancelar
             </Button>
           </View>
-        </View>
+        </OverlayDismiss>
       </Modal>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#F9FAFB' },
-  header: { backgroundColor: '#fff', paddingTop: 48, paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#E5E7EB', flexDirection: 'row', alignItems: 'center', gap: 12 },
-  backBtn: { padding: 8, borderRadius: 12, backgroundColor: '#F3F4F6' },
+const createStyles = (COLORS) => StyleSheet.create({
+  root: { flex: 1, backgroundColor: COLORS.background },
+  header: { backgroundColor: COLORS.card, paddingTop: 48, paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: COLORS.border, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  backBtn: { padding: 8, borderRadius: 12, backgroundColor: COLORS.surface },
   sendBtn: { width: 42, height: 42, borderRadius: 14, backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontWeight: '900', color: '#111827', fontSize: 18 },
-  headerSubtitle: { marginTop: 2, color: '#6B7280', fontSize: 12 },
+  headerTitle: { fontWeight: '900', color: COLORS.text, fontSize: 18 },
+  headerSubtitle: { marginTop: 2, color: COLORS.muted, fontSize: 12 },
   body: { padding: 16, paddingBottom: 26 },
   statsRow: { flexDirection: 'row', gap: 8 },
-  statMini: { flex: 1, backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB', paddingVertical: 10, alignItems: 'center' },
-  statNum: { fontWeight: '900', color: '#111827', fontSize: 16 },
-  statLbl: { marginTop: 2, color: '#6B7280', fontSize: 10 },
-  filtersCard: { backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: '#E5E7EB', padding: 12 },
-  searchWrap: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10 },
-  searchInput: { flex: 1, color: '#111827' },
+  statMini: { flex: 1, backgroundColor: COLORS.card, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border, paddingVertical: 10, alignItems: 'center' },
+  statNum: { fontWeight: '900', color: COLORS.text, fontSize: 16 },
+  statLbl: { marginTop: 2, color: COLORS.muted, fontSize: 10 },
+  filtersCard: { backgroundColor: COLORS.card, borderRadius: 14, borderWidth: 1, borderColor: COLORS.border, padding: 12 },
+  searchWrap: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: COLORS.border, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10 },
+  searchInput: { flex: 1, color: COLORS.text },
   pillsRow: { gap: 10 },
-  pill: { paddingHorizontal: 12, paddingVertical: 10, borderRadius: 999, backgroundColor: '#fff', borderWidth: 1, borderColor: '#E5E7EB' },
+  pill: { paddingHorizontal: 12, paddingVertical: 10, borderRadius: 999, backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border },
   pillActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-  pillText: { color: '#6B7280', fontWeight: '900', fontSize: 12 },
-  pillTextActive: { color: '#fff' },
-  listCard: { backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: '#E5E7EB', overflow: 'hidden' },
-  row: { padding: 12, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
+  pillText: { color: COLORS.muted, fontWeight: '900', fontSize: 12 },
+  pillTextActive: { color: COLORS.white },
+  listCard: { backgroundColor: COLORS.card, borderRadius: 14, borderWidth: 1, borderColor: COLORS.border, overflow: 'hidden' },
+  row: { padding: 12, borderBottomWidth: 1, borderBottomColor: COLORS.border },
   rowTop: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   tag: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999 },
   tagText: { fontWeight: '900', fontSize: 11 },
-  studentName: { marginTop: 10, fontWeight: '900', color: '#111827' },
-  studentId: { marginTop: 2, color: '#6B7280' },
-  smallMeta: { marginTop: 6, color: '#9CA3AF', fontSize: 12 },
+  studentName: { marginTop: 10, fontWeight: '900', color: COLORS.text },
+  studentId: { marginTop: 2, color: COLORS.muted },
+  smallMeta: { marginTop: 6, color: COLORS.placeholder, fontSize: 12 },
   flagsRow: { marginTop: 8, flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   flag: { fontSize: 11, fontWeight: '800', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999 },
-  flagOn: { backgroundColor: '#DCFCE7', color: '#15803D' },
-  flagOff: { backgroundColor: '#FEE2E2', color: '#B91C1C' },
+  flagOn: { backgroundColor: COLORS.successBg, color: COLORS.success },
+  flagOff: { backgroundColor: COLORS.dangerBg, color: COLORS.danger },
   emptyWrap: { alignItems: 'center', paddingVertical: 22 },
-  emptyTitle: { fontWeight: '900', color: '#111827' },
-  emptyText: { marginTop: 6, color: '#6B7280' },
+  emptyTitle: { fontWeight: '900', color: COLORS.text },
+  emptyText: { marginTop: 6, color: COLORS.muted },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.50)', alignItems: 'center', justifyContent: 'center', padding: 24 },
-  modalCard: { backgroundColor: '#fff', borderRadius: 18, padding: 18, width: '100%', maxWidth: 360 },
-  modalTitle: { fontWeight: '900', color: '#111827', fontSize: 18 },
-  modalText: { marginTop: 6, color: '#6B7280' },
+  modalCard: { backgroundColor: COLORS.card, borderRadius: 18, padding: 18, width: '100%', maxWidth: 360 },
+  modalTitle: { fontWeight: '900', color: COLORS.text, fontSize: 18 },
+  modalText: { marginTop: 6, color: COLORS.muted },
 });

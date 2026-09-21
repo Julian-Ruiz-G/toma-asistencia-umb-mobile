@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { COLORS } from '../ui/theme';
+import { useColors } from '../ui/ThemeContext';
 import { ArrowLeft, X } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -10,12 +12,14 @@ export default function LegalDocumentModal({
   onClose,
   onAccept,
   title,
-  accent = '#1E40AF',
+  accent = COLORS.primary,
   Icon,
   markdown,
   acceptLabel,
   hideAccept = false,
 }) {
+  const COLORS = useColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const insets = useSafeAreaInsets();
   const showFooter = !hideAccept && !!onAccept;
 
@@ -25,14 +29,14 @@ export default function LegalDocumentModal({
         <View style={styles.container}>
           <View style={[styles.header, { backgroundColor: accent, paddingTop: Math.max(insets.top, 16) + 8 }]}>
             <Pressable onPress={onClose} style={styles.headerIconBtn} hitSlop={8}>
-              <ArrowLeft size={20} color="#fff" />
+              <ArrowLeft size={20} color={COLORS.white} />
             </Pressable>
             <View style={styles.headerContent}>
-              {Icon ? <Icon size={18} color="#fff" /> : null}
+              {Icon ? <Icon size={18} color={COLORS.white} /> : null}
               <Text style={styles.headerTitle} numberOfLines={1}>{title}</Text>
             </View>
             <Pressable onPress={onClose} style={styles.headerIconBtn} hitSlop={8}>
-              <X size={18} color="#fff" />
+              <X size={18} color={COLORS.white} />
             </Pressable>
           </View>
 
@@ -60,14 +64,14 @@ export default function LegalDocumentModal({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (COLORS) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
   },
   header: {
     paddingHorizontal: 12,
@@ -92,7 +96,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     flex: 1,
-    color: '#fff',
+    color: COLORS.white,
     fontWeight: '800',
     fontSize: 16,
   },
@@ -107,8 +111,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-    backgroundColor: '#fff',
+    borderTopColor: COLORS.border,
+    backgroundColor: COLORS.card,
   },
   acceptBtn: {
     paddingVertical: 14,
@@ -116,7 +120,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   acceptBtnText: {
-    color: '#fff',
+    color: COLORS.white,
     fontWeight: '800',
     fontSize: 15,
   },

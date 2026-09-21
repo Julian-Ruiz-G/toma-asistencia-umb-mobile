@@ -14,8 +14,10 @@ import {
   XCircle,
 } from 'lucide-react-native';
 
+import OverlayDismiss from '../../components/OverlayDismiss';
 import { Button } from '../../components/Button';
 import { COLORS } from '../../ui/theme';
+import { useColors } from '../../ui/ThemeContext';
 import { ADMIN_CREATE_TEACHER_URL, ADMIN_DELETE_TEACHER_URL, ADMIN_TEACHERS_URL, ADMIN_UPDATE_TEACHER_URL } from '../../config';
 import { useAuth } from '../../state/auth';
 
@@ -29,6 +31,8 @@ const mockTeachers = [
 ];
 
 export default function DocentesPage({ navigation }) {
+  const COLORS = useColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const { authToken } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -101,10 +105,10 @@ export default function DocentesPage({ navigation }) {
   const paginated = filtered.slice((page - 1) * itemsPerPage, page * itemsPerPage);
 
   const statusBadge = (status) => {
-    if (status === 'active') return { bg: '#DCFCE7', text: '#15803D', label: 'Activo' };
-    if (status === 'inactive') return { bg: '#F3F4F6', text: '#374151', label: 'Inactivo' };
-    if (status === 'on_leave') return { bg: '#FEF3C7', text: '#A16207', label: 'Licencia' };
-    return { bg: '#F3F4F6', text: '#374151', label: status };
+    if (status === 'active') return { bg: COLORS.successBg, text: COLORS.success, label: 'Activo' };
+    if (status === 'inactive') return { bg: COLORS.surface, text: COLORS.textSecondary, label: 'Inactivo' };
+    if (status === 'on_leave') return { bg: COLORS.warningBg, text: COLORS.warning, label: 'Licencia' };
+    return { bg: COLORS.surface, text: COLORS.textSecondary, label: status };
   };
 
   return (
@@ -112,7 +116,7 @@ export default function DocentesPage({ navigation }) {
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <ArrowLeft size={20} color="#4B5563" />
+            <ArrowLeft size={20} color={COLORS.icon} />
           </Pressable>
           <View>
             <Text style={styles.headerTitle}>Docentes</Text>
@@ -122,7 +126,7 @@ export default function DocentesPage({ navigation }) {
 
         <View style={styles.searchRow}>
           <View style={styles.searchWrap}>
-            <Search size={16} color="#9CA3AF" />
+            <Search size={16} color={COLORS.placeholder} />
             <TextInput
               value={searchQuery}
               onChangeText={(t) => {
@@ -130,7 +134,7 @@ export default function DocentesPage({ navigation }) {
                 setCurrentPage(1);
               }}
               placeholder="Buscar..."
-              placeholderTextColor="#9CA3AF"
+              placeholderTextcolor={COLORS.placeholder}
               style={styles.searchInput}
             />
           </View>
@@ -141,7 +145,7 @@ export default function DocentesPage({ navigation }) {
             }}
             style={styles.addBtn}
           >
-            <Plus size={18} color="#fff" />
+            <Plus size={18} color={COLORS.white} />
           </Pressable>
         </View>
       </View>
@@ -149,8 +153,8 @@ export default function DocentesPage({ navigation }) {
       <ScrollView contentContainerStyle={styles.body}>
         <View style={styles.statsRow}>
           <View style={styles.statsCard}>
-            <View style={[styles.statsIcon, { backgroundColor: '#DBEAFE' }]}>
-              <Users size={16} color="#2563EB" />
+            <View style={[styles.statsIcon, { backgroundColor: COLORS.surface }]}>
+              <Users size={16} color={COLORS.icon} />
             </View>
             <View>
               <Text style={styles.statsLabel}>Total</Text>
@@ -158,8 +162,8 @@ export default function DocentesPage({ navigation }) {
             </View>
           </View>
           <View style={styles.statsCard}>
-            <View style={[styles.statsIcon, { backgroundColor: '#DCFCE7' }]}>
-              <CheckCircle size={16} color="#16A34A" />
+            <View style={[styles.statsIcon, { backgroundColor: COLORS.successBg }]}>
+              <CheckCircle size={16} color={COLORS.successStrong} />
             </View>
             <View>
               <Text style={styles.statsLabel}>Activos</Text>
@@ -189,13 +193,13 @@ export default function DocentesPage({ navigation }) {
                     <Text style={styles.metaSep}>|</Text>
                     {t.biometricRegistered ? (
                       <View style={styles.bioRow}>
-                        <CheckCircle size={12} color="#16A34A" />
-                        <Text style={[styles.metaSmall, { color: '#16A34A' }]}>Biometría</Text>
+                        <CheckCircle size={12} color={COLORS.successStrong} />
+                        <Text style={[styles.metaSmall, { color: COLORS.successStrong }]}>Biometría</Text>
                       </View>
                     ) : (
                       <View style={styles.bioRow}>
-                        <XCircle size={12} color="#DC2626" />
-                        <Text style={[styles.metaSmall, { color: '#DC2626' }]}>Sin biometría</Text>
+                        <XCircle size={12} color={COLORS.dangerStrong} />
+                        <Text style={[styles.metaSmall, { color: COLORS.dangerStrong }]}>Sin biometría</Text>
                       </View>
                     )}
                   </View>
@@ -214,7 +218,7 @@ export default function DocentesPage({ navigation }) {
                       setShowEdit(true);
                     }}
                   >
-                    <Edit2 size={16} color="#2563EB" />
+                    <Edit2 size={16} color={COLORS.primary} />
                   </Pressable>
                   <Pressable
                     style={styles.iconAction}
@@ -256,7 +260,7 @@ export default function DocentesPage({ navigation }) {
                       );
                     }}
                   >
-                    <Trash2 size={16} color="#DC2626" />
+                    <Trash2 size={16} color={COLORS.dangerStrong} />
                   </Pressable>
                 </View>
               </View>
@@ -274,14 +278,14 @@ export default function DocentesPage({ navigation }) {
               disabled={page === 1}
               style={[styles.pageBtn, page === 1 ? styles.pageBtnDisabled : null]}
             >
-              <ChevronLeft size={16} color="#4B5563" />
+              <ChevronLeft size={16} color={COLORS.icon} />
             </Pressable>
             <Pressable
               onPress={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
               disabled={page === totalPages}
               style={[styles.pageBtn, page === totalPages ? styles.pageBtnDisabled : null]}
             >
-              <ChevronRight size={16} color="#4B5563" />
+              <ChevronRight size={16} color={COLORS.icon} />
             </Pressable>
           </View>
         </View>
@@ -290,7 +294,7 @@ export default function DocentesPage({ navigation }) {
       </ScrollView>
 
       <Modal visible={showModal} transparent animationType="fade" onRequestClose={() => setShowModal(false)}>
-        <View style={styles.modalOverlay}>
+        <OverlayDismiss style={styles.modalOverlay} onClose={() => setShowModal(false)}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Nuevo Docente</Text>
             <Text style={styles.modalText}>Crea un docente desde el administrador.</Text>
@@ -302,7 +306,7 @@ export default function DocentesPage({ navigation }) {
               value={draft.fullName}
               onChangeText={(t) => setDraft((p) => ({ ...p, fullName: t }))}
               placeholder="Ej: Ana María Pérez"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextcolor={COLORS.placeholder}
               style={styles.modalInput}
             />
             <View style={{ height: 10 }} />
@@ -312,7 +316,7 @@ export default function DocentesPage({ navigation }) {
               value={draft.email}
               onChangeText={(t) => setDraft((p) => ({ ...p, email: t }))}
               placeholder="docente@umb.edu.co"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextcolor={COLORS.placeholder}
               autoCapitalize="none"
               keyboardType="email-address"
               style={styles.modalInput}
@@ -324,7 +328,7 @@ export default function DocentesPage({ navigation }) {
               value={draft.teacherCode}
               onChangeText={(t) => setDraft((p) => ({ ...p, teacherCode: t }))}
               placeholder="DOC001"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextcolor={COLORS.placeholder}
               autoCapitalize="none"
               style={styles.modalInput}
             />
@@ -335,7 +339,7 @@ export default function DocentesPage({ navigation }) {
               value={draft.password}
               onChangeText={(t) => setDraft((p) => ({ ...p, password: t }))}
               placeholder="******"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextcolor={COLORS.placeholder}
               secureTextEntry
               autoCapitalize="none"
               style={styles.modalInput}
@@ -388,11 +392,11 @@ export default function DocentesPage({ navigation }) {
             <View style={{ height: 10 }} />
             <Button fullWidth variant="outline" onPress={() => setShowModal(false)}>Cancelar</Button>
           </View>
-        </View>
+        </OverlayDismiss>
       </Modal>
 
       <Modal visible={showEdit} transparent animationType="fade" onRequestClose={() => setShowEdit(false)}>
-        <View style={styles.modalOverlay}>
+        <OverlayDismiss style={styles.modalOverlay} onClose={() => setShowEdit(false)}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Editar Docente</Text>
             <Text style={styles.modalText}>{editDraft.email}</Text>
@@ -403,7 +407,7 @@ export default function DocentesPage({ navigation }) {
               value={editDraft.fullName}
               onChangeText={(t) => setEditDraft((p) => ({ ...p, fullName: t }))}
               placeholder="Ej: Ana María Pérez"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextcolor={COLORS.placeholder}
               style={styles.modalInput}
             />
 
@@ -413,7 +417,7 @@ export default function DocentesPage({ navigation }) {
               value={editDraft.teacherCode}
               onChangeText={(t) => setEditDraft((p) => ({ ...p, teacherCode: t }))}
               placeholder="DOC001"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextcolor={COLORS.placeholder}
               autoCapitalize="none"
               style={styles.modalInput}
             />
@@ -424,7 +428,7 @@ export default function DocentesPage({ navigation }) {
               value={editDraft.password}
               onChangeText={(t) => setEditDraft((p) => ({ ...p, password: t }))}
               placeholder="******"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextcolor={COLORS.placeholder}
               secureTextEntry
               autoCapitalize="none"
               style={styles.modalInput}
@@ -474,51 +478,51 @@ export default function DocentesPage({ navigation }) {
             <View style={{ height: 10 }} />
             <Button fullWidth variant="outline" onPress={() => setShowEdit(false)}>Cancelar</Button>
           </View>
-        </View>
+        </OverlayDismiss>
       </Modal>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#F9FAFB' },
-  header: { backgroundColor: '#fff', paddingTop: 48, paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
+const createStyles = (COLORS) => StyleSheet.create({
+  root: { flex: 1, backgroundColor: COLORS.background },
+  header: { backgroundColor: COLORS.card, paddingTop: 48, paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: COLORS.border },
   headerTop: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10 },
-  backBtn: { padding: 8, borderRadius: 12, backgroundColor: '#F3F4F6' },
-  headerTitle: { fontWeight: '900', color: '#111827', fontSize: 18 },
-  headerSubtitle: { marginTop: 2, color: '#6B7280', fontSize: 12 },
+  backBtn: { padding: 8, borderRadius: 12, backgroundColor: COLORS.surface },
+  headerTitle: { fontWeight: '900', color: COLORS.text, fontSize: 18 },
+  headerSubtitle: { marginTop: 2, color: COLORS.muted, fontSize: 12 },
   searchRow: { flexDirection: 'row', gap: 10, alignItems: 'center' },
-  searchWrap: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#fff', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10 },
-  searchInput: { flex: 1, color: '#111827' },
+  searchWrap: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10 },
+  searchInput: { flex: 1, color: COLORS.text },
   addBtn: { width: 42, height: 42, borderRadius: 14, backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center' },
   body: { padding: 16, paddingBottom: 26 },
   statsRow: { flexDirection: 'row', gap: 12 },
-  statsCard: { flex: 1, backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: '#E5E7EB', padding: 12, flexDirection: 'row', gap: 10, alignItems: 'center' },
+  statsCard: { flex: 1, backgroundColor: COLORS.card, borderRadius: 14, borderWidth: 1, borderColor: COLORS.border, padding: 12, flexDirection: 'row', gap: 10, alignItems: 'center' },
   statsIcon: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  statsLabel: { color: '#6B7280', fontSize: 12 },
-  statsValue: { marginTop: 2, fontWeight: '900', color: '#111827', fontSize: 16 },
-  card: { backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: '#E5E7EB', padding: 14, marginBottom: 12 },
+  statsLabel: { color: COLORS.muted, fontSize: 12 },
+  statsValue: { marginTop: 2, fontWeight: '900', color: COLORS.text, fontSize: 16 },
+  card: { backgroundColor: COLORS.card, borderRadius: 14, borderWidth: 1, borderColor: COLORS.border, padding: 14, marginBottom: 12 },
   cardTop: { flexDirection: 'row', gap: 10 },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
-  nameText: { fontWeight: '900', color: '#111827' },
+  nameText: { fontWeight: '900', color: COLORS.text },
   badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
   badgeText: { fontWeight: '900', fontSize: 12 },
-  metaText: { marginTop: 4, color: '#6B7280' },
+  metaText: { marginTop: 4, color: COLORS.muted },
   metaRow: { marginTop: 10, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  metaSmall: { fontSize: 12, color: '#6B7280' },
-  metaSep: { color: '#D1D5DB' },
+  metaSmall: { fontSize: 12, color: COLORS.muted },
+  metaSep: { color: COLORS.border },
   bioRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   actionsCol: { gap: 10 },
-  iconAction: { width: 34, height: 34, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#F3F4F6' },
-  pagination: { marginTop: 6, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#E5E7EB', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fff', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 12 },
-  paginationText: { color: '#6B7280', fontSize: 12 },
+  iconAction: { width: 34, height: 34, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.background, borderWidth: 1, borderColor: COLORS.border },
+  pagination: { marginTop: 6, paddingTop: 12, borderTopWidth: 1, borderTopColor: COLORS.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: COLORS.card, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 12 },
+  paginationText: { color: COLORS.muted, fontSize: 12 },
   paginationBtns: { flexDirection: 'row', gap: 10 },
-  pageBtn: { width: 34, height: 34, borderRadius: 10, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' },
+  pageBtn: { width: 34, height: 34, borderRadius: 10, backgroundColor: COLORS.surface, alignItems: 'center', justifyContent: 'center' },
   pageBtnDisabled: { opacity: 0.45 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.50)', alignItems: 'center', justifyContent: 'center', padding: 24 },
-  modalCard: { backgroundColor: '#fff', borderRadius: 18, padding: 18, width: '100%', maxWidth: 360 },
-  modalTitle: { fontWeight: '900', color: '#111827', fontSize: 18 },
-  modalText: { marginTop: 6, color: '#6B7280' },
-  modalLabel: { marginTop: 8, color: '#374151', fontWeight: '900', fontSize: 12 },
-  modalInput: { marginTop: 6, borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10, color: '#111827' },
+  modalCard: { backgroundColor: COLORS.card, borderRadius: 18, padding: 18, width: '100%', maxWidth: 360 },
+  modalTitle: { fontWeight: '900', color: COLORS.text, fontSize: 18 },
+  modalText: { marginTop: 6, color: COLORS.muted },
+  modalLabel: { marginTop: 8, color: COLORS.textSecondary, fontWeight: '900', fontSize: 12 },
+  modalInput: { marginTop: 6, borderWidth: 1, borderColor: COLORS.border, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10, color: COLORS.text },
 });

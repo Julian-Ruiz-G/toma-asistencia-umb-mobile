@@ -19,11 +19,14 @@ import {
 
 import { Button } from '../../components/Button';
 import { COLORS } from '../../ui/theme';
+import { useColors } from '../../ui/ThemeContext';
 import { useAuth } from '../../state/auth';
 import { CLASS_DETAILS_URL, MY_CLASSES_URL } from '../../config';
 import { colombiaDateLongFromYmd, colombiaWeekdayLongFromYmd, extractYmd } from '../../utils/formatDateTime';
 
 export default function ReportHistory({ navigation }) {
+  const COLORS = useColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const { authToken } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [rows, setRows] = useState([]);
@@ -143,7 +146,7 @@ export default function ReportHistory({ navigation }) {
     <View style={styles.root}>
       <View style={styles.header}>
         <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <ArrowLeft size={24} color="#374151" />
+          <ArrowLeft size={24} color={COLORS.textSecondary} />
         </Pressable>
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Historial</Text>
@@ -171,12 +174,12 @@ export default function ReportHistory({ navigation }) {
           }
         >
           <View style={styles.searchWrap}>
-            <Search size={18} color="#9CA3AF" />
+            <Search size={18} color={COLORS.placeholder} />
             <TextInput
               value={searchQuery}
               onChangeText={setSearchQuery}
               placeholder="Buscar clase o sesión..."
-              placeholderTextColor="#9CA3AF"
+              placeholderTextcolor={COLORS.placeholder}
               style={styles.searchInput}
             />
           </View>
@@ -185,7 +188,7 @@ export default function ReportHistory({ navigation }) {
             <Pressable key={r.key} onPress={() => openRow(r)} style={styles.item}>
               <View style={styles.fileIcon}>
                 {r.kind === 'class' ? (
-                  <FileSpreadsheet size={20} color="#16A34A" />
+                  <FileSpreadsheet size={20} color={COLORS.successStrong} />
                 ) : (
                   <Calendar size={20} color={COLORS.primary} />
                 )}
@@ -197,7 +200,7 @@ export default function ReportHistory({ navigation }) {
                   {r.dateLabel}
                 </Text>
               </View>
-              <ChevronRight size={18} color="#9CA3AF" />
+              <ChevronRight size={18} color={COLORS.placeholder} />
             </Pressable>
           ))}
 
@@ -219,10 +222,10 @@ export default function ReportHistory({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (COLORS) => StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.background },
   header: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     paddingHorizontal: 24,
     paddingBottom: 16,
     paddingTop: 48,
@@ -230,12 +233,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   backBtn: { padding: 8, marginLeft: -8, marginRight: 12, borderRadius: 999 },
-  headerTitle: { fontSize: 20, fontWeight: '800', color: '#111827' },
-  headerSubtitle: { marginTop: 2, fontSize: 14, color: '#6B7280' },
+  headerTitle: { fontSize: 20, fontWeight: '800', color: COLORS.text },
+  headerSubtitle: { marginTop: 2, fontSize: 14, color: COLORS.muted },
   body: { paddingHorizontal: 24, paddingVertical: 18, paddingBottom: 30 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-  muted: { marginTop: 10, color: '#6B7280' },
-  err: { color: '#B91C1C', textAlign: 'center', fontWeight: '700' },
+  muted: { marginTop: 10, color: COLORS.muted },
+  err: { color: COLORS.danger, textAlign: 'center', fontWeight: '700' },
   retry: {
     marginTop: 16,
     paddingVertical: 10,
@@ -243,12 +246,12 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     borderRadius: 12,
   },
-  retryText: { color: '#fff', fontWeight: '800' },
+  retryText: { color: COLORS.white, fontWeight: '800' },
   searchWrap: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: COLORS.border,
     paddingHorizontal: 12,
     paddingVertical: 10,
     flexDirection: 'row',
@@ -256,12 +259,12 @@ const styles = StyleSheet.create({
     gap: 10,
     marginBottom: 14,
   },
-  searchInput: { flex: 1, color: '#111827' },
+  searchInput: { flex: 1, color: COLORS.text },
   item: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: COLORS.border,
     padding: 14,
     marginBottom: 10,
     flexDirection: 'row',
@@ -272,13 +275,13 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 14,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: COLORS.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  itemTitle: { fontWeight: '900', color: '#111827' },
-  itemSub: { marginTop: 4, color: '#6B7280', fontSize: 12 },
+  itemTitle: { fontWeight: '900', color: COLORS.text },
+  itemSub: { marginTop: 4, color: COLORS.muted, fontSize: 12 },
   emptyWrap: { alignItems: 'center', paddingVertical: 30 },
-  emptyTitle: { fontWeight: '900', color: '#111827' },
-  emptyText: { marginTop: 6, color: '#6B7280', textAlign: 'center' },
+  emptyTitle: { fontWeight: '900', color: COLORS.text },
+  emptyText: { marginTop: 6, color: COLORS.muted, textAlign: 'center' },
 });

@@ -11,6 +11,7 @@ import {
   Trash2,
 } from 'lucide-react-native';
 import { COLORS } from '../../ui/theme';
+import { useAppTheme, useColors } from '../../ui/ThemeContext';
 import Animated, { enterDown, listEnter } from '../../ui/motion';
 import { STUDENT_NOTIFICATIONS_URL, MARK_NOTIFICATIONS_READ_URL } from '../../config';
 import { useAuth } from '../../state/auth';
@@ -30,6 +31,7 @@ function mapNotification(n, idx) {
   if (raw === 'success' || raw === 'asistencia') type = 'success';
   else if (raw === 'warning' || raw === 'retardo' || raw === 'not_recognized_photo') type = 'warning';
   else if (raw === 'attendance' || raw === 'inasistencia') type = 'attendance';
+  else if (raw === 'reminder') type = 'reminder';
   const fallbackTitle = {
     success: 'Asistencia registrada',
     warning: raw === 'not_recognized_photo' ? 'No reconocido por foto' : 'Aviso',
@@ -48,6 +50,9 @@ function mapNotification(n, idx) {
 }
 
 export default function Notifications({ navigation }) {
+  const COLORS = useColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
+  const { inAppNotifications } = useAppTheme();
   const { authToken, email, fullName, program, semester, phone, setNotificationUnread } = useAuth();
   const [loading, setLoading] = useState(true);
   const [notifications, setNotifications] = useState([]);
@@ -165,6 +170,7 @@ export default function Notifications({ navigation }) {
   })), [classSoon]);
 
   const displayedNotifications = useMemo(() => {
+    if (!inAppNotifications) return [];
     const extra = [];
     if (profileNotice) extra.push(profileNotice);
     extra.push(...reminderNotices);
@@ -180,7 +186,7 @@ export default function Notifications({ navigation }) {
         return true;
       }),
     ];
-  }, [profileNotice, reminderNotices, classSoonNotices, notifications]);
+  }, [inAppNotifications, profileNotice, reminderNotices, classSoonNotices, notifications]);
 
   const unreadCount = useMemo(
     () => displayedNotifications.filter((n) => !n.read).length,
@@ -188,11 +194,15 @@ export default function Notifications({ navigation }) {
   );
 
   useEffect(() => {
+    if (!inAppNotifications) {
+      setNotificationUnread(0);
+      return;
+    }
     const serverUnread = notifications.filter((n) => !n.read).length;
     const reminderUnread = reminders.filter((n) => reminderIsDue(n) && !n.read).length;
     const classSoonUnread = classSoon.filter((a) => classSoonIsDue(a) && !a.read).length;
     setNotificationUnread(serverUnread + reminderUnread + classSoonUnread);
-  }, [notifications, reminders, classSoon, setNotificationUnread]);
+  }, [inAppNotifications, notifications, reminders, classSoon, setNotificationUnread]);
 
   const persistRead = async ({ ids, all } = {}) => {
     if (!authToken || !MARK_NOTIFICATIONS_READ_URL) return;
@@ -272,15 +282,15 @@ export default function Notifications({ navigation }) {
   const getConfig = (type) => {
     switch (type) {
       case 'reminder':
-        return { Icon: Bell, bg: '#F5F3FF', border: '#DDD6FE', iconBg: '#7C3AED' };
+        return { Icon: Bell, bg: COLORS.reminderSoft, border: COLORS.reminderBorder, iconBg: COLORS.reminder };
       case 'success':
-        return { Icon: CheckCheck, bg: '#ECFDF5', border: '#BBF7D0', iconBg: '#22C55E' };
+        return { Icon: CheckCheck, bg: COLORS.successSoft, border: COLORS.successBorder, iconBg: COLORS.successStrong };
       case 'warning':
-        return { Icon: AlertTriangle, bg: '#FFFBEB', border: '#FDE68A', iconBg: '#EAB308' };
+        return { Icon: AlertTriangle, bg: COLORS.warningSoft, border: COLORS.warningBorder, iconBg: COLORS.warningStrong };
       case 'attendance':
-        return { Icon: Clock, bg: '#FEF2F2', border: '#FECACA', iconBg: '#EF4444' };
+        return { Icon: Clock, bg: COLORS.dangerSoft, border: COLORS.dangerBorder, iconBg: COLORS.dangerStrong };
       default:
-        return { Icon: Info, bg: '#EFF6FF', border: '#BFDBFE', iconBg: '#3B82F6' };
+        return { Icon: Info, bg: COLORS.infoSoft, border: COLORS.infoBorder, iconBg: COLORS.infoStrong };
     }
   };
 
@@ -292,22 +302,22 @@ export default function Notifications({ navigation }) {
         onPress={() => { if (!n.read) markOneRead(n.id); }}
         style={[
           styles.item,
-          { borderColor: n.read ? '#F3F4F6' : cfg.border, backgroundColor: n.read ? '#fff' : cfg.bg },
+          { borderColor: n.read ? COLORS.border : cfg.border, backgroundColor: n.read ? COLORS.card : cfg.bg },
         ]}
       >
         <View style={[styles.itemIconWrap, { backgroundColor: cfg.iconBg }]}>
-          <cfg.Icon size={20} color="#fff" />
+          <cfg.Icon size={20} color={COLORS.white} />
         </View>
         <View style={{ flex: 1 }}>
           <View style={styles.itemTopRow}>
-            <Text style={[styles.itemTitle, { color: n.read ? '#374151' : '#111827' }]}>{n.title}</Text>
+            <Text style={[styles.itemTitle, { color: n.read ? COLORS.textSecondary : COLORS.text }]}>{n.title}</Text>
             {!n.read ? <View style={styles.unreadDot} /> : null}
           </View>
-          <Text style={[styles.itemMsg, { color: n.read ? '#6B7280' : '#374151' }]}>{n.message}</Text>
+          <Text style={[styles.itemMsg, { color: n.read ? COLORS.muted : COLORS.textSecondary }]}>{n.message}</Text>
           <View style={styles.itemBottomRow}>
             <Text style={styles.itemTime}>{n.time}</Text>
             <Pressable onPress={() => deleteNotification(n.id)} style={styles.trashBtn}>
-              <Trash2 size={18} color="#9CA3AF" />
+              <Trash2 size={18} color={COLORS.placeholder} />
             </Pressable>
           </View>
         </View>
@@ -320,7 +330,7 @@ export default function Notifications({ navigation }) {
     <View style={styles.root}>
       <Animated.View entering={enterDown(0, 360)} style={styles.header}>
         <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <ArrowLeft size={24} color="#374151" />
+          <ArrowLeft size={24} color={COLORS.textSecondary} />
         </Pressable>
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Notificaciones</Text>
@@ -341,10 +351,18 @@ export default function Notifications({ navigation }) {
             <ActivityIndicator size="large" color={COLORS.primary} />
             <Text style={styles.emptyText}>Cargando notificaciones...</Text>
           </View>
+        ) : !inAppNotifications ? (
+          <View style={styles.emptyWrap}>
+            <View style={styles.emptyIcon}>
+              <Bell size={40} color={COLORS.placeholder} />
+            </View>
+            <Text style={styles.emptyTitle}>Notificaciones en la app desactivadas</Text>
+            <Text style={styles.emptyText}>Actívalas en Perfil para ver avisos y distintivos aquí.</Text>
+          </View>
         ) : displayedNotifications.length === 0 ? (
           <View style={styles.emptyWrap}>
             <View style={styles.emptyIcon}>
-              <Bell size={40} color="#9CA3AF" />
+              <Bell size={40} color={COLORS.placeholder} />
             </View>
             <Text style={styles.emptyTitle}>Sin notificaciones</Text>
             <Text style={styles.emptyText}>No tienes notificaciones pendientes</Text>
@@ -359,34 +377,36 @@ export default function Notifications({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (COLORS) => StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.background },
   header: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     paddingHorizontal: 24,
     paddingBottom: 16,
     paddingTop: 48,
     flexDirection: 'row',
     alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
   },
   backBtn: { padding: 8, marginLeft: -8, marginRight: 12, borderRadius: 999 },
-  headerTitle: { fontSize: 20, fontWeight: '800', color: '#111827' },
-  headerSubtitle: { marginTop: 2, fontSize: 14, color: '#6B7280' },
+  headerTitle: { fontSize: 20, fontWeight: '800', color: COLORS.text },
+  headerSubtitle: { marginTop: 2, fontSize: 14, color: COLORS.muted },
   headerAction: { paddingVertical: 8, paddingHorizontal: 10 },
   headerActionText: { color: COLORS.primary, fontWeight: '800' },
   body: { paddingHorizontal: 24, paddingVertical: 18, paddingBottom: 28 },
   emptyWrap: { alignItems: 'center', paddingVertical: 36 },
-  emptyIcon: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' },
-  emptyTitle: { marginTop: 12, fontSize: 18, fontWeight: '800', color: '#374151' },
-  emptyText: { marginTop: 6, color: '#6B7280' },
+  emptyIcon: { width: 80, height: 80, borderRadius: 40, backgroundColor: COLORS.surface, alignItems: 'center', justifyContent: 'center' },
+  emptyTitle: { marginTop: 12, fontSize: 18, fontWeight: '800', color: COLORS.textSecondary },
+  emptyText: { marginTop: 6, color: COLORS.muted },
   item: {
     flexDirection: 'row',
     gap: 12,
     padding: 14,
     borderRadius: 16,
     borderWidth: 1,
-    backgroundColor: '#fff',
-    shadowColor: '#000',
+    backgroundColor: COLORS.card,
+    shadowColor: COLORS.black,
     shadowOpacity: 0.06,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 6 },
@@ -399,6 +419,6 @@ const styles = StyleSheet.create({
   unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.primary, marginTop: 5 },
   itemMsg: { marginTop: 4, fontSize: 13, lineHeight: 18 },
   itemBottomRow: { marginTop: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  itemTime: { fontSize: 12, color: '#9CA3AF' },
+  itemTime: { fontSize: 12, color: COLORS.placeholder },
   trashBtn: { padding: 6, borderRadius: 10 },
 });

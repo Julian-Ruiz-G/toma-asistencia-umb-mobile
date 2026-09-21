@@ -4,28 +4,43 @@ import {
   Activity,
   ArrowDownRight,
   ArrowUpRight,
-  Calendar,
-  Clock,
+  ClipboardList,
   GraduationCap,
   LogOut,
+  Menu,
   QrCode,
+  ShieldCheck,
   TrendingUp,
+  Upload,
+  User,
   Users,
 } from 'lucide-react-native';
 
-import { COLORS } from '../../ui/theme';
+import { SideDrawer } from '../../components/SideDrawer';
+import { useColors } from '../../ui/ThemeContext';
 import { ADMIN_DASHBOARD_STATS_URL } from '../../config';
 import { useAuth } from '../../state/auth';
 import { personDisplayName } from '../../utils/displayName';
+import { loadLocalProfile } from '../../utils/sessionStore';
 
 export default function AdminDashboard({ navigation }) {
-  const { authToken, logout, fullName } = useAuth();
+  const COLORS = useColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
+  const { authToken, logout, fullName, email, photoUri, setPhotoUri } = useAuth();
   const [stats, setStats] = useState({
     studentsTotal: null,
     teachersTotal: null,
     attendanceToday: null,
     reportsTotal: null,
   });
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const local = await loadLocalProfile(email);
+      if (local?.photoUri) setPhotoUri(String(local.photoUri));
+    })();
+  }, [email, setPhotoUri]);
 
   useEffect(() => {
     (async () => {
@@ -64,7 +79,7 @@ export default function AdminDashboard({ navigation }) {
         value: stats.studentsTotal == null || Number.isNaN(stats.studentsTotal) ? '—' : String(stats.studentsTotal),
         change: '',
         trend: 'up',
-        color: COLORS.primary,
+        color: COLORS.icon,
         Icon: GraduationCap,
       },
       {
@@ -72,7 +87,7 @@ export default function AdminDashboard({ navigation }) {
         value: stats.teachersTotal == null || Number.isNaN(stats.teachersTotal) ? '—' : String(stats.teachersTotal),
         change: '',
         trend: 'up',
-        color: '#16A34A',
+        color: COLORS.icon,
         Icon: Users,
       },
       {
@@ -80,7 +95,7 @@ export default function AdminDashboard({ navigation }) {
         value: stats.attendanceToday == null || Number.isNaN(stats.attendanceToday) ? '—' : String(stats.attendanceToday),
         change: '',
         trend: 'up',
-        color: '#2563EB',
+        color: COLORS.icon,
         Icon: Activity,
       },
       {
@@ -88,22 +103,23 @@ export default function AdminDashboard({ navigation }) {
         value: stats.reportsTotal == null || Number.isNaN(stats.reportsTotal) ? '—' : String(stats.reportsTotal),
         change: '',
         trend: 'up',
-        color: '#7C3AED',
+        color: COLORS.icon,
         Icon: TrendingUp,
       },
     ],
-    [stats]
+    [stats, COLORS]
   );
 
-  const quickActions = useMemo(
+  const drawerItems = useMemo(
     () => [
-      { label: 'Ver Estudiantes', Icon: GraduationCap, bg: '#DBEAFE', fg: '#2563EB', onPress: () => navigation.navigate('AdminStudents') },
-      { label: 'Ver Docentes', Icon: Users, bg: '#DCFCE7', fg: '#16A34A', onPress: () => navigation.navigate('AdminTeachers') },
-      { label: 'Carga Masiva', Icon: Calendar, bg: '#F3E8FF', fg: '#7C3AED', onPress: () => navigation.navigate('AdminBulkUpload') },
-      { label: 'Generar QR', Icon: QrCode, bg: '#FFEDD5', fg: '#EA580C', onPress: () => navigation.navigate('AdminQrInstitutional') },
-      { label: 'Ver Logs', Icon: Activity, bg: '#FEE2E2', fg: '#DC2626', onPress: () => navigation.navigate('AdminLogs') },
-      { label: 'Auditoría', Icon: TrendingUp, bg: '#E0E7FF', fg: '#4F46E5', onPress: () => navigation.navigate('AdminAudit') },
-      { label: 'Consentimientos', Icon: Clock, bg: '#FCE7F3', fg: '#DB2777', onPress: () => navigation.navigate('AdminConsents') },
+      { label: 'Perfil', Icon: User, onPress: () => navigation.navigate('AdminProfile') },
+      { label: 'Estudiantes', Icon: GraduationCap, onPress: () => navigation.navigate('AdminStudents') },
+      { label: 'Docentes', Icon: Users, onPress: () => navigation.navigate('AdminTeachers') },
+      { label: 'Carga masiva', Icon: Upload, onPress: () => navigation.navigate('AdminBulkUpload') },
+      { label: 'QR institucional', Icon: QrCode, onPress: () => navigation.navigate('AdminQrInstitutional') },
+      { label: 'Logs', Icon: Activity, onPress: () => navigation.navigate('AdminLogs') },
+      { label: 'Auditoría', Icon: ClipboardList, onPress: () => navigation.navigate('AdminAudit') },
+      { label: 'Consentimientos', Icon: ShieldCheck, onPress: () => navigation.navigate('AdminConsents') },
     ],
     [navigation]
   );
@@ -112,89 +128,91 @@ export default function AdminDashboard({ navigation }) {
 
   return (
     <View style={styles.root}>
-      <View style={styles.header}>
-        <View style={styles.headerRow}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.headerTitle}>Dashboard</Text>
-            <Text style={styles.headerSubtitle}>{personDisplayName(fullName, 'Administrador')}</Text>
+      <SideDrawer
+        visible={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        onOpen={() => setDrawerOpen(true)}
+        photoUri={photoUri}
+        fallbackSource={require('../../../assets/escudo_umb.png')}
+        roleLabel="Administrador"
+        name={personDisplayName(fullName, 'Administrador')}
+        items={drawerItems}
+        onLogout={() => {
+          logout();
+          navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] });
+        }}
+      />
+      <ScrollView contentContainerStyle={styles.scroll}>
+        <View style={styles.header}>
+          <View style={styles.headerRow}>
+            <View style={styles.userRow}>
+              <Pressable onPress={() => setDrawerOpen(true)} style={styles.menuBtn}>
+                <Menu size={22} color={COLORS.white} />
+              </Pressable>
+              <Text style={styles.headerTitle}>Tablero</Text>
+            </View>
+            <Pressable
+              onPress={() => {
+                logout();
+                navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] });
+              }}
+              style={styles.logoutBtn}
+            >
+              <LogOut size={18} color={COLORS.white} />
+            </Pressable>
           </View>
-          <Pressable
-            onPress={() => {
-              logout();
-              navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
-            }}
-            style={styles.logoutBtn}
-          >
-            <LogOut size={16} color="#DC2626" />
-            <Text style={styles.logoutText}>Salir</Text>
-          </Pressable>
         </View>
-      </View>
 
-      <ScrollView contentContainerStyle={styles.body}>
-        <View style={styles.grid2}>
-          {statsCards.map((c, idx) => {
-            const TIcon = TrendIcon(c.trend);
-            return (
-              <View key={idx} style={styles.statCard}>
-                <View style={styles.statTop}>
-                  <View style={{ flex: 1 }}>
-                    <Text numberOfLines={1} style={styles.statTitle}>{c.title}</Text>
-                    <Text style={styles.statValue}>{c.value}</Text>
-                    <View style={styles.trendRow}>
-                      <TIcon size={14} color={c.trend === 'up' ? '#16A34A' : '#DC2626'} />
-                      <Text style={[styles.trendText, { color: c.trend === 'up' ? '#16A34A' : '#DC2626' }]}>{c.change}</Text>
+        <View style={styles.body}>
+          <Text style={styles.sectionTitle}>Resumen</Text>
+          <View style={{ height: 12 }} />
+          <View style={styles.grid2}>
+            {statsCards.map((c, idx) => {
+              const TIcon = TrendIcon(c.trend);
+              return (
+                <View key={idx} style={styles.statCard}>
+                  <View style={styles.statTop}>
+                    <View style={{ flex: 1 }}>
+                      <Text numberOfLines={1} style={styles.statTitle}>{c.title}</Text>
+                      <Text style={styles.statValue}>{c.value}</Text>
+                      <View style={styles.trendRow}>
+                        <TIcon size={14} color={c.trend === 'up' ? COLORS.successStrong : COLORS.dangerStrong} />
+                        <Text style={[styles.trendText, { color: c.trend === 'up' ? COLORS.successStrong : COLORS.dangerStrong }]}>{c.change}</Text>
+                      </View>
+                    </View>
+                    <View style={[styles.statIconWrap, { backgroundColor: COLORS.surface }]}>
+                      <c.Icon size={18} color={c.color} />
                     </View>
                   </View>
-                  <View style={[styles.statIconWrap, { backgroundColor: c.color }]}>
-                    <c.Icon size={18} color="#fff" />
-                  </View>
                 </View>
-              </View>
-            );
-          })}
+              );
+            })}
+          </View>
+
+          <View style={{ height: 18 }} />
         </View>
-
-        <View style={{ height: 14 }} />
-
-        <Text style={styles.sectionTitle}>Acciones rápidas</Text>
-        <View style={styles.quickGrid}>
-          {quickActions.map((a) => (
-            <Pressable key={a.label} onPress={a.onPress} style={styles.quickCard}>
-              <View style={[styles.quickIcon, { backgroundColor: a.bg }]}>
-                <a.Icon size={18} color={a.fg} />
-              </View>
-              <Text style={styles.quickText}>{a.label}</Text>
-            </Pressable>
-          ))}
-        </View>
-
-        <View style={{ height: 18 }} />
       </ScrollView>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#F9FAFB' },
-  header: { backgroundColor: '#fff', paddingTop: 48, paddingHorizontal: 24, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
-  headerRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  headerTitle: { fontSize: 20, fontWeight: '900', color: '#111827' },
-  headerSubtitle: { marginTop: 4, color: '#6B7280' },
-  logoutBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, backgroundColor: '#FEF2F2', borderWidth: 1, borderColor: '#FECACA' },
-  logoutText: { color: '#DC2626', fontWeight: '900' },
-  body: { paddingHorizontal: 16, paddingVertical: 16, paddingBottom: 26 },
+const createStyles = (COLORS) => StyleSheet.create({
+  root: { flex: 1, backgroundColor: COLORS.background },
+  scroll: { paddingBottom: 18 },
+  header: { backgroundColor: COLORS.primary, paddingTop: 54, paddingHorizontal: 24, paddingBottom: 18 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  userRow: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1, paddingRight: 12 },
+  menuBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { color: COLORS.white, fontSize: 20, fontWeight: '900' },
+  logoutBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
+  body: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 26 },
   grid2: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  statCard: { width: '48%', backgroundColor: '#fff', borderRadius: 14, padding: 12, borderWidth: 1, borderColor: '#F3F4F6' },
+  statCard: { width: '48%', backgroundColor: COLORS.card, borderRadius: 14, padding: 12, borderWidth: 1, borderColor: COLORS.border },
   statTop: { flexDirection: 'row', justifyContent: 'space-between', gap: 10 },
-  statTitle: { fontSize: 12, color: '#6B7280' },
-  statValue: { marginTop: 6, fontSize: 18, fontWeight: '900', color: '#111827' },
+  statTitle: { fontSize: 12, color: COLORS.muted },
+  statValue: { marginTop: 6, fontSize: 18, fontWeight: '900', color: COLORS.text },
   trendRow: { marginTop: 6, flexDirection: 'row', alignItems: 'center', gap: 6 },
   trendText: { fontWeight: '800' },
   statIconWrap: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  sectionTitle: { fontWeight: '900', color: '#374151' },
-  quickGrid: { marginTop: 12, flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  quickCard: { width: '48%', backgroundColor: '#fff', borderRadius: 14, padding: 12, borderWidth: 1, borderColor: '#E5E7EB', flexDirection: 'row', alignItems: 'center', gap: 10 },
-  quickIcon: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  quickText: { fontWeight: '900', color: '#111827', flex: 1, fontSize: 12 },
+  sectionTitle: { fontWeight: '900', color: COLORS.textSecondary },
 });

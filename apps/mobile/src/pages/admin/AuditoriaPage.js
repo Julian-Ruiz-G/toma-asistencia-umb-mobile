@@ -9,8 +9,10 @@ import {
   Trash2,
 } from 'lucide-react-native';
 
+import OverlayDismiss from '../../components/OverlayDismiss';
 import { Button } from '../../components/Button';
 import { COLORS } from '../../ui/theme';
+import { useColors } from '../../ui/ThemeContext';
 
 const mockAudits = [
   { id: '1', timestamp: '2024-01-15 14:32:15', user: 'Admin UMB', userRole: 'Administrador', action: 'view', resource: 'Lista de estudiantes', resourceType: 'Estudiantes', ipAddress: '192.168.1.100' },
@@ -22,14 +24,16 @@ const mockAudits = [
 ];
 
 const actionConfig = {
-  view: { Icon: Eye, color: '#2563EB', bg: '#DBEAFE', label: 'Visualización' },
-  create: { Icon: Edit, color: '#16A34A', bg: '#DCFCE7', label: 'Creación' },
-  update: { Icon: Edit, color: '#A16207', bg: '#FEF3C7', label: 'Modificación' },
-  delete: { Icon: Trash2, color: '#B91C1C', bg: '#FEE2E2', label: 'Eliminación' },
-  export: { Icon: Download, color: '#7C3AED', bg: '#F3E8FF', label: 'Exportación' },
+  view: { Icon: Eye, color: COLORS.infoStrong, bg: COLORS.infoBg, label: 'Visualización' },
+  create: { Icon: Edit, color: COLORS.successStrong, bg: COLORS.successBg, label: 'Creación' },
+  update: { Icon: Edit, color: COLORS.warning, bg: COLORS.warningBg, label: 'Modificación' },
+  delete: { Icon: Trash2, color: COLORS.dangerStrong, bg: COLORS.dangerBg, label: 'Eliminación' },
+  export: { Icon: Download, color: COLORS.icon, bg: COLORS.surface, label: 'Exportación' },
 };
 
 export default function AuditoriaPage({ navigation }) {
+  const COLORS = useColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const [searchQuery, setSearchQuery] = useState('');
   const [actionFilter, setActionFilter] = useState('all');
   const [selectedEntry, setSelectedEntry] = useState(null);
@@ -57,14 +61,14 @@ export default function AuditoriaPage({ navigation }) {
     <View style={styles.root}>
       <View style={styles.header}>
         <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <ArrowLeft size={20} color="#4B5563" />
+          <ArrowLeft size={20} color={COLORS.icon} />
         </Pressable>
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Auditoría</Text>
           <Text style={styles.headerSubtitle}>Registro de acciones</Text>
         </View>
         <Pressable onPress={() => {}} style={styles.iconBtn}>
-          <Download size={18} color="#4B5563" />
+          <Download size={18} color={COLORS.icon} />
         </Pressable>
       </View>
 
@@ -84,12 +88,12 @@ export default function AuditoriaPage({ navigation }) {
 
         <View style={styles.filtersCard}>
           <View style={styles.searchWrap}>
-            <Search size={16} color="#9CA3AF" />
+            <Search size={16} color={COLORS.placeholder} />
             <TextInput
               value={searchQuery}
               onChangeText={setSearchQuery}
               placeholder="Buscar usuario o recurso..."
-              placeholderTextColor="#9CA3AF"
+              placeholderTextcolor={COLORS.placeholder}
               style={styles.searchInput}
             />
           </View>
@@ -156,7 +160,7 @@ export default function AuditoriaPage({ navigation }) {
       </ScrollView>
 
       <Modal visible={!!selectedEntry} transparent animationType="fade" onRequestClose={() => setSelectedEntry(null)}>
-        <View style={styles.modalOverlay}>
+        <OverlayDismiss style={styles.modalOverlay} onClose={() => setSelectedEntry(null)}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Detalle de Auditoría</Text>
             <Text style={styles.modalText}>ID: {selectedEntry?.id || ''}</Text>
@@ -189,50 +193,50 @@ export default function AuditoriaPage({ navigation }) {
             <View style={{ height: 14 }} />
             <Button fullWidth onPress={() => setSelectedEntry(null)}>Cerrar</Button>
           </View>
-        </View>
+        </OverlayDismiss>
       </Modal>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#F9FAFB' },
-  header: { backgroundColor: '#fff', paddingTop: 48, paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#E5E7EB', flexDirection: 'row', alignItems: 'center', gap: 12 },
-  backBtn: { padding: 8, borderRadius: 12, backgroundColor: '#F3F4F6' },
-  iconBtn: { padding: 10, borderRadius: 14, backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#E5E7EB' },
-  headerTitle: { fontWeight: '900', color: '#111827', fontSize: 18 },
-  headerSubtitle: { marginTop: 2, color: '#6B7280', fontSize: 12 },
+const createStyles = (COLORS) => StyleSheet.create({
+  root: { flex: 1, backgroundColor: COLORS.background },
+  header: { backgroundColor: COLORS.card, paddingTop: 48, paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: COLORS.border, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  backBtn: { padding: 8, borderRadius: 12, backgroundColor: COLORS.surface },
+  iconBtn: { padding: 10, borderRadius: 14, backgroundColor: COLORS.background, borderWidth: 1, borderColor: COLORS.border },
+  headerTitle: { fontWeight: '900', color: COLORS.text, fontSize: 18 },
+  headerSubtitle: { marginTop: 2, color: COLORS.muted, fontSize: 12 },
   body: { padding: 16, paddingBottom: 26 },
   statsRow: { flexDirection: 'row', gap: 8 },
-  statMini: { flex: 1, backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB', paddingVertical: 10, alignItems: 'center' },
+  statMini: { flex: 1, backgroundColor: COLORS.card, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border, paddingVertical: 10, alignItems: 'center' },
   statIcon: { width: 28, height: 28, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
-  statNum: { fontWeight: '900', color: '#111827', fontSize: 16 },
-  filtersCard: { backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: '#E5E7EB', padding: 12 },
-  searchWrap: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10 },
-  searchInput: { flex: 1, color: '#111827' },
+  statNum: { fontWeight: '900', color: COLORS.text, fontSize: 16 },
+  filtersCard: { backgroundColor: COLORS.card, borderRadius: 14, borderWidth: 1, borderColor: COLORS.border, padding: 12 },
+  searchWrap: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: COLORS.border, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10 },
+  searchInput: { flex: 1, color: COLORS.text },
   pillsRow: { gap: 10 },
-  pill: { paddingHorizontal: 12, paddingVertical: 10, borderRadius: 999, backgroundColor: '#fff', borderWidth: 1, borderColor: '#E5E7EB' },
+  pill: { paddingHorizontal: 12, paddingVertical: 10, borderRadius: 999, backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border },
   pillActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-  pillText: { color: '#6B7280', fontWeight: '900', fontSize: 12 },
-  pillTextActive: { color: '#fff' },
-  listCard: { backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: '#E5E7EB', overflow: 'hidden' },
-  row: { padding: 12, flexDirection: 'row', gap: 12, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
+  pillText: { color: COLORS.muted, fontWeight: '900', fontSize: 12 },
+  pillTextActive: { color: COLORS.white },
+  listCard: { backgroundColor: COLORS.card, borderRadius: 14, borderWidth: 1, borderColor: COLORS.border, overflow: 'hidden' },
+  row: { padding: 12, flexDirection: 'row', gap: 12, borderBottomWidth: 1, borderBottomColor: COLORS.border },
   rowIcon: { width: 34, height: 34, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 },
-  timeText: { color: '#6B7280', fontFamily: 'monospace', fontSize: 10 },
+  timeText: { color: COLORS.muted, fontFamily: 'monospace', fontSize: 10 },
   actionPill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
   actionText: { fontWeight: '900', fontSize: 10 },
-  userText: { fontWeight: '900', color: '#111827' },
-  resourceText: { marginTop: 2, color: '#6B7280' },
-  ipText: { marginTop: 6, color: '#9CA3AF', fontFamily: 'monospace', fontSize: 10 },
+  userText: { fontWeight: '900', color: COLORS.text },
+  resourceText: { marginTop: 2, color: COLORS.muted },
+  ipText: { marginTop: 6, color: COLORS.placeholder, fontFamily: 'monospace', fontSize: 10 },
   emptyWrap: { alignItems: 'center', paddingVertical: 22 },
-  emptyTitle: { fontWeight: '900', color: '#111827' },
-  emptyText: { marginTop: 6, color: '#6B7280' },
+  emptyTitle: { fontWeight: '900', color: COLORS.text },
+  emptyText: { marginTop: 6, color: COLORS.muted },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.50)', alignItems: 'center', justifyContent: 'center', padding: 24 },
-  modalCard: { backgroundColor: '#fff', borderRadius: 18, padding: 18, width: '100%', maxWidth: 360 },
-  modalTitle: { fontWeight: '900', color: '#111827', fontSize: 18 },
-  modalText: { marginTop: 6, color: '#6B7280' },
+  modalCard: { backgroundColor: COLORS.card, borderRadius: 18, padding: 18, width: '100%', maxWidth: 360 },
+  modalTitle: { fontWeight: '900', color: COLORS.text, fontSize: 18 },
+  modalText: { marginTop: 6, color: COLORS.muted },
   detailRow: { marginTop: 10 },
-  detailKey: { color: '#6B7280', fontSize: 12 },
-  detailVal: { marginTop: 2, color: '#111827', fontWeight: '800' },
+  detailKey: { color: COLORS.muted, fontSize: 12 },
+  detailVal: { marginTop: 2, color: COLORS.text, fontWeight: '800' },
 });

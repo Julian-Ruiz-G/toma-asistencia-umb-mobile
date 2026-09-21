@@ -6,9 +6,11 @@ import { ArrowLeft, Bell, Calendar, Clock, MapPin, RefreshCw, Users } from 'luci
 import { API_BASE, MY_CLASSES_URL } from '../../config';
 import { useAuth } from '../../state/auth';
 import { COLORS } from '../../ui/theme';
+import { useColors } from '../../ui/ThemeContext';
 import Animated, { enterDown, listEnter } from '../../ui/motion';
 import { dateToDayKey, loadReminders, reminderDates } from '../../utils/remindersStore';
 import { todayScheduleKey } from '../../utils/schedule';
+import { loadClassColors, resolveClassColor } from '../../utils/classColors';
 
 const DAY_ORDER = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
 const DAY_LABEL = {
@@ -40,18 +42,14 @@ function todayKey() {
   return todayScheduleKey();
 }
 
-function accentForTime(t) {
-  const hh = parseInt(String(t || '').split(':')[0] || '0', 10);
-  if (!Number.isFinite(hh) || hh < 10) return COLORS.primary;
-  if (hh < 13) return COLORS.blue;
-  return '#16A34A';
-}
-
 export default function ScheduleScreen({ navigation }) {
+  const COLORS = useColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const { authToken, email } = useAuth();
   const [loading, setLoading] = useState(false);
   const [classes, setClasses] = useState([]);
   const [reminders, setReminders] = useState([]);
+  const [classColors, setClassColors] = useState({});
   const [activeDay, setActiveDay] = useState(todayKey);
 
   const STUDENT_MY_CLASSES_URL = API_BASE ? `${API_BASE}/my-classes-student` : '';
@@ -120,7 +118,11 @@ export default function ScheduleScreen({ navigation }) {
       let cancelled = false;
       (async () => {
         const list = await loadReminders(email);
-        if (!cancelled) setReminders(list);
+        const colors = await loadClassColors(email);
+        if (!cancelled) {
+          setReminders(list);
+          setClassColors(colors);
+        }
       })();
       return () => {
         cancelled = true;
@@ -202,7 +204,7 @@ export default function ScheduleScreen({ navigation }) {
     <View style={styles.root}>
       <Animated.View entering={enterDown(0, 360)} style={styles.header}>
         <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <ArrowLeft size={24} color="#374151" />
+          <ArrowLeft size={24} color={COLORS.textSecondary} />
         </Pressable>
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Horario</Text>
@@ -213,7 +215,7 @@ export default function ScheduleScreen({ navigation }) {
           </Text>
         </View>
         <Pressable onPress={load} style={styles.iconBtn}>
-          <RefreshCw size={20} color="#4B5563" />
+          <RefreshCw size={20} color={COLORS.icon} />
         </Pressable>
       </Animated.View>
 
@@ -239,7 +241,7 @@ export default function ScheduleScreen({ navigation }) {
         {!loading && activeList.length === 0 ? (
           <Animated.View entering={enterDown(80)} style={styles.emptyCard}>
             <View style={styles.emptyIcon}>
-              <Calendar size={28} color="#9CA3AF" />
+              <Calendar size={28} color={COLORS.placeholder} />
             </View>
             <Text style={styles.emptyTitle}>Día libre</Text>
             <Text style={styles.emptyText}>No tienes clases ni recordatorios este día.</Text>
@@ -248,7 +250,9 @@ export default function ScheduleScreen({ navigation }) {
 
         {activeList.map((it, idx) => {
           const isReminder = it.kind === 'reminder';
-          const accent = isReminder ? '#7C3AED' : accentForTime(it.startTime);
+          const accent = isReminder
+            ? COLORS.reminder
+            : resolveClassColor(classColors[String(it.classId || '')]);
           return (
             <Animated.View
               key={`${it.kind}-${it.day}-${it.startTime}-${it.classId || idx}`}
@@ -264,7 +268,7 @@ export default function ScheduleScreen({ navigation }) {
               <View style={styles.classBody}>
                 {isReminder ? (
                   <View style={styles.reminderTag}>
-                    <Bell size={11} color="#7C3AED" />
+                    <Bell size={11} color={COLORS.reminder} />
                     <Text style={styles.reminderTagText}>Recordatorio</Text>
                   </View>
                 ) : null}
@@ -276,19 +280,19 @@ export default function ScheduleScreen({ navigation }) {
                 <View style={styles.chips}>
                   {it.room ? (
                     <View style={styles.chip}>
-                      <MapPin size={12} color="#6B7280" />
+                      <MapPin size={12} color={COLORS.muted} />
                       <Text style={styles.chipText}>Aula {it.room}</Text>
                     </View>
                   ) : null}
                   {it.group ? (
                     <View style={styles.chip}>
-                      <Users size={12} color="#6B7280" />
+                      <Users size={12} color={COLORS.muted} />
                       <Text style={styles.chipText}>{it.group}</Text>
                     </View>
                   ) : null}
                   {!it.room && !it.group ? (
                     <View style={styles.chip}>
-                      <Clock size={12} color="#6B7280" />
+                      <Clock size={12} color={COLORS.muted} />
                       <Text style={styles.chipText}>
                         {it.endTime ? `${it.startTime} – ${it.endTime}` : it.startTime}
                       </Text>
@@ -307,10 +311,10 @@ export default function ScheduleScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (COLORS) => StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.background },
   header: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     paddingHorizontal: 24,
     paddingBottom: 12,
     paddingTop: 48,
@@ -319,15 +323,15 @@ const styles = StyleSheet.create({
   },
   backBtn: { padding: 8, marginLeft: -8, marginRight: 12, borderRadius: 999 },
   iconBtn: { padding: 10, borderRadius: 999 },
-  headerTitle: { fontSize: 20, fontWeight: '800', color: '#111827' },
-  headerSubtitle: { marginTop: 2, fontSize: 14, color: '#6B7280' },
+  headerTitle: { fontSize: 20, fontWeight: '800', color: COLORS.text },
+  headerSubtitle: { marginTop: 2, fontSize: 14, color: COLORS.muted },
   weekBar: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     flexDirection: 'row',
     paddingHorizontal: 12,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: COLORS.border,
   },
   dayCol: {
     flex: 1,
@@ -336,19 +340,21 @@ const styles = StyleSheet.create({
     borderRadius: 14,
   },
   dayColActive: { backgroundColor: COLORS.primary },
-  dayShort: { fontWeight: '800', fontSize: 11, color: '#6B7280' },
-  dayShortActive: { color: '#fff' },
+  dayShort: { fontWeight: '800', fontSize: 11, color: COLORS.muted },
+  dayShortActive: { color: COLORS.white },
   dayDot: { width: 5, height: 5, borderRadius: 3, marginTop: 6, backgroundColor: 'transparent' },
   dayDotHas: { backgroundColor: COLORS.primary },
-  dayDotActive: { backgroundColor: '#fff' },
+  dayDotActive: { backgroundColor: COLORS.card },
   body: { paddingHorizontal: 20, paddingTop: 18 },
   classCard: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     borderRadius: 18,
     marginBottom: 14,
     overflow: 'hidden',
-    shadowColor: '#000',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    shadowColor: COLORS.black,
     shadowOpacity: 0.07,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 6 },
@@ -361,34 +367,34 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 16,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: COLORS.background,
   },
   timeStart: { fontWeight: '900', fontSize: 14 },
   timeLine: { width: 1.5, height: 14, marginVertical: 6, opacity: 0.45 },
-  timeEnd: { fontWeight: '700', fontSize: 12, color: '#9CA3AF' },
+  timeEnd: { fontWeight: '700', fontSize: 12, color: COLORS.placeholder },
   classBody: { flex: 1, paddingVertical: 16, paddingHorizontal: 14, justifyContent: 'center' },
-  className: { fontWeight: '900', fontSize: 16, color: '#111827', lineHeight: 22 },
+  className: { fontWeight: '900', fontSize: 16, color: COLORS.text, lineHeight: 22 },
   reminderTag: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     marginBottom: 6,
   },
-  reminderTagText: { fontSize: 11, fontWeight: '800', color: '#7C3AED' },
-  teacher: { marginTop: 4, color: '#6B7280', fontSize: 13 },
+  reminderTagText: { fontSize: 11, fontWeight: '800', color: COLORS.reminder },
+  teacher: { marginTop: 4, color: COLORS.muted, fontSize: 13 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: COLORS.surface,
     paddingHorizontal: 8,
     paddingVertical: 5,
     borderRadius: 999,
   },
-  chipText: { fontSize: 12, color: '#4B5563', fontWeight: '700' },
+  chipText: { fontSize: 12, color: COLORS.icon, fontWeight: '700' },
   emptyCard: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     borderRadius: 18,
     paddingVertical: 36,
     paddingHorizontal: 24,
@@ -398,12 +404,12 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: COLORS.surface,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
   },
-  emptyTitle: { fontWeight: '900', fontSize: 16, color: '#111827' },
-  emptyText: { marginTop: 6, color: '#6B7280', textAlign: 'center' },
-  muted: { color: '#6B7280', textAlign: 'center', marginBottom: 12 },
+  emptyTitle: { fontWeight: '900', fontSize: 16, color: COLORS.text },
+  emptyText: { marginTop: 6, color: COLORS.muted, textAlign: 'center' },
+  muted: { color: COLORS.muted, textAlign: 'center', marginBottom: 12 },
 });

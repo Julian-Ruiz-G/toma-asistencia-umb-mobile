@@ -5,11 +5,14 @@ import { ArrowLeft, BookOpen, QrCode, RefreshCw } from 'lucide-react-native';
 
 import { Button } from '../../components/Button';
 import { COLORS } from '../../ui/theme';
+import { useColors } from '../../ui/ThemeContext';
 import { CREATE_ATTENDANCE_QR_URL, MY_CLASSES_URL } from '../../config';
 import { useAuth } from '../../state/auth';
 import { alertAttendanceQrError } from '../../utils/attendanceQr';
 
 export default function CreateSession({ navigation }) {
+  const COLORS = useColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const { authToken } = useAuth();
   const [classes, setClasses] = useState([]);
   const [selectedClassId, setSelectedClassId] = useState('');
@@ -119,14 +122,14 @@ export default function CreateSession({ navigation }) {
     <View style={styles.root}>
       <View style={styles.header}>
         <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <ArrowLeft size={24} color="#374151" />
+          <ArrowLeft size={24} color={COLORS.textSecondary} />
         </Pressable>
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Crear Sesión</Text>
           <Text style={styles.headerSubtitle}>Genera el QR de asistencia</Text>
         </View>
         <Pressable onPress={loadClasses} style={styles.iconBtn}>
-          <RefreshCw size={20} color="#4B5563" />
+          <RefreshCw size={20} color={COLORS.icon} />
         </Pressable>
       </View>
 
@@ -198,10 +201,10 @@ export default function CreateSession({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (COLORS) => StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.background },
   header: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     paddingHorizontal: 24,
     paddingBottom: 16,
     paddingTop: 48,
@@ -210,37 +213,37 @@ const styles = StyleSheet.create({
   },
   backBtn: { padding: 8, marginLeft: -8, marginRight: 12, borderRadius: 999 },
   iconBtn: { padding: 10, borderRadius: 999 },
-  headerTitle: { fontSize: 20, fontWeight: '800', color: '#111827' },
-  headerSubtitle: { marginTop: 2, fontSize: 14, color: '#6B7280' },
+  headerTitle: { fontSize: 20, fontWeight: '800', color: COLORS.text },
+  headerSubtitle: { marginTop: 2, fontSize: 14, color: COLORS.muted },
   body: { paddingHorizontal: 24, paddingVertical: 18, paddingBottom: 30 },
-  card: { backgroundColor: '#fff', borderRadius: 16, padding: 14, borderWidth: 1, borderColor: '#E5E7EB' },
+  card: { backgroundColor: COLORS.card, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: COLORS.border },
   cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  cardIcon: { width: 40, height: 40, borderRadius: 14, backgroundColor: 'rgba(185,28,28,0.10)', alignItems: 'center', justifyContent: 'center' },
-  cardTitle: { fontWeight: '900', color: '#111827', fontSize: 16 },
-  cardSub: { marginTop: 2, color: '#6B7280', fontSize: 12 },
-  muted: { color: '#6B7280', fontWeight: '800' },
+  cardIcon: { width: 40, height: 40, borderRadius: 14, backgroundColor: COLORS.primarySoft, alignItems: 'center', justifyContent: 'center' },
+  cardTitle: { fontWeight: '900', color: COLORS.text, fontSize: 16 },
+  cardSub: { marginTop: 2, color: COLORS.muted, fontSize: 12 },
+  muted: { color: COLORS.muted, fontWeight: '800' },
   pillGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   pill: {
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderRadius: 999,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: COLORS.border,
   },
   pillActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-  pillText: { color: '#374151', fontWeight: '800' },
-  pillTextActive: { color: '#fff' },
+  pillText: { color: COLORS.textSecondary, fontWeight: '800' },
+  pillTextActive: { color: COLORS.white },
   summaryCard: {
     marginTop: 14,
-    backgroundColor: 'rgba(185,28,28,0.06)',
+    backgroundColor: COLORS.primarySoft,
     borderRadius: 16,
     padding: 14,
     borderWidth: 1,
-    borderColor: 'rgba(185,28,28,0.18)',
+    borderColor: COLORS.primaryBorder,
   },
   summaryTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  summaryTitle: { fontWeight: '900', color: '#1F2937' },
-  summaryLine: { color: '#374151', marginTop: 4 },
-  summaryKey: { fontWeight: '900', color: '#111827' },
+  summaryTitle: { fontWeight: '900', color: COLORS.text },
+  summaryLine: { color: COLORS.textSecondary, marginTop: 4 },
+  summaryKey: { fontWeight: '900', color: COLORS.text },
 });

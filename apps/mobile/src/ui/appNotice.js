@@ -8,8 +8,9 @@ import {
   Info,
   ShieldAlert,
 } from 'lucide-react-native';
-
-import { COLORS } from './theme';
+import { isInAppNotificationsEnabled } from '../utils/appSettings';
+import OverlayDismiss from '../components/OverlayDismiss';
+import { useColors } from './ThemeContext';
 
 let showFn = null;
 
@@ -96,6 +97,9 @@ export function appAlert(title, message, buttons) {
   const secondary = cancel || (rest.length > 1 && rest[0] !== primary ? rest[0] : null);
 
   const kind = destructive || (cancel && rest.length) ? 'confirm' : inferKind(title);
+  if (!isInAppNotificationsEnabled() && kind !== 'error' && kind !== 'confirm') {
+    return false;
+  }
   const body = splitBody(message);
   const shown = showAppNotice({
     kind,
@@ -127,6 +131,8 @@ const ICONS = {
 };
 
 export function AppNoticeHost() {
+  const COLORS = useColors();
+  const styles = makeNoticeStyles(COLORS);
   const [notice, setNotice] = useState(null);
 
   useEffect(() => {
@@ -153,7 +159,10 @@ export function AppNoticeHost() {
       animationType="fade"
       onRequestClose={() => close(secondaryLabel ? 'secondary' : 'primary')}
     >
-      <View style={styles.backdrop}>
+      <OverlayDismiss
+        style={styles.backdrop}
+        onClose={() => close(secondaryLabel ? 'secondary' : 'primary')}
+      >
         <View style={styles.card}>
           <Text style={styles.kicker}>{kickerFor(notice?.kind, notice?.kicker)}</Text>
           <View style={styles.iconWrap}>
@@ -180,63 +189,68 @@ export function AppNoticeHost() {
             </Pressable>
           ) : null}
         </View>
-      </View>
+      </OverlayDismiss>
     </Modal>
   );
 }
 
-const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(17,24,39,0.5)',
-    justifyContent: 'center',
-    padding: 22,
-  },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 24,
-    padding: 22,
-    maxHeight: '88%',
-  },
-  kicker: {
-    textAlign: 'center',
-    fontSize: 11,
-    fontWeight: '800',
-    color: COLORS.primary,
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-    marginBottom: 10,
-  },
-  iconWrap: {
-    width: 56,
-    height: 56,
-    borderRadius: 18,
-    backgroundColor: 'rgba(185,28,28,0.10)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    alignSelf: 'center',
-    marginBottom: 12,
-  },
-  title: { fontSize: 20, fontWeight: '900', color: '#111827', textAlign: 'center' },
-  subtitle: { marginTop: 8, fontSize: 14, color: '#6B7280', textAlign: 'center', lineHeight: 20 },
-  pointsScroll: { marginTop: 12, maxHeight: 220 },
-  points: { gap: 10, paddingBottom: 4 },
-  pointRow: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
-  dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: COLORS.primary, marginTop: 6 },
-  point: { flex: 1, color: '#374151', fontSize: 13, lineHeight: 19, fontWeight: '600' },
-  btn: {
-    marginTop: 18,
-    backgroundColor: COLORS.primary,
-    borderRadius: 14,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  btnText: { color: '#fff', fontWeight: '900', fontSize: 15 },
-  btnGhost: {
-    marginTop: 8,
-    borderRadius: 14,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  btnGhostText: { color: '#4B5563', fontWeight: '800', fontSize: 15 },
-});
+function makeNoticeStyles(COLORS) {
+  return StyleSheet.create({
+    backdrop: {
+      flex: 1,
+      backgroundColor: COLORS.overlay,
+    },
+    card: {
+      width: '100%',
+      maxWidth: 360,
+      alignSelf: 'stretch',
+      backgroundColor: COLORS.card,
+      borderRadius: 24,
+      paddingHorizontal: 22,
+      paddingTop: 20,
+      paddingBottom: 18,
+      maxHeight: '88%',
+    },
+    kicker: {
+      textAlign: 'center',
+      fontSize: 13,
+      fontWeight: '900',
+      color: COLORS.primary,
+      letterSpacing: 0.4,
+      textTransform: 'uppercase',
+      marginBottom: 12,
+    },
+    iconWrap: {
+      width: 56,
+      height: 56,
+      borderRadius: 18,
+      backgroundColor: COLORS.primarySoft,
+      alignItems: 'center',
+      justifyContent: 'center',
+      alignSelf: 'center',
+      marginBottom: 12,
+    },
+    title: { fontSize: 20, fontWeight: '900', color: COLORS.text, textAlign: 'center' },
+    subtitle: { marginTop: 8, fontSize: 14, color: COLORS.muted, textAlign: 'center', lineHeight: 20 },
+    pointsScroll: { marginTop: 12, maxHeight: 220 },
+    points: { gap: 10, paddingBottom: 4 },
+    pointRow: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
+    dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: COLORS.primary, marginTop: 6 },
+    point: { flex: 1, color: COLORS.textSecondary, fontSize: 13, lineHeight: 19, fontWeight: '600' },
+    btn: {
+      marginTop: 18,
+      backgroundColor: COLORS.primary,
+      borderRadius: 14,
+      paddingVertical: 14,
+      alignItems: 'center',
+    },
+    btnText: { color: COLORS.white, fontWeight: '900', fontSize: 15 },
+    btnGhost: {
+      marginTop: 8,
+      borderRadius: 14,
+      paddingVertical: 12,
+      alignItems: 'center',
+    },
+    btnGhostText: { color: COLORS.icon, fontWeight: '800', fontSize: 15 },
+  });
+}

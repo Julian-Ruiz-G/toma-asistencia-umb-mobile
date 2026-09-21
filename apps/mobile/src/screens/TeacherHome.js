@@ -1,16 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { appAlert } from '../ui/appNotice';
 import {
-  AlertCircle,
   BarChart3,
   BookOpen,
   Calendar,
   Camera,
-  ClipboardList,
-  CheckCircle,
   Clock,
-  RefreshCw,
   PlusCircle,
   FileSpreadsheet,
   LogOut,
@@ -18,22 +14,77 @@ import {
   Settings,
   Trash,
   Users,
+  X,
 } from 'lucide-react-native';
 
 import { COLORS } from '../ui/theme';
+import { useColors } from '../ui/ThemeContext';
 import Animated, { enterDown, listEnter } from '../ui/motion';
 import { useAuth } from '../state/auth';
 import { CLASS_DETAILS_URL, CREATE_ATTENDANCE_QR_URL, MY_CLASSES_URL, DELETE_CLASS_URL } from '../config';
 import { personDisplayName } from '../utils/displayName';
 import { loadLocalProfile } from '../utils/sessionStore';
 import { alertAttendanceQrError } from '../utils/attendanceQr';
-import { classStatusMeta, formatScheduleFriendly, isClassInProgressNow, isClassScheduledToday } from '../utils/schedule';
-import { colombiaTodayYmd } from '../utils/formatDateTime';
+import {
+  classStatusMeta,
+  formatScheduleFriendly,
+  getClassSchedule,
+  isClassInProgressNow,
+  isClassScheduledToday,
+  scheduleHoursForYmd,
+} from '../utils/schedule';
+import { colombiaDateLongFromYmd, colombiaNowMinutes, colombiaTodayYmd, colombiaWeekdayLongFromYmd } from '../utils/formatDateTime';
+import OverlayDismiss from '../components/OverlayDismiss';
+
+function classCardMeta(c, idx) {
+  return {
+    classId: c?.classId || c?.id || String(idx),
+    title: c?.className || c?.subject || c?.name || 'Clase',
+    group: c?.group || c?.groupName || c?.grupo || '',
+    room: c?.room || c?.classroom || c?.aula || '',
+    raw: c,
+  };
+}
+
+function timeToMinutes(raw) {
+  const m = String(raw || '').trim().match(/^(\d{1,2}):(\d{2})/);
+  if (!m) return null;
+  return Number(m[1]) * 60 + Number(m[2]);
+}
+
+function remainingLabel(endTime) {
+  const endMin = timeToMinutes(endTime);
+  if (endMin == null) return '';
+  const left = endMin - colombiaNowMinutes();
+  if (left <= 0) return 'Termina ahora';
+  if (left < 60) return `${left} min restantes`;
+  const hours = Math.floor(left / 60);
+  const mins = left % 60;
+  return mins ? `${hours} h ${mins} min restantes` : `${hours} h restantes`;
+}
+
+const STAT_PANELS = {
+  today: {
+    title: 'Clases hoy',
+    empty: 'Hoy no tienes clases en el horario.',
+  },
+  all: {
+    title: 'Mis clases',
+    empty: 'Aún no tienes clases creadas.',
+  },
+  live: {
+    title: 'En curso',
+    empty: 'Ninguna clase está en curso ahora.',
+  },
+};
 
 export default function TeacherHome({ navigation }) {
+  const COLORS = useColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const { logout, authToken, fullName, email, photoUri, setPhotoUri } = useAuth();
   const [classes, setClasses] = useState([]);
   const [loadingClasses, setLoadingClasses] = useState(false);
+  const [statsPanel, setStatsPanel] = useState(null);
 
   const createAttendanceSession = async (classId) => {
     if (!CREATE_ATTENDANCE_QR_URL) {
@@ -244,6 +295,34 @@ export default function TeacherHome({ navigation }) {
     return { totalClasses, classesToday, inSession };
   }, [classes]);
 
+  const todayYmd = colombiaTodayYmd();
+  const panelCopy = statsPanel ? STAT_PANELS[statsPanel] : null;
+  const panelClasses = useMemo(() => {
+    if (statsPanel === 'today') return classes.filter((c) => isClassScheduledToday(c));
+    if (statsPanel === 'live') return classes.filter((c) => isClassInProgressNow(c));
+    if (statsPanel === 'all') return classes;
+    return [];
+  }, [classes, statsPanel]);
+
+  const panelSubtitle = useMemo(() => {
+    if (statsPanel === 'today' || statsPanel === 'live') {
+      const weekday = colombiaWeekdayLongFromYmd(todayYmd);
+      const date = colombiaDateLongFromYmd(todayYmd);
+      return [weekday, date].filter(Boolean).join(', ');
+    }
+    if (statsPanel === 'all') {
+      const todayCount = classes.filter((c) => isClassScheduledToday(c)).length;
+      const liveCount = classes.filter((c) => isClassInProgressNow(c)).length;
+      return `${classes.length} en total · ${todayCount} hoy · ${liveCount} en curso`;
+    }
+    return '';
+  }, [classes, statsPanel, todayYmd]);
+
+  const openClassFromPanel = (classId) => {
+    setStatsPanel(null);
+    navigation.navigate('TeacherClassDetails', { classId });
+  };
+
   return (
     <View style={styles.root}>
       <ScrollView contentContainerStyle={styles.scroll}>
@@ -270,32 +349,32 @@ export default function TeacherHome({ navigation }) {
               }}
               style={styles.logoutBtn}
             >
-              <LogOut size={18} color="#fff" />
+              <LogOut size={18} color={COLORS.white} />
             </Pressable>
           </View>
 
           <View style={styles.quickStats}>
-            <View style={styles.quickCard}>
+            <Pressable onPress={() => setStatsPanel('today')} style={styles.quickCard}>
               <Text style={styles.quickValue}>{stats.classesToday}</Text>
               <Text style={styles.quickLabel}>Clases hoy</Text>
-            </View>
-            <View style={styles.quickCard}>
+            </Pressable>
+            <Pressable onPress={() => setStatsPanel('all')} style={styles.quickCard}>
               <Text style={styles.quickValue}>{stats.totalClasses}</Text>
               <Text style={styles.quickLabel}>Mis clases</Text>
-            </View>
-            <View style={styles.quickCard}>
+            </Pressable>
+            <Pressable onPress={() => setStatsPanel('live')} style={styles.quickCard}>
               <Text style={styles.quickValue}>{stats.inSession}</Text>
               <Text style={styles.quickLabel}>En curso</Text>
-            </View>
+            </Pressable>
           </View>
 
           <View style={styles.quickActions}>
             <Pressable onPress={() => navigation.navigate('TeacherMyClasses')} style={styles.quickActionBtn}>
-              <BookOpen size={18} color="#fff" />
+              <BookOpen size={18} color={COLORS.white} />
               <Text style={styles.quickActionText}>Mis clases</Text>
             </Pressable>
             <Pressable onPress={() => navigation.navigate('TeacherCreateClass')} style={styles.quickActionBtn}>
-              <PlusCircle size={18} color="#fff" />
+              <PlusCircle size={18} color={COLORS.white} />
               <Text style={styles.quickActionText}>Crear clase</Text>
             </Pressable>
           </View>
@@ -304,7 +383,7 @@ export default function TeacherHome({ navigation }) {
         <View style={styles.body}>
           <Animated.View entering={enterDown(80)} style={styles.sectionHeader}>
             <View style={styles.sectionTitleRow}>
-              <BookOpen size={18} color={COLORS.primary} />
+              <BookOpen size={18} color={COLORS.icon} />
               <Text style={styles.sectionTitle}>Mis Clases</Text>
             </View>
             <Pressable onPress={() => navigation.navigate('ReportsDashboard')} style={styles.reportsBtn}>
@@ -328,8 +407,8 @@ export default function TeacherHome({ navigation }) {
                 <Text style={styles.emptyBtnText}>Crear clase</Text>
               </Pressable>
               <View style={{ height: 10 }} />
-              <Pressable onPress={loadClasses} style={[styles.emptyBtn, { backgroundColor: '#F3F4F6' }]}>
-                <Text style={[styles.emptyBtnText, { color: '#374151' }]}>Refrescar</Text>
+              <Pressable onPress={loadClasses} style={[styles.emptyBtn, { backgroundColor: COLORS.surface }]}>
+                <Text style={[styles.emptyBtnText, { color: COLORS.textSecondary }]}>Refrescar</Text>
               </Pressable>
             </View>
           ) : null}
@@ -368,11 +447,11 @@ export default function TeacherHome({ navigation }) {
 
                 {scheduleText ? (
                   <Text style={styles.classSchedule}>
-                    <Clock size={14} color="#9CA3AF" /> {scheduleText}
+                    <Clock size={14} color={COLORS.placeholder} /> {scheduleText}
                   </Text>
                 ) : (
                   <Text style={styles.classSchedule}>
-                    <Clock size={14} color="#9CA3AF" /> Sin horario asignado
+                    <Clock size={14} color={COLORS.placeholder} /> Sin horario asignado
                   </Text>
                 )}
 
@@ -394,10 +473,10 @@ export default function TeacherHome({ navigation }) {
                         appAlert('Error', err?.message || String(err));
                       }
                     }}
-                    style={[styles.actionBtn, { backgroundColor: '#F3E8FF' }]}
+                    style={styles.actionBtn}
                   >
-                    <Camera size={18} color="#7C3AED" />
-                    <Text style={[styles.actionText, { color: '#7C3AED' }]}>Foto</Text>
+                    <Camera size={18} color={COLORS.icon} />
+                    <Text style={styles.actionText}>Foto</Text>
                   </Pressable>
 
                   <Pressable
@@ -412,10 +491,10 @@ export default function TeacherHome({ navigation }) {
                         appAlert('Error', err?.message || String(err));
                       }
                     }}
-                    style={[styles.actionBtn, { backgroundColor: '#FEF2F2' }]}
+                    style={styles.actionBtn}
                   >
-                    <QrCode size={18} color="#EF4444" />
-                    <Text style={[styles.actionText, { color: '#EF4444' }]}>Ver QR</Text>
+                    <QrCode size={18} color={COLORS.icon} />
+                    <Text style={styles.actionText}>Ver QR</Text>
                   </Pressable>
 
                   <Pressable
@@ -437,10 +516,43 @@ export default function TeacherHome({ navigation }) {
                         appAlert('Error', err?.message || String(err));
                       }
                     }}
-                    style={[styles.actionBtn, { backgroundColor: '#E0F2FE' }]}
+                    style={styles.actionBtn}
                   >
-                    <Users size={18} color="#0284C7" />
-                    <Text style={[styles.actionText, { color: '#0284C7' }]}>Asistencia</Text>
+                    <Users size={18} color={COLORS.icon} />
+                    <Text style={styles.actionText}>Asistencia</Text>
+                  </Pressable>
+
+                  <Pressable
+                    onPress={(e) => {
+                      e?.stopPropagation?.();
+                      // 📋 Ir al historial de sesiones
+                      navigation.navigate('SessionHistory', {
+                        classId,
+                        className: title,
+                        group,
+                        room,
+                      });
+                    }}
+                    style={styles.actionBtn}
+                  >
+                    <Calendar size={18} color={COLORS.icon} />
+                    <Text style={styles.actionText}>Historial</Text>
+                  </Pressable>
+
+                  <Pressable
+                    onPress={(e) => {
+                      e?.stopPropagation?.();
+                      navigation.navigate('InformeSessionsList', {
+                        classId,
+                        className: title,
+                        group,
+                        room,
+                      });
+                    }}
+                    style={styles.actionBtn}
+                  >
+                    <FileSpreadsheet size={18} color={COLORS.icon} />
+                    <Text style={styles.actionText}>Informe</Text>
                   </Pressable>
 
                   <Pressable
@@ -504,43 +616,10 @@ export default function TeacherHome({ navigation }) {
                         ]
                       );
                     }}
-                    style={[styles.actionBtn, { backgroundColor: '#FEE2E2' }]}
+                    style={[styles.actionBtn, styles.actionBtnDanger]}
                   >
-                    <Trash size={18} color="#DC2626" />
-                    <Text style={[styles.actionText, { color: '#DC2626' }]}>Eliminar</Text>
-                  </Pressable>
-
-                  <Pressable
-                    onPress={(e) => {
-                      e?.stopPropagation?.();
-                      // 📋 Ir al historial de sesiones
-                      navigation.navigate('SessionHistory', {
-                        classId,
-                        className: title,
-                        group,
-                        room,
-                      });
-                    }}
-                    style={[styles.actionBtn, { backgroundColor: '#FEF3C7' }]}
-                  >
-                    <Calendar size={18} color="#D97706" />
-                    <Text style={[styles.actionText, { color: '#D97706' }]}>Historial</Text>
-                  </Pressable>
-
-                  <Pressable
-                    onPress={(e) => {
-                      e?.stopPropagation?.();
-                      navigation.navigate('InformeSessionsList', {
-                        classId,
-                        className: title,
-                        group,
-                        room,
-                      });
-                    }}
-                    style={[styles.actionBtn, { backgroundColor: '#EFF6FF' }]}
-                  >
-                    <FileSpreadsheet size={18} color="#2563EB" />
-                    <Text style={[styles.actionText, { color: '#2563EB' }]}>Informe</Text>
+                    <Trash size={18} color={COLORS.dangerStrong} />
+                    <Text style={[styles.actionText, styles.actionTextDanger]}>Eliminar</Text>
                   </Pressable>
                 </View>
               </Pressable>
@@ -550,7 +629,7 @@ export default function TeacherHome({ navigation }) {
 
           <Pressable onPress={() => navigation.navigate('TeacherAttendanceGuide')} style={styles.guideBtn}>
             <View style={styles.guideIcon}>
-              <Settings size={18} color="#2563EB" />
+              <Settings size={18} color={COLORS.icon} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.guideTitle}>Cómo funciona</Text>
@@ -560,74 +639,190 @@ export default function TeacherHome({ navigation }) {
           </Pressable>
         </View>
       </ScrollView>
+
+      <Modal
+        visible={!!statsPanel}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => setStatsPanel(null)}
+      >
+        <OverlayDismiss style={styles.sheetRoot} onClose={() => setStatsPanel(null)}>
+          <View style={styles.sheetCard}>
+            <View style={styles.sheetHead}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.sheetTitle}>{panelCopy?.title}</Text>
+                {panelSubtitle ? <Text style={styles.sheetSub}>{panelSubtitle}</Text> : null}
+              </View>
+              <Pressable onPress={() => setStatsPanel(null)} style={styles.sheetClose} hitSlop={8}>
+                <X size={18} color={COLORS.icon} />
+              </Pressable>
+            </View>
+
+            <ScrollView style={styles.sheetScroll} contentContainerStyle={styles.sheetList} showsVerticalScrollIndicator={false}>
+              {panelClasses.length === 0 ? (
+                <Text style={styles.sheetEmpty}>{panelCopy?.empty}</Text>
+              ) : panelClasses.map((c, idx) => {
+                const meta = classCardMeta(c, idx);
+                const status = classStatusMeta(c);
+                const hours = scheduleHoursForYmd(getClassSchedule(c), todayYmd);
+                const todayHours = hours.startTime && hours.endTime ? `${hours.startTime} – ${hours.endTime}` : '';
+                const weekly = formatScheduleFriendly(c);
+                const remaining = statsPanel === 'live' ? remainingLabel(hours.endTime) : '';
+                const line = statsPanel === 'all'
+                  ? (weekly || 'Sin horario asignado')
+                  : (todayHours || weekly || 'Sin horario asignado');
+                const extra = [
+                  meta.group ? `Grupo ${meta.group}` : '',
+                  meta.room ? `Aula ${meta.room}` : '',
+                  remaining,
+                ].filter(Boolean).join(' · ');
+
+                return (
+                  <Pressable
+                    key={String(meta.classId)}
+                    onPress={() => openClassFromPanel(meta.classId)}
+                    style={styles.sheetItem}
+                  >
+                    <View style={styles.sheetItemIcon}>
+                      <BookOpen size={16} color={COLORS.primary} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.sheetItemTitle} numberOfLines={1}>{meta.title}</Text>
+                      <Text style={styles.sheetItemMeta} numberOfLines={2}>{extra ? `${extra}\n${line}` : line}</Text>
+                    </View>
+                    <View style={[styles.statusPill, { backgroundColor: status.pillBg, borderWidth: 1, borderColor: status.pillBorder }]}>
+                      <Text style={[styles.statusText, { color: status.pillText }]}>{status.label}</Text>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </OverlayDismiss>
+      </Modal>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (COLORS) => StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.background },
   scroll: { paddingBottom: 18 },
   header: { backgroundColor: COLORS.primary, paddingTop: 54, paddingHorizontal: 24, paddingBottom: 18 },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  userRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  avatarWrap: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  userRow: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1, paddingRight: 12 },
+  avatarWrap: { width: 48, height: 48, borderRadius: 24, backgroundColor: COLORS.card, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   avatar: { width: 40, height: 40 },
   avatarPhoto: { width: 48, height: 48 },
   userRole: { color: 'rgba(255,255,255,0.70)', fontSize: 12, fontWeight: '700' },
-  userName: { color: '#fff', fontSize: 16, fontWeight: '900' },
+  userName: { color: COLORS.white, fontSize: 16, fontWeight: '900' },
   logoutBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
   quickStats: { marginTop: 14, flexDirection: 'row', gap: 10 },
   quickCard: { flex: 1, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 14, paddingVertical: 12, alignItems: 'center' },
-  quickValue: { color: '#fff', fontSize: 22, fontWeight: '900' },
+  quickValue: { color: COLORS.white, fontSize: 22, fontWeight: '900' },
   quickLabel: { marginTop: 2, color: 'rgba(255,255,255,0.70)', fontSize: 12 },
   quickActions: { marginTop: 12, flexDirection: 'row', gap: 10 },
   quickActionBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.12)' },
-  quickActionText: { color: '#fff', fontWeight: '900', fontSize: 12 },
+  quickActionText: { color: COLORS.white, fontWeight: '900', fontSize: 12 },
   body: { paddingHorizontal: 16, paddingTop: 16, gap: 12 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 4 },
   sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  sectionTitle: { fontWeight: '900', color: '#1F2937' },
-  sectionRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  refreshBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 999, backgroundColor: 'rgba(185,28,28,0.06)' },
-  refreshBtnDisabled: { opacity: 0.75 },
+  sectionTitle: { fontWeight: '900', color: COLORS.text },
   reportsBtn: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   reportsText: { color: COLORS.primary, fontWeight: '900' },
-  classCard: { backgroundColor: '#fff', borderRadius: 18, shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 14, shadowOffset: { width: 0, height: 8 }, elevation: 2, overflow: 'hidden' },
-  classTop: { padding: 14, borderBottomWidth: 1, borderBottomColor: '#F3F4F6', flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
+  classCard: { backgroundColor: COLORS.card, borderRadius: 18, borderWidth: 1, borderColor: COLORS.border, shadowColor: COLORS.black, shadowOpacity: 0.08, shadowRadius: 14, shadowOffset: { width: 0, height: 8 }, elevation: 2, overflow: 'hidden' },
+  classTop: { padding: 14, borderBottomWidth: 1, borderBottomColor: COLORS.border, flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
   classInfoRow: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
-  classIcon: { width: 40, height: 40, borderRadius: 14, backgroundColor: 'rgba(185,28,28,0.10)', alignItems: 'center', justifyContent: 'center' },
-  classTitle: { fontWeight: '900', color: '#111827' },
-  classSub: { marginTop: 2, color: '#6B7280', fontSize: 12 },
+  classIcon: { width: 40, height: 40, borderRadius: 14, backgroundColor: COLORS.primarySoft, alignItems: 'center', justifyContent: 'center' },
+  classTitle: { fontWeight: '900', color: COLORS.text },
+  classSub: { marginTop: 2, color: COLORS.muted, fontSize: 12 },
   statusPill: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999 },
   statusText: { fontWeight: '900', fontSize: 11 },
-  classSchedule: { paddingHorizontal: 14, paddingVertical: 10, color: '#9CA3AF' },
-  attRow: { paddingHorizontal: 14, paddingVertical: 10, backgroundColor: '#F9FAFB', flexDirection: 'row', alignItems: 'center', gap: 12 },
+  classSchedule: { paddingHorizontal: 14, paddingVertical: 10, color: COLORS.placeholder },
+  attRow: { paddingHorizontal: 14, paddingVertical: 10, backgroundColor: COLORS.background, flexDirection: 'row', alignItems: 'center', gap: 12 },
   attItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  attNum: { fontWeight: '900', color: '#374151' },
-  attTotal: { marginLeft: 'auto', color: '#9CA3AF', fontSize: 12 },
+  attNum: { fontWeight: '900', color: COLORS.textSecondary },
+  attTotal: { marginLeft: 'auto', color: COLORS.placeholder, fontSize: 12 },
   actionsGrid: { padding: 12, flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'space-between' },
-  actionBtn: { flexBasis: '48%', borderRadius: 14, paddingVertical: 12, alignItems: 'center', justifyContent: 'center', gap: 6 },
-  actionText: { fontWeight: '900', fontSize: 12 },
+  actionBtn: { flexBasis: '48%', borderRadius: 14, paddingVertical: 12, alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border },
+  actionBtnDanger: { backgroundColor: COLORS.dangerBg },
+  actionText: { fontWeight: '900', fontSize: 12, color: COLORS.textSecondary },
+  actionTextDanger: { color: COLORS.dangerStrong },
+  loadingCard: { backgroundColor: COLORS.card, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: COLORS.border, alignItems: 'center' },
+  loadingText: { color: COLORS.muted, fontWeight: '800' },
+  emptyCard: { backgroundColor: COLORS.card, borderRadius: 18, padding: 14, borderWidth: 1, borderColor: COLORS.border, alignItems: 'center' },
+  emptyTitle: { fontWeight: '900', color: COLORS.text, fontSize: 16 },
+  emptyText: { marginTop: 6, color: COLORS.muted, textAlign: 'center' },
+  emptyBtn: { width: '100%', borderRadius: 14, paddingVertical: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.primary },
+  emptyBtnText: { color: COLORS.white, fontWeight: '900' },
   guideBtn: {
     marginTop: 4,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: COLORS.card,
     borderRadius: 16,
     padding: 14,
     borderWidth: 1,
-    borderColor: '#DBEAFE',
+    borderColor: COLORS.border,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
   },
-  guideIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#DBEAFE', alignItems: 'center', justifyContent: 'center' },
-  guideTitle: { fontWeight: '900', color: '#1E3A8A' },
-  guideSub: { marginTop: 2, color: '#2563EB', fontSize: 12 },
-  guideCta: { fontWeight: '900', color: '#2563EB', fontSize: 12 },
-  loadingCard: { backgroundColor: '#fff', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: '#E5E7EB', alignItems: 'center' },
-  loadingText: { color: '#6B7280', fontWeight: '800' },
-  emptyCard: { backgroundColor: '#fff', borderRadius: 18, padding: 14, borderWidth: 1, borderColor: '#E5E7EB', alignItems: 'center' },
-  emptyTitle: { fontWeight: '900', color: '#111827', fontSize: 16 },
-  emptyText: { marginTop: 6, color: '#6B7280', textAlign: 'center' },
-  emptyBtn: { width: '100%', borderRadius: 14, paddingVertical: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.primary },
-  emptyBtnText: { color: '#fff', fontWeight: '900' },
+  guideIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: COLORS.surface, alignItems: 'center', justifyContent: 'center' },
+  guideTitle: { fontWeight: '900', color: COLORS.text },
+  guideSub: { marginTop: 2, color: COLORS.muted, fontSize: 12 },
+  guideCta: { fontWeight: '900', color: COLORS.primary, fontSize: 12 },
+  sheetRoot: {
+    flex: 1,
+    backgroundColor: COLORS.overlay,
+  },
+  sheetCard: {
+    width: '100%',
+    maxHeight: '74%',
+    backgroundColor: COLORS.card,
+    borderRadius: 22,
+    paddingTop: 16,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    shadowColor: COLORS.black,
+    shadowOpacity: 0.18,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 10,
+    zIndex: 2,
+  },
+  sheetHead: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingBottom: 12 },
+  sheetTitle: { fontSize: 20, fontWeight: '900', color: COLORS.text },
+  sheetSub: { marginTop: 4, color: COLORS.muted, fontWeight: '700', fontSize: 13 },
+  sheetClose: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: COLORS.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sheetScroll: { flexGrow: 0 },
+  sheetList: { paddingBottom: 8, gap: 8 },
+  sheetEmpty: { textAlign: 'center', color: COLORS.muted, fontWeight: '700', paddingVertical: 28 },
+  sheetItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 12,
+    borderRadius: 16,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  sheetItemIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: COLORS.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sheetItemTitle: { fontWeight: '900', color: COLORS.text },
+  sheetItemMeta: { marginTop: 2, color: COLORS.muted, fontSize: 12, lineHeight: 16 },
 });

@@ -1,6 +1,7 @@
 import * as FileSystem from 'expo-file-system/legacy';
 
 import { normalizeDay } from './schedule';
+import { isDeviceNotificationsEnabled } from './appSettings';
 import {
   cancelReminderNotification,
   ensureNotificationPermission,
@@ -122,18 +123,21 @@ export async function syncClassSoonNotifications(email, classes) {
   await cancelReminderNotification(prev.notificationIds);
   const alerts = upcomingClassSoonAlerts(classes);
   const notificationIds = [];
-  if (!isExpoGo) {
+  const deviceOn = isDeviceNotificationsEnabled();
+  if (deviceOn && !isExpoGo) {
     await ensureNotificationPermission();
   }
-  for (const alert of alerts) {
-    const nid = await scheduleReminderNotification({
-      id: alert.id,
-      type: 'classSoon',
-      title: 'Clase por comenzar',
-      description: `${alert.className} empieza a las ${alert.time}. Faltan 5 minutos.`,
-      when: new Date(alert.notifyAt),
-    });
-    if (nid) notificationIds.push(nid);
+  if (deviceOn) {
+    for (const alert of alerts) {
+      const nid = await scheduleReminderNotification({
+        id: alert.id,
+        type: 'classSoon',
+        title: 'Clase por comenzar',
+        description: `${alert.className} empieza a las ${alert.time}. Faltan 5 minutos.`,
+        when: new Date(alert.notifyAt),
+      });
+      if (nid) notificationIds.push(nid);
+    }
   }
   const prevById = new Map((prev.alerts || []).map((a) => [a.id, a]));
   const merged = alerts.map((a) => ({

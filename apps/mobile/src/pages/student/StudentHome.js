@@ -1,6 +1,6 @@
 // Importaciones necesarias para el componente de inicio del estudiante
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { appAlert } from '../../ui/appNotice';
 import { useFocusEffect } from '@react-navigation/native';
 // Importación de íconos desde lucide-react-native
@@ -14,10 +14,12 @@ import {
   LogOut,
   ScanLine,
   User,
+  X,
 } from 'lucide-react-native';
 
 // Importaciones de configuración y contexto
 import { COLORS } from '../../ui/theme';
+import { useAppTheme, useColors } from '../../ui/ThemeContext';
 import Animated, { enterDown, listEnter } from '../../ui/motion';
 import { useAuth } from '../../state/auth';
 import { MY_CLASSES_URL, STUDENT_ATTENDANCE_HISTORY_URL, STUDENT_DAILY_SUMMARY_URL, STUDENT_NOTIFICATIONS_URL } from '../../config';
@@ -25,10 +27,15 @@ import { personDisplayName } from '../../utils/displayName';
 import { loadLocalProfile } from '../../utils/sessionStore';
 import { isStudentProfileComplete, studentProfileIncompleteMessage } from '../../utils/studentProfile';
 import { syncClassSoonNotifications } from '../../utils/classSoon';
-import { classStatusMeta } from '../../utils/schedule';
+import OverlayDismiss from '../../components/OverlayDismiss';
+import { classStatusMeta, formatScheduleFriendly } from '../../utils/schedule';
+import { hexToRgba, loadClassColors, resolveClassColor } from '../../utils/classColors';
 
 // Componente principal de la pantalla de inicio del estudiante
 export default function StudentHome({ navigation }) {
+  const COLORS = useColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
+  const { inAppNotifications } = useAppTheme();
   // Obtener datos de autenticación desde el contexto
   const { logout, authToken, fullName, email, program, semester, phone, setProgram, setSemester, setPhone, photoUri, setPhotoUri, notificationUnread, setNotificationUnread, classesRevision } = useAuth();
   // Estados locales del componente
@@ -36,6 +43,8 @@ export default function StudentHome({ navigation }) {
   const [loadingClasses, setLoadingClasses] = useState(false); // Estado de carga
   const [dailySummary, setDailySummary] = useState(null);
   const [attendanceStats, setAttendanceStats] = useState({ present: 0, late: 0, absent: 0, loaded: false });
+  const [classColors, setClassColors] = useState({});
+  const [classesOpen, setClassesOpen] = useState(false);
   const profileRef = React.useRef({ fullName, program, semester, phone });
   profileRef.current = { fullName, program, semester, phone };
 
@@ -224,6 +233,9 @@ export default function StudentHome({ navigation }) {
       (async () => {
         const local = await loadLocalProfile(email);
         if (cancelled) return;
+        const colors = await loadClassColors(email);
+        if (cancelled) return;
+        setClassColors(colors);
         const nextPhoto = String(local?.photoUri || '');
         if (nextPhoto) setPhotoUri(nextPhoto);
         const cur = profileRef.current;
@@ -267,6 +279,7 @@ export default function StudentHome({ navigation }) {
       description: 'Registra tu asistencia escaneando el código',
       Icon: ScanLine,
       bg: COLORS.primary,
+      iconColor: COLORS.white,
       onPress: () => navigation.navigate('StudentQr'),
       badge: null,
     },
@@ -275,7 +288,8 @@ export default function StudentHome({ navigation }) {
       title: 'Horario',
       description: 'Revisa tu horario de clases',
       Icon: Calendar,
-      bg: COLORS.blue,
+      bg: COLORS.surface,
+      iconColor: COLORS.icon,
       onPress: () => navigation.navigate('StudentSchedule'),
       badge: null,
     },
@@ -284,7 +298,8 @@ export default function StudentHome({ navigation }) {
       title: 'Recordatorio',
       description: 'Actividades y pendientes',
       Icon: BellRing,
-      bg: '#7C3AED',
+      bg: COLORS.surface,
+      iconColor: COLORS.icon,
       onPress: () => navigation.navigate('StudentReminders'),
       badge: null,
     },
@@ -293,7 +308,8 @@ export default function StudentHome({ navigation }) {
       title: 'Historial',
       description: 'Tu registro de asistencias',
       Icon: History,
-      bg: '#0F766E',
+      bg: COLORS.surface,
+      iconColor: COLORS.icon,
       onPress: () => navigation.navigate('StudentAttendanceHistory'),
       badge: null,
     },
@@ -302,20 +318,22 @@ export default function StudentHome({ navigation }) {
       title: 'Notificaciones',
       description: 'Mensajes y alertas importantes',
       Icon: Bell,
-      bg: '#F59E0B',
+      bg: COLORS.surface,
+      iconColor: COLORS.icon,
       onPress: () => navigation.navigate('StudentNotifications'),
-      badge: notificationUnread + (isStudentProfileComplete({ fullName, program, semester, phone }) ? 0 : 1),
+      badge: (inAppNotifications ? notificationUnread : 0) + (isStudentProfileComplete({ fullName, program, semester, phone }) ? 0 : 1),
     },
     {
       id: 'profile',
       title: 'Perfil',
       description: 'Tu información y configuración',
       Icon: User,
-      bg: '#10B981',
+      bg: COLORS.surface,
+      iconColor: COLORS.icon,
       onPress: () => navigation.navigate('StudentProfile'),
       badge: null,
     },
-  ]), [navigation, notificationUnread, fullName, program, semester, phone]);
+  ]), [navigation, notificationUnread, inAppNotifications, fullName, program, semester, phone, COLORS]);
 
   const asistenciaCount = attendanceStats.loaded
     ? attendanceStats.present
@@ -330,6 +348,12 @@ export default function StudentHome({ navigation }) {
 
   const openHistory = (filter) => {
     navigation.navigate('StudentAttendanceHistory', { filter });
+  };
+
+  const openClassDetails = (c, idx) => {
+    const classId = c?.classId || c?.id;
+    setClassesOpen(false);
+    navigation.navigate('StudentClassDetails', { classId, classPreview: c });
   };
 
   return (
@@ -358,22 +382,20 @@ export default function StudentHome({ navigation }) {
               }}
               style={styles.logoutBtn}
             >
-              <LogOut size={20} color="#fff" />
+              <LogOut size={20} color={COLORS.white} />
             </Pressable>
           </View>
 
           <View style={styles.statsBlock}>
+            <Pressable onPress={() => setClassesOpen(true)} style={styles.statCardWide}>
+              <Text style={styles.statValue}>{String(classesCount)}</Text>
+              <Text style={styles.statLabel}>Clases registradas</Text>
+            </Pressable>
             <View style={styles.statsRow}>
               <Pressable onPress={() => openHistory('present')} style={styles.statCard}>
                 <Text style={styles.statValue}>{String(asistenciaCount)}</Text>
                 <Text style={styles.statLabel}>Asistencia</Text>
               </Pressable>
-              <Pressable onPress={() => openHistory('all')} style={styles.statCard}>
-                <Text style={styles.statValue}>{String(classesCount)}</Text>
-                <Text style={styles.statLabel}>Clases registradas</Text>
-              </Pressable>
-            </View>
-            <View style={styles.statsRow}>
               <Pressable onPress={() => openHistory('late')} style={styles.statCard}>
                 <Text style={styles.statValue}>{String(retardoCount)}</Text>
                 <Text style={styles.statLabel}>Retardos</Text>
@@ -394,7 +416,7 @@ export default function StudentHome({ navigation }) {
                 <Animated.View key={item.id} entering={listEnter(idx)} style={styles.gridItemWrap}>
                 <Pressable onPress={item.onPress} style={styles.gridItem}>
                   <View style={[styles.gridIconWrap, { backgroundColor: item.bg }]}>
-                    <item.Icon size={24} color="#fff" />
+                    <item.Icon size={24} color={item.iconColor} />
                   </View>
                   <Text style={styles.gridTitle}>{item.title}</Text>
                   <Text style={styles.gridDesc} numberOfLines={2}>{item.description}</Text>
@@ -419,6 +441,7 @@ export default function StudentHome({ navigation }) {
               const group = c?.group || c?.groupName || c?.grupo || '';
               const classId = c?.classId || c?.id;
               const status = classStatusMeta(c);
+              const accent = resolveClassColor(classColors[String(classId || '')]);
               return (
                 <Animated.View
                   key={String(classId || idx)}
@@ -428,8 +451,8 @@ export default function StudentHome({ navigation }) {
                     onPress={() => navigation.navigate('StudentClassDetails', { classId, classPreview: c })}
                     style={styles.activityRow}
                   >
-                    <View style={[styles.activityIcon, { backgroundColor: COLORS.primary }]}>
-                      <BookOpen size={18} color="#fff" />
+                    <View style={[styles.activityIcon, { backgroundColor: hexToRgba(accent, 0.14) }]}>
+                      <BookOpen size={18} color={accent} />
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.activityTitle}>{title}</Text>
@@ -438,7 +461,7 @@ export default function StudentHome({ navigation }) {
                     <View style={[styles.statusPill, { backgroundColor: status.pillBg, borderColor: status.pillBorder }]}>
                       <Text style={[styles.statusPillText, { color: status.pillText }]}>{status.label}</Text>
                     </View>
-                    <ChevronRight size={18} color="#9CA3AF" />
+                    <ChevronRight size={18} color={COLORS.placeholder} />
                   </Pressable>
                 </Animated.View>
               );
@@ -450,11 +473,73 @@ export default function StudentHome({ navigation }) {
           </Animated.View>
         </View>
       </ScrollView>
+
+      <Modal
+        visible={classesOpen}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => setClassesOpen(false)}
+      >
+        <OverlayDismiss style={styles.sheetRoot} onClose={() => setClassesOpen(false)}>
+          <View style={styles.sheetCard}>
+            <View style={styles.sheetHead}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.sheetTitle}>Clases registradas</Text>
+                <Text style={styles.sheetSub}>
+                  {loadingClasses ? 'Cargando…' : `${classes.length} ${classes.length === 1 ? 'materia' : 'materias'}`}
+                </Text>
+              </View>
+              <Pressable onPress={() => setClassesOpen(false)} style={styles.sheetClose} hitSlop={8}>
+                <X size={18} color={COLORS.icon} />
+              </Pressable>
+            </View>
+            <ScrollView style={styles.sheetScroll} contentContainerStyle={styles.sheetList} showsVerticalScrollIndicator={false}>
+              {classes.length === 0 && !loadingClasses ? (
+                <Text style={styles.sheetEmpty}>Aún no estás inscrito en clases.</Text>
+              ) : classes.map((c, idx) => {
+                const title = c?.className || c?.subject || c?.name || 'Clase';
+                const group = c?.group || c?.groupName || c?.grupo || '';
+                const room = c?.room || c?.classroom || c?.aula || '';
+                const classId = c?.classId || c?.id || String(idx);
+                const status = classStatusMeta(c);
+                const schedule = formatScheduleFriendly(c);
+                const extra = [
+                  group ? `Grupo ${group}` : '',
+                  room ? `Aula ${room}` : '',
+                ].filter(Boolean).join(' · ');
+                const accent = resolveClassColor(classColors[String(classId || '')]);
+                return (
+                  <Pressable
+                    key={String(classId)}
+                    onPress={() => openClassDetails(c, idx)}
+                    style={styles.sheetItem}
+                  >
+                    <View style={[styles.sheetItemIcon, { backgroundColor: hexToRgba(accent, 0.14) }]}>
+                      <BookOpen size={16} color={accent} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.sheetItemTitle} numberOfLines={1}>{title}</Text>
+                      <Text style={styles.sheetItemMeta} numberOfLines={2}>
+                        {extra ? `${extra}${schedule ? `\n${schedule}` : ''}` : (schedule || 'Toca para ver detalles')}
+                      </Text>
+                    </View>
+                    <View style={[styles.statusPill, { backgroundColor: status.pillBg, borderColor: status.pillBorder }]}>
+                      <Text style={[styles.statusPillText, { color: status.pillText }]}>{status.label}</Text>
+                    </View>
+                    <ChevronRight size={16} color={COLORS.placeholder} />
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </OverlayDismiss>
+      </Modal>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (COLORS) => StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.background },
   scroll: { paddingBottom: 24 },
   header: {
@@ -469,7 +554,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -478,7 +563,7 @@ const styles = StyleSheet.create({
   avatarImg: { width: 40, height: 40, resizeMode: 'contain' },
   avatarPhoto: { width: 48, height: 48, resizeMode: 'cover' },
   welcome: { color: 'rgba(255,255,255,0.70)', fontSize: 14 },
-  userName: { color: '#fff', fontWeight: '800', fontSize: 16, marginTop: 2 },
+  userName: { color: COLORS.white, fontWeight: '800', fontSize: 16, marginTop: 2 },
   logoutBtn: {
     padding: 10,
     borderRadius: 999,
@@ -493,32 +578,40 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.12)',
     alignItems: 'center',
   },
-  statValue: { color: '#fff', fontSize: 22, fontWeight: '900' },
+  statCardWide: {
+    paddingVertical: 12,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    alignItems: 'center',
+  },
+  statValue: { color: COLORS.white, fontSize: 22, fontWeight: '900' },
   statLabel: { color: 'rgba(255,255,255,0.70)', fontSize: 12, marginTop: 2, textAlign: 'center' },
   content: { paddingHorizontal: 24, paddingTop: 18, marginTop: -16 },
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     borderRadius: 18,
     padding: 18,
-    shadowColor: '#000',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    shadowColor: COLORS.black,
     shadowOpacity: 0.08,
     shadowRadius: 14,
     shadowOffset: { width: 0, height: 8 },
     elevation: 2,
   },
-  sectionTitle: { color: '#1F2937', fontWeight: '800', marginBottom: 14 },
+  sectionTitle: { color: COLORS.text, fontWeight: '800', marginBottom: 14 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
   gridItemWrap: { width: '48%', marginBottom: 12 },
   gridItem: {
     width: '100%',
     borderWidth: 1,
-    borderColor: '#F3F4F6',
+    borderColor: COLORS.border,
     borderRadius: 14,
     padding: 14,
   },
   gridIconWrap: { width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
-  gridTitle: { fontWeight: '800', color: '#1F2937', fontSize: 14 },
-  gridDesc: { color: '#6B7280', fontSize: 12, marginTop: 4, lineHeight: 16 },
+  gridTitle: { fontWeight: '800', color: COLORS.text, fontSize: 14 },
+  gridDesc: { color: COLORS.muted, fontSize: 12, marginTop: 4, lineHeight: 16 },
   badge: {
     position: 'absolute',
     top: 10,
@@ -530,14 +623,59 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  badgeText: { color: '#fff', fontSize: 11, fontWeight: '900' },
+  badgeText: { color: COLORS.white, fontSize: 11, fontWeight: '900' },
   activityRow: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 14 },
   activityIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
-  activityTitle: { fontWeight: '800', color: '#1F2937', fontSize: 13 },
-  activitySub: { color: '#6B7280', fontSize: 12, marginTop: 2 },
+  activityTitle: { fontWeight: '800', color: COLORS.text, fontSize: 13 },
+  activitySub: { color: COLORS.muted, fontSize: 12, marginTop: 2 },
   pill: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999 },
   pillText: { fontSize: 12, fontWeight: '800' },
-  emptyText: { color: '#6B7280', textAlign: 'center', marginTop: 6 },
+  emptyText: { color: COLORS.muted, textAlign: 'center', marginTop: 6 },
   statusPill: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, borderWidth: 1 },
   statusPillText: { fontSize: 11, fontWeight: '900' },
+  sheetRoot: { flex: 1, backgroundColor: COLORS.overlay },
+  sheetCard: {
+    width: '100%',
+    maxHeight: '74%',
+    backgroundColor: COLORS.card,
+    borderRadius: 22,
+    paddingTop: 16,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  sheetHead: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingBottom: 12 },
+  sheetTitle: { fontSize: 20, fontWeight: '900', color: COLORS.text },
+  sheetSub: { marginTop: 4, color: COLORS.muted, fontWeight: '700', fontSize: 13 },
+  sheetClose: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: COLORS.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sheetScroll: { flexGrow: 0 },
+  sheetList: { paddingBottom: 8, gap: 8 },
+  sheetEmpty: { textAlign: 'center', color: COLORS.muted, fontWeight: '700', paddingVertical: 28 },
+  sheetItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 12,
+    borderRadius: 16,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  sheetItemIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sheetItemTitle: { fontWeight: '900', color: COLORS.text },
+  sheetItemMeta: { marginTop: 2, color: COLORS.muted, fontSize: 12, lineHeight: 16 },
 });

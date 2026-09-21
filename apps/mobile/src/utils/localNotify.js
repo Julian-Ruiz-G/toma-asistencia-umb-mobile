@@ -1,6 +1,8 @@
 import { Platform } from 'react-native';
+import { COLORS } from '../ui/theme';
 import Constants from 'expo-constants';
 import { requireOptionalNativeModule } from 'expo-modules-core';
+import { isDeviceNotificationsEnabled } from './appSettings';
 
 export const REMINDER_CHANNEL = 'umb-reminders';
 
@@ -27,6 +29,21 @@ function loadApi() {
     // Subpaths: no cargar el index (evita FCM / Expo Go push token).
     const { scheduleNotificationAsync } = require('expo-notifications/build/scheduleNotificationAsync');
     const { cancelScheduledNotificationAsync } = require('expo-notifications/build/cancelScheduledNotificationAsync');
+    let cancelAllScheduledNotificationsAsync = async () => {};
+    try {
+      cancelAllScheduledNotificationsAsync = require('expo-notifications/build/cancelScheduledNotificationAsync').cancelAllScheduledNotificationsAsync
+        || cancelAllScheduledNotificationsAsync;
+    } catch {
+      // ignore
+    }
+    try {
+      const cancelAll = require('expo-notifications/build/cancelAllScheduledNotificationsAsync');
+      if (typeof cancelAll?.cancelAllScheduledNotificationsAsync === 'function') {
+        cancelAllScheduledNotificationsAsync = cancelAll.cancelAllScheduledNotificationsAsync;
+      }
+    } catch {
+      // ignore
+    }
     const { setNotificationHandler } = require('expo-notifications/build/NotificationsHandler');
     const { addNotificationResponseReceivedListener } = require('expo-notifications/build/NotificationsEmitter');
     const permissions = require('expo-notifications/build/NotificationPermissions');
@@ -40,6 +57,7 @@ function loadApi() {
     return {
       scheduleNotificationAsync,
       cancelScheduledNotificationAsync,
+      cancelAllScheduledNotificationsAsync,
       setNotificationHandler,
       addNotificationResponseReceivedListener,
       getPermissionsAsync: permissions.getPermissionsAsync,
@@ -54,12 +72,13 @@ function loadApi() {
 }
 
 function handlerOptions() {
+  const enabled = isDeviceNotificationsEnabled();
   return {
-    shouldShowAlert: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
+    shouldShowAlert: enabled,
+    shouldShowBanner: enabled,
+    shouldShowList: enabled,
+    shouldPlaySound: enabled,
+    shouldSetBadge: enabled,
   };
 }
 
@@ -76,7 +95,7 @@ export async function setupLocalNotifications() {
         description: 'Avisos de actividades y pendientes del estudiante',
         importance: 4,
         vibrationPattern: [0, 250, 250, 250],
-        lightColor: '#B91C1C',
+        lightColor: COLORS.primary,
         sound: 'default',
       });
     } catch {
@@ -100,7 +119,43 @@ export async function ensureNotificationPermission() {
   return true;
 }
 
+export async function cancelAllScheduledNotifications() {
+  const api = loadApi();
+  if (!api) return;
+  try {
+    if (typeof api.cancelAllScheduledNotificationsAsync === 'function') {
+      await api.cancelAllScheduledNotificationsAsync();
+    }
+  } catch {
+    // ignore
+  }
+}
+
+export async function applyDeviceNotificationPreference(enabled) {
+  const api = loadApi();
+  if (!enabled) {
+    await cancelAllScheduledNotifications();
+    if (api) {
+      api.setNotificationHandler({
+        handleNotification: async () => ({
+          shouldShowAlert: false,
+          shouldShowBanner: false,
+          shouldShowList: false,
+          shouldPlaySound: false,
+          shouldSetBadge: false,
+        }),
+      });
+    }
+    return { ok: true };
+  }
+  if (isExpoGo || !api) return { ok: true, reason: 'expo-go' };
+  const granted = await ensureNotificationPermission();
+  if (!granted) return { ok: false, reason: 'permission' };
+  return { ok: true };
+}
+
 export async function scheduleReminderNotification(reminder) {
+  if (!isDeviceNotificationsEnabled()) return null;
   const api = loadApi();
   if (!api) return null;
   const when = reminder?.when instanceof Date ? reminder.when : null;
