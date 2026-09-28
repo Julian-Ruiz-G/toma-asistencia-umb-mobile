@@ -1,9 +1,10 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { ArrowLeft } from 'lucide-react-native';
 
 import { Button } from '../../components/Button';
+import JustificationAttachment from '../../components/JustificationAttachment';
 import { LIST_JUSTIFICATIONS_URL, REVIEW_JUSTIFICATION_URL } from '../../config';
 import { useAuth } from '../../state/auth';
 import { appAlert } from '../../ui/appNotice';
@@ -124,11 +125,7 @@ export default function Justifications({ navigation, route }) {
               <Text style={styles.name}>{personDisplayName(row.studentName, row.studentEmail || 'Estudiante')}</Text>
               <Text style={styles.meta}>{row.className || 'Clase'} · {row.sessionDate || 'Sin fecha'}</Text>
               <Text style={styles.reason}>{row.reason}</Text>
-              {row.photoUrl ? (
-                <Image source={{ uri: row.photoUrl }} style={styles.photo} resizeMode="cover" />
-              ) : row.hasFile ? (
-                <Text style={styles.file}>La foto está guardada, pero no se puede abrir todavía.</Text>
-              ) : null}
+              <JustificationAttachment row={row} onExpired={load} />
               <Text style={styles.status}>{STATUS_LABEL[row.status] || row.status}</Text>
               {row.reviewNote ? <Text style={styles.note}>Nota: {row.reviewNote}</Text> : null}
               {pending ? (
@@ -196,9 +193,7 @@ const createStyles = (COLORS) => StyleSheet.create({
   name: { fontWeight: '900', color: COLORS.text, fontSize: 16 },
   meta: { marginTop: 4, color: COLORS.textSecondary, fontWeight: '700' },
   reason: { marginTop: 10, color: COLORS.text, fontWeight: '600' },
-  photo: { width: '100%', height: 220, borderRadius: 12, marginTop: 12, backgroundColor: COLORS.surface },
   status: { marginTop: 8, marginBottom: 8, color: COLORS.primary, fontWeight: '800' },
-  file: { marginBottom: 8, color: COLORS.textSecondary, fontWeight: '700' },
   note: { marginBottom: 8, color: COLORS.textSecondary },
   input: {
     minHeight: 72,

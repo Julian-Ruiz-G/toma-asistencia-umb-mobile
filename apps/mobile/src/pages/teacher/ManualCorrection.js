@@ -167,7 +167,7 @@ export default function ManualCorrection({ navigation }) {
             value={searchQuery}
             onChangeText={setSearchQuery}
             placeholder="Buscar estudiante por nombre o código..."
-            placeholderTextcolor={COLORS.placeholder}
+            placeholderTextColor={COLORS.placeholder}
             style={styles.searchInput}
           />
         </View>
@@ -279,7 +279,7 @@ export default function ManualCorrection({ navigation }) {
               value={reasonInput}
               onChangeText={setReasonInput}
               placeholder="Ej: Estudiante llegó tarde por problemas de transporte..."
-              placeholderTextcolor={COLORS.placeholder}
+              placeholderTextColor={COLORS.placeholder}
               multiline
               style={styles.modalInput}
             />

@@ -4,7 +4,6 @@ import OverlayDismiss from '../../components/OverlayDismiss';
 import { appAlert } from '../../ui/appNotice';
 import * as ImagePicker from 'expo-image-picker';
 import {
-  ArrowLeft,
   Camera,
   CheckCircle,
   ChevronRight,
@@ -29,10 +28,12 @@ import {
   loadLocalProfile,
   saveLocalProfile,
 } from '../../utils/sessionStore';
+import { AdminNavButtons, useAdminDrawer } from '../../components/AdminDrawer';
 
 export default function AdminProfile({ navigation }) {
   const COLORS = useColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
+  const { drawer, openDrawer, goBack } = useAdminDrawer(navigation, 'AdminProfile');
   const { email, logout, fullName, photoUri, setPhotoUri } = useAuth();
   const [showPrivacyMenu, setShowPrivacyMenu] = useState(false);
   const [legalDoc, setLegalDoc] = useState(null);
@@ -78,10 +79,9 @@ export default function AdminProfile({ navigation }) {
 
   return (
     <View style={styles.root}>
+      {drawer}
       <Animated.View entering={enterDown(0, 360)} style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <ArrowLeft size={24} color={COLORS.textSecondary} />
-        </Pressable>
+        <AdminNavButtons onBack={goBack} onMenu={openDrawer} buttonStyle={styles.backBtn} size={24} color={COLORS.textSecondary} />
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Mi Perfil</Text>
           <Text style={styles.headerSubtitle}>Información del administrador</Text>
@@ -101,7 +101,7 @@ export default function AdminProfile({ navigation }) {
                   )}
                 </View>
                 <Pressable onPress={pickLocalPhoto} style={styles.cameraBtn}>
-                  <Camera size={16} color={COLORS.white} />
+                  <Camera size={16} color={COLORS.background} />
                 </Pressable>
               </View>
               <Text style={styles.profileName}>{displayName}</Text>

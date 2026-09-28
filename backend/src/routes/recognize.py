@@ -20,8 +20,8 @@ def handle_recognize_class(event, body):
 
     try:
         image_bytes = base64.b64decode(image_b64)
-    except Exception as e:
-        return _response(400, {'error': 'Invalid base64 image', 'details': str(e)})
+    except Exception:
+        return _response(400, {'error': 'Invalid base64 image'})
 
     img = None
     image_bytes_fixed = image_bytes
@@ -51,12 +51,11 @@ def handle_recognize_class(event, body):
         return _response(403, {'error': 'Forbidden'})
 
     try:
-        enroll_scan = dynamodb.scan(
+        enroll_scan = _ddb_scan(
             TableName=DDB_TABLE,
             FilterExpression='#T = :t AND #CID = :cid',
             ExpressionAttributeNames={'#T': 'Type', '#CID': 'ClassId'},
             ExpressionAttributeValues={':t': {'S': 'Enrollment'}, ':cid': {'S': class_id}},
-            Limit=300,
         )
     except Exception as e:
         logger.exception('DynamoDB scan failed (recognize-class enrollments)')
@@ -80,12 +79,11 @@ def handle_recognize_class(event, body):
 
     student_profile_by_email = {}
     try:
-        scan_students = dynamodb.scan(
+        scan_students = _ddb_scan(
             TableName=DDB_TABLE,
             FilterExpression='#R = :r',
             ExpressionAttributeNames={'#R': 'Role'},
             ExpressionAttributeValues={':r': {'S': 'student'}},
-            Limit=800,
         )
         for it in (scan_students or {}).get('Items') or []:
             e = (_ddb_s(it, 'Email') or '').strip().lower()
@@ -216,6 +214,11 @@ def handle_recognize_class(event, body):
     })
 
 def handle_recognize(event, body, image_bytes_fixed, img=None, width=None, height=None):
+    # Identifica personas a partir de una foto: solo para docentes y administradores.
+    payload = _verify_token(_get_bearer_token(event))
+    if not payload or payload.get('role') not in ('teacher', 'admin'):
+        return _response(401, {'error': 'Unauthorized'})
+
     # 1) Detect faces (use EXIF-corrected bytes for consistent coordinates)
     detect_resp = rekognition.detect_faces(Image={'Bytes': image_bytes_fixed}, Attributes=['DEFAULT'])
     face_details = detect_resp.get('FaceDetails', [])
@@ -236,7 +239,6 @@ def handle_recognize(event, body, image_bytes_fixed, img=None, width=None, heigh
             return _response(501, {
                 'error': 'MultiFaceRequiresPillow',
                 'message': 'Para reconocer múltiples rostros se requiere Pillow en Lambda. Re-deploy con sam build --use-container para incluir dependencias.',
-                'pillowImportError': PIL_IMPORT_ERROR,
                 'facesDetected': len(face_details),
                 'matches': [],
                 'recognized': False,

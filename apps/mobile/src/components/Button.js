@@ -24,6 +24,7 @@ export function Button({
   const textStyle =
     variant === 'outline' ? styles.textOutline :
     variant === 'ghost' ? styles.textGhost :
+    variant === 'secondary' ? styles.textSecondary :
     styles.textSolid;
 
   const sizeStyle =
@@ -44,7 +45,13 @@ export function Button({
       ]}
     >
       {isLoading ? (
-        <ActivityIndicator color={variant === 'outline' || variant === 'ghost' ? COLORS.primary : COLORS.white} />
+        <ActivityIndicator
+          color={
+            variant === 'outline' || variant === 'ghost' ? COLORS.primary
+              : variant === 'secondary' ? COLORS.background
+                : COLORS.white
+          }
+        />
       ) : null}
       <View style={{ marginLeft: isLoading ? 8 : 0 }}>
         <Text style={[styles.textBase, textStyle]}>{children}</Text>
@@ -92,6 +99,8 @@ function makeStyles(COLORS) {
   lg: { paddingVertical: 14, paddingHorizontal: 28 },
   textBase: { fontWeight: '700', fontSize: 16 },
   textSolid: { color: COLORS.white },
+  // El fondo de 'secondary' es COLORS.text: el texto usa el color opuesto para leerse en ambos temas.
+  textSecondary: { color: COLORS.background },
   textOutline: { color: COLORS.primary },
   textGhost: { color: COLORS.icon },
   });

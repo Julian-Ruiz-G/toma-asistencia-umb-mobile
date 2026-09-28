@@ -55,12 +55,11 @@ def handle_admin_students_by_class(event, body):
         return _response(401, {'error': 'Unauthorized'})
 
     try:
-        enroll_scan = dynamodb.scan(
+        enroll_scan = _ddb_scan(
             TableName=DDB_TABLE,
             FilterExpression='#T = :t',
             ExpressionAttributeNames={'#T': 'Type'},
             ExpressionAttributeValues={':t': {'S': 'Enrollment'}},
-            Limit=2000,
         )
         enroll_items = (enroll_scan or {}).get('Items') or []
     except Exception as e:
@@ -111,6 +110,116 @@ def handle_admin_students_by_class(event, body):
     classes = sorted(classes, key=lambda x: (str((x.get('class') or {}).get('className') or ''), str((x.get('class') or {}).get('classId') or '')))
     return _response(200, {'ok': True, 'classes': classes})
 
+def handle_admin_classes(event, body):
+    """Todas las clases con docente, horario, estudiantes, sesiones y resumen de asistencia."""
+    token = _get_bearer_token(event)
+    payload = _verify_token(token)
+    if not payload or payload.get('role') != 'admin':
+        return _response(401, {'error': 'Unauthorized'})
+
+    try:
+        class_items = _ddb_scan_all('#T = :t', {'#T': 'Type'}, {':t': {'S': 'Class'}})
+        enroll_items = _ddb_scan_all('#T = :t', {'#T': 'Type'}, {':t': {'S': 'Enrollment'}})
+        session_items = _ddb_scan_all('#T = :t', {'#T': 'Type'}, {':t': {'S': 'AttendanceSession'}})
+        attendance_items = _ddb_scan_all('#T = :t', {'#T': 'Type'}, {':t': {'S': 'Attendance'}})
+        teacher_items = _ddb_scan_all('#R = :r', {'#R': 'Role'}, {':r': {'S': 'teacher'}})
+    except Exception as e:
+        logger.exception('DynamoDB scan failed (admin-classes)')
+        return _response(500, {'error': 'DynamoDBScanFailed', 'details': str(e)})
+
+    teacher_names = {}
+    for t in teacher_items:
+        te = (_ddb_s(t, 'Email') or '').strip().lower()
+        if te:
+            teacher_names[te] = _ddb_s(t, 'FullName') or None
+
+    students_by_class = {}
+    for en in enroll_items:
+        cid = (_ddb_s(en, 'ClassId') or '').strip()
+        if not cid:
+            continue
+        students_by_class.setdefault(cid, []).append({
+            'email': (_ddb_s(en, 'StudentEmail') or '').strip().lower() or None,
+            'name': _display_person_name(_ddb_s(en, 'StudentName')) or None,
+            'code': _ddb_s(en, 'StudentCode') or None,
+        })
+
+    sessions_by_class = {}
+    for se in session_items:
+        cid = (_ddb_s(se, 'ClassId') or '').strip()
+        if cid:
+            sessions_by_class.setdefault(cid, []).append(_ddb_s(se, 'SessionDate') or '')
+
+    attendance_by_class = {}
+    for at in attendance_items:
+        cid = (_ddb_s(at, 'ClassId') or '').strip()
+        if not cid:
+            continue
+        bucket = attendance_by_class.setdefault(cid, {'asistencia': 0, 'retardo': 0, 'inasistencia': 0})
+        status = _normalize_attendance_status(_ddb_s(at, 'Status'))
+        if status in bucket:
+            bucket[status] += 1
+
+    classes = []
+    for c in class_items:
+        cid = (_ddb_s(c, 'ClassId') or '').strip()
+        if not cid:
+            continue
+        te = (_ddb_s(c, 'TeacherEmail') or '').strip().lower()
+        att = attendance_by_class.get(cid) or {'asistencia': 0, 'retardo': 0, 'inasistencia': 0}
+        att_total = sum(int(v) for v in att.values())
+        dates = sorted(d for d in sessions_by_class.get(cid, []) if d)
+        roster = sorted(
+            students_by_class.get(cid, []),
+            key=lambda r: str(r.get('name') or r.get('email') or '').lower(),
+        )
+        start_time = _ddb_s(c, 'StartTime')
+        end_time = _ddb_s(c, 'EndTime')
+        classes.append({
+            'classId': cid,
+            'className': _ddb_s(c, 'ClassName') or None,
+            'group': _ddb_s(c, 'Group') or None,
+            'subjectCode': _ddb_s(c, 'SubjectCode') or None,
+            'period': _ddb_s(c, 'Period') or None,
+            'room': (_ddb_s(c, 'Room') or '').strip() or None,
+            'startTime': start_time or None,
+            'endTime': end_time or None,
+            'schedule': _ddb_schedule(c, 'Schedule'),
+            'teacherEmail': te or None,
+            'teacherName': teacher_names.get(te),
+            'studentsCount': len(roster),
+            'students': roster,
+            'sessionsCount': len(dates),
+            'lastSessionDate': dates[-1] if dates else None,
+            'attendance': {
+                **att,
+                'total': att_total,
+                # Asistencia efectiva: presentes + retardos sobre el total registrado.
+                'rate': round((att['asistencia'] + att['retardo']) * 100 / att_total) if att_total else None,
+            },
+        })
+
+    classes.sort(key=lambda x: (str(x.get('className') or '').lower(), str(x.get('group') or '')))
+    return _response(200, {'ok': True, 'classes': classes})
+
+
+def _add_temp_password_update(new_password: str, updates: list, names: dict, vals: dict):
+    """Contraseña temporal puesta por el admin (la recuperación de cuentas pasa por el admin).
+    El usuario debe cambiarla al entrar. Devuelve una respuesta de error o None."""
+    issue = _password_issue(new_password)
+    if issue:
+        return _response(400, {'error': issue[0], 'message': issue[1]})
+    salt_hex = _new_salt_hex()
+    updates.extend(['#PS = :ps', '#PH = :ph', '#MCP = :mcp'])
+    names.update({'#PS': 'PasswordSalt', '#PH': 'PasswordHash', '#MCP': 'MustChangePassword'})
+    vals.update({
+        ':ps': {'S': salt_hex},
+        ':ph': {'S': _hash_password(new_password, salt_hex)},
+        ':mcp': {'BOOL': True},
+    })
+    return None
+
+
 def handle_admin_update_student(event, body):
     token = _get_bearer_token(event)
     payload = _verify_token(token)
@@ -122,6 +231,7 @@ def handle_admin_update_student(event, body):
     email = (body.get('email') or body.get('correo') or '').strip().lower()
     full_name = (body.get('fullName') or body.get('nombre') or body.get('nombreCompleto') or '').strip()
     student_code = (body.get('studentCode') or body.get('codigoEstudiante') or '').strip()
+    new_password = (body.get('password') or body.get('contrasena') or '').strip()
 
     if not email:
         return _response(400, {'error': 'Missing field: email'})
@@ -145,6 +255,10 @@ def handle_admin_update_student(event, body):
         updates.append('#SC = :sc')
         names['#SC'] = 'StudentCode'
         vals[':sc'] = {'S': student_code}
+    if new_password:
+        error = _add_temp_password_update(new_password, updates, names, vals)
+        if error:
+            return error
 
     if not updates:
         return _response(400, {'error': 'NoUpdates'})
@@ -161,7 +275,7 @@ def handle_admin_update_student(event, body):
         logger.exception('DynamoDB update_item failed (admin-update-student)')
         return _response(500, {'error': 'DynamoDBUpdateFailed', 'details': str(e)})
 
-    _audit_log(admin_email, 'admin', 'admin-update-student', {'studentEmail': email})
+    _audit_log(admin_email, 'admin', 'admin-update-student', {'studentEmail': email, 'passwordReset': bool(new_password)})
     return _response(200, {'ok': True})
 
 def handle_admin_delete_student(event, body):
@@ -228,12 +342,11 @@ def handle_admin_teachers(event, body):
         return _response(401, {'error': 'Unauthorized'})
 
     try:
-        users_scan = dynamodb.scan(
+        users_scan = _ddb_scan(
             TableName=DDB_TABLE,
             FilterExpression='(#R = :r) OR (#T = :t)',
             ExpressionAttributeNames={'#R': 'Role', '#T': 'Type'},
             ExpressionAttributeValues={':r': {'S': 'teacher'}, ':t': {'S': 'Teacher'}},
-            Limit=1000,
         )
         teacher_users = (users_scan or {}).get('Items') or []
     except Exception as e:
@@ -241,12 +354,11 @@ def handle_admin_teachers(event, body):
         return _response(500, {'error': 'DynamoDBScanFailed', 'details': str(e)})
 
     try:
-        class_scan = dynamodb.scan(
+        class_scan = _ddb_scan(
             TableName=DDB_TABLE,
             FilterExpression='#T = :t',
             ExpressionAttributeNames={'#T': 'Type'},
             ExpressionAttributeValues={':t': {'S': 'Class'}},
-            Limit=2000,
         )
         class_items = (class_scan or {}).get('Items') or []
     except Exception as e:
@@ -337,14 +449,9 @@ def handle_admin_update_teacher(event, body):
         names['#TC'] = 'TeacherCode'
         vals[':tc'] = {'S': teacher_code}
     if new_password:
-        salt_hex = _new_salt_hex()
-        pw_hash = _hash_password(new_password, salt_hex)
-        updates.append('#PS = :ps')
-        updates.append('#PH = :ph')
-        names['#PS'] = 'PasswordSalt'
-        names['#PH'] = 'PasswordHash'
-        vals[':ps'] = {'S': salt_hex}
-        vals[':ph'] = {'S': pw_hash}
+        error = _add_temp_password_update(new_password, updates, names, vals)
+        if error:
+            return error
 
     if not updates:
         return _response(400, {'error': 'NoUpdates'})
@@ -361,7 +468,7 @@ def handle_admin_update_teacher(event, body):
         logger.exception('DynamoDB update_item failed (admin-update-teacher)')
         return _response(500, {'error': 'DynamoDBUpdateFailed', 'details': str(e)})
 
-    _audit_log(admin_email, 'admin', 'admin-update-teacher', {'teacherEmail': email})
+    _audit_log(admin_email, 'admin', 'admin-update-teacher', {'teacherEmail': email, 'passwordReset': bool(new_password)})
     return _response(200, {'ok': True})
 
 def handle_admin_delete_teacher(event, body):
@@ -433,12 +540,11 @@ def handle_admin_logs(event, body):
         limit = 200
 
     try:
-        scan_resp = dynamodb.scan(
+        scan_resp = _ddb_scan(
             TableName=DDB_TABLE,
             FilterExpression='#T = :t',
             ExpressionAttributeNames={'#T': 'Type'},
             ExpressionAttributeValues={':t': {'S': 'AuditLog'}},
-            Limit=limit,
         )
     except Exception as e:
         logger.exception('DynamoDB scan failed (admin-logs)')
@@ -461,7 +567,7 @@ def handle_admin_logs(event, body):
             'details': details,
         })
 
-    logs = sorted(logs, key=lambda x: int(x.get('createdAt') or 0), reverse=True)
+    logs = sorted(logs, key=lambda x: int(x.get('createdAt') or 0), reverse=True)[:limit]
     return _response(200, {'ok': True, 'logs': logs})
 
 def handle_admin_consents(event, body):
@@ -474,46 +580,36 @@ def handle_admin_consents(event, body):
     if not payload or payload.get('role') != 'admin':
         return _response(401, {'error': 'Unauthorized'})
 
+    if action in ('request-all', 'request-all-consents'):
+        return _handle_request_all_consents(str(payload.get('sub') or '').strip().lower(), body)
+
     try:
-        scan_resp = dynamodb.scan(
-            TableName=DDB_TABLE,
-            FilterExpression='#R = :r',
-            ExpressionAttributeNames={'#R': 'Role'},
-            ExpressionAttributeValues={':r': {'S': 'student'}},
-            Limit=1000,
-        )
+        users = _consent_users('all')
     except Exception as e:
         logger.exception('DynamoDB scan failed (admin-consents)')
         return _response(500, {'error': 'DynamoDBScanFailed', 'details': str(e)})
 
-    items = (scan_resp or {}).get('Items') or []
     rows = []
-    for it in items:
-        email = _ddb_s(it, 'Email') or None
-        full_name = _ddb_s(it, 'FullName') or None
-        student_code = _ddb_s(it, 'StudentCode') or None
+    for role, it in users:
         flags = _student_consent_summary(it)
-        if flags['biometricConsent']:
-            status = 'approved'
-        elif flags['hasFace']:
-            status = 'approved'
-        else:
-            status = 'pending'
-
+        missing = [k for k, _ in _profile_missing(it, role, consents_only=True)]
         rows.append({
-            'email': email,
-            'fullName': full_name,
-            'studentCode': student_code,
-            'type': 'biometric',
-            'status': status,
+            'role': role,
+            'email': _ddb_s(it, 'Email') or None,
+            'fullName': _ddb_s(it, 'FullName') or None,
+            'studentCode': _ddb_s(it, 'StudentCode') or None,
+            'teacherCode': _ddb_s(it, 'TeacherCode') or None,
+            'status': 'approved' if not missing else 'pending',
+            'missing': missing,
             'acceptTerms': flags['acceptTerms'],
             'acceptPrivacy': flags['acceptPrivacy'],
-            'biometricConsent': flags['biometricConsent'],
-            'hasFace': flags['hasFace'],
+            # Los docentes no registran rostro: la biometría no aplica.
+            'biometricConsent': flags['biometricConsent'] if role == 'student' else None,
+            'hasFace': flags['hasFace'] if role == 'student' else None,
             'updatedAt': flags['updatedAt'],
         })
 
-    rows = sorted(rows, key=lambda x: str(x.get('email') or ''))
+    rows = sorted(rows, key=lambda x: (x['role'] != 'student', str(x.get('fullName') or x.get('email') or '').lower()))
     return _response(200, {'ok': True, 'consents': rows})
 
 def handle_admin_create_teacher(event, body):
@@ -656,9 +752,9 @@ def _shift_ymd(ymd, days):
         return ''
 
 
-def _safe_scan(filter_expression, names, values, limit_per_page=300, max_pages=25):
+def _safe_scan(filter_expression, names, values):
     try:
-        return _ddb_scan_all(filter_expression, names, values, limit_per_page, max_pages) or []
+        return _ddb_scan_all(filter_expression, names, values) or []
     except Exception:
         logger.exception('DynamoDB scan failed (admin dashboard)')
         return []
@@ -704,6 +800,7 @@ def handle_admin_dashboard_stats(event, body):
         {'#T': 'Type', '#SD': 'SessionDate'},
         {':t': {'S': 'AttendanceSession'}, ':sd': {'S': semester_start}},
     )
+    justification_items = _safe_scan('#T = :t', {'#T': 'Type'}, {':t': {'S': 'Justification'}})
 
     class_meta = {}
     classes_by_teacher = {}
@@ -903,6 +1000,18 @@ def handle_admin_dashboard_stats(event, body):
     attendance_today = int(status_today['asistencia'] + status_today['retardo'] + status_today['inasistencia'])
     sessions_today = len(sessions_today_list)
 
+    justif_pending = 0
+    for it in justification_items:
+        deadline = _as_int(_ddb_n(it, 'DeadlineEpoch'))
+        if (_ddb_s(it, 'Status') or 'enviada') == 'enviada' and not (deadline and now > deadline):
+            justif_pending += 1
+
+    consents_students = sum(
+        1 for s in students
+        if not (s.get('acceptTerms') and s.get('acceptPrivacy') and (s.get('biometricConsent') or s.get('hasFace')))
+    )
+    consents_teachers = sum(1 for t in teachers if not (t.get('acceptTerms') is True and t.get('acceptPrivacy') is True))
+
     return _response(200, {
         'ok': True,
         'date': today,
@@ -950,58 +1059,42 @@ def handle_admin_dashboard_stats(event, body):
         },
         'reports': {'total': sessions_today},
         'classes': {'total': len(class_items)},
+        'justifications': {'total': len(justification_items), 'pending': justif_pending},
+        'consents': {
+            'studentsPending': consents_students,
+            'teachersPending': consents_teachers,
+            'pending': consents_students + consents_teachers,
+        },
     })
 
 
-def handle_admin_request_profile(event, body):
-    token = _get_bearer_token(event)
-    payload = _verify_token(token)
-    if not payload or payload.get('role') != 'admin':
-        return _response(401, {'error': 'Unauthorized'})
+_CONSENT_KEYS = ('terms', 'privacy', 'biometric')
 
-    admin_email = str(payload.get('sub') or '').strip().lower()
-    email = str((body or {}).get('email') or (body or {}).get('correo') or '').strip().lower()
-    role = str((body or {}).get('role') or 'student').strip().lower()
-    if role not in ('student', 'teacher'):
-        role = 'student'
-    if not email:
-        return _response(400, {'error': 'Missing field: email'})
 
-    if role == 'teacher':
-        item = _scan_find_user_by_email(email, roles=['teacher'], types=['Teacher'])
-    else:
-        item = _scan_find_student_by_email(email)
-    if not item:
-        return _response(404, {'error': 'UserNotFound'})
-
+def _profile_missing(item: dict, role: str, consents_only: bool = False) -> list:
+    """Datos y consentimientos que le faltan a un usuario, como [(clave, etiqueta)]."""
     flags = _student_consent_summary(item)
-    terms = _ddb_bool(item, 'AcceptTerms')
-    privacy = _ddb_bool(item, 'AcceptPrivacy')
     missing = []
-    if not (_ddb_s(item, 'FullName') or '').strip():
+    if not consents_only and not (_ddb_s(item, 'FullName') or '').strip():
         missing.append(('name', 'nombre completo'))
-    if role == 'student':
+    if role == 'student' and not consents_only:
         if not _first_s(item, 'Program', 'Carrera', 'Career'):
             missing.append(('program', 'carrera'))
         if not _first_s(item, 'Semester', 'Semestre'):
             missing.append(('semester', 'semestre'))
         if not _first_s(item, 'Phone', 'Telefono', 'Tel'):
             missing.append(('phone', 'teléfono'))
-        if terms is not True:
-            missing.append(('terms', 'términos y condiciones'))
-        if privacy is not True:
-            missing.append(('privacy', 'política de privacidad'))
-        if not flags.get('biometricConsent') and not flags.get('hasFace'):
-            missing.append(('biometric', 'consentimiento biométrico'))
-    else:
-        if terms is not True:
-            missing.append(('terms', 'términos y condiciones'))
-        if privacy is not True:
-            missing.append(('privacy', 'política de privacidad'))
+    if _ddb_bool(item, 'AcceptTerms') is not True:
+        missing.append(('terms', 'términos y condiciones'))
+    if _ddb_bool(item, 'AcceptPrivacy') is not True:
+        missing.append(('privacy', 'política de privacidad'))
+    if role == 'student' and not flags.get('biometricConsent') and not flags.get('hasFace'):
+        missing.append(('biometric', 'consentimiento biométrico'))
+    return missing
 
-    if not missing:
-        return _response(400, {'error': 'NothingToRequest'})
 
+def _send_profile_request(email: str, role: str, missing: list, now: int) -> dict:
+    """Notificación que lleva al usuario a completar lo que falta."""
     keys = [k for k, _ in missing]
     if any(k in ('name', 'program', 'semester', 'phone') for k in keys):
         open_to = 'edit'
@@ -1018,7 +1111,6 @@ def handle_admin_request_profile(event, body):
     else:
         message = f'Administración te pide completar: {", ".join(labels[:-1])} y {labels[-1]}.'
 
-    now = int(time.time())
     notif = _upsert_student_notification(
         email,
         f'NOTIF#adminreq#{email}'.lower(),
@@ -1034,18 +1126,78 @@ def handle_admin_request_profile(event, body):
         },
         keep_created=False,
     )
+    return {'missing': keys, 'open': open_to, 'notification': notif}
+
+
+def _consent_users(role: str) -> list:
+    """[(rol, item)] de estudiantes y/o docentes."""
+    out = []
+    if role in ('student', 'all'):
+        for it in _ddb_scan_all('#R = :r', {'#R': 'Role'}, {':r': {'S': 'student'}}):
+            out.append(('student', it))
+    if role in ('teacher', 'all'):
+        for it in _ddb_scan_all('#R = :r', {'#R': 'Role'}, {':r': {'S': 'teacher'}}):
+            out.append(('teacher', it))
+    return out
+
+
+def handle_admin_request_profile(event, body):
+    token = _get_bearer_token(event)
+    payload = _verify_token(token)
+    if not payload or payload.get('role') != 'admin':
+        return _response(401, {'error': 'Unauthorized'})
+
+    admin_email = str(payload.get('sub') or '').strip().lower()
+    email = str((body or {}).get('email') or (body or {}).get('correo') or '').strip().lower()
+    role = str((body or {}).get('role') or 'student').strip().lower()
+    if role not in ('student', 'teacher'):
+        role = 'student'
+    consents_only = bool((body or {}).get('consentsOnly'))
+    if not email:
+        return _response(400, {'error': 'Missing field: email'})
+
+    if role == 'teacher':
+        item = _scan_find_user_by_email(email, roles=['teacher'], types=['Teacher'])
+    else:
+        item = _scan_find_student_by_email(email)
+    if not item:
+        return _response(404, {'error': 'UserNotFound'})
+
+    missing = _profile_missing(item, role, consents_only=consents_only)
+    if not missing:
+        return _response(400, {'error': 'NothingToRequest'})
+
+    sent = _send_profile_request(email, role, missing, int(time.time()))
     _audit_log(admin_email, 'admin', 'admin-request-profile', {
         'userEmail': email,
         'role': role,
-        'missing': keys,
-        'open': open_to,
+        'missing': sent['missing'],
+        'open': sent['open'],
     })
+    return _response(200, {'ok': True, 'email': email, **sent})
+
+
+def _handle_request_all_consents(admin_email: str, body) -> dict:
+    """Pide los consentimientos pendientes a todos los usuarios del rol indicado."""
+    role = str((body or {}).get('role') or 'all').strip().lower()
+    if role not in ('student', 'teacher', 'all'):
+        role = 'all'
+    now = int(time.time())
+    sent = {'student': 0, 'teacher': 0}
+    for user_role, item in _consent_users(role):
+        email = (_ddb_s(item, 'Email') or '').strip().lower()
+        if not email:
+            continue
+        missing = _profile_missing(item, user_role, consents_only=True)
+        if not missing:
+            continue
+        _send_profile_request(email, user_role, missing, now)
+        sent[user_role] += 1
+    _audit_log(admin_email, 'admin', 'admin-request-all-consents', {'role': role, **sent})
     return _response(200, {
         'ok': True,
-        'email': email,
-        'missing': keys,
-        'open': open_to,
-        'notification': notif,
+        'role': role,
+        'studentsNotified': sent['student'],
+        'teachersNotified': sent['teacher'],
+        'total': sent['student'] + sent['teacher'],
     })
-
-

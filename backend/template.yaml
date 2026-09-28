@@ -9,26 +9,29 @@ Parameters:
     Description: Rekognition collection ID
   AuthSecret:
     Type: String
-    Default: ""
-    Description: HMAC secret for auth tokens (Bearer). If empty, ADMIN_TOKEN is used.
+    NoEcho: true
+    MinLength: 32
+    Description: Secreto HMAC para firmar los JWT. Obligatorio y distinto de AdminToken (python -c "import secrets; print(secrets.token_urlsafe(48))").
   AdminToken:
     Type: String
+    NoEcho: true
     Default: ""
-    Description: Admin token for /register-teacher (sent via x-admin-token)
+    Description: Token para /register-teacher (header x-admin-token). Vacío desactiva ese endpoint.
   DDBTableName:
     Type: String
     Default: face_recognition
     Description: DynamoDB table with RekognitionId (PK) and FullName (S)
   FaceMatchThreshold:
     Type: Number
-    Default: 70
+    Default: 85
+    Description: Similitud mínima (0-100) para aceptar una coincidencia facial en la foto de grupo.
   MaxMatches:
     Type: Number
     Default: 5
   SesFromEmail:
     Type: String
     Default: ""
-    Description: Correo verificado en Amazon SES para recuperación y avisos de contraseña. Vacío desactiva el envío.
+    Description: Correo verificado en Amazon SES para avisos (cuentas creadas por el administrador). Vacío desactiva el envío.
 
 Globals:
   Function:

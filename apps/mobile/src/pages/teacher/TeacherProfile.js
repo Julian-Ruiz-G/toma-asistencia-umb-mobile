@@ -139,7 +139,7 @@ export default function TeacherProfile({ navigation, route }) {
                   )}
                 </View>
                 <Pressable onPress={pickLocalPhoto} style={styles.cameraBtn}>
-                  <Camera size={16} color={COLORS.white} />
+                  <Camera size={16} color={COLORS.background} />
                 </Pressable>
               </View>
               <Text style={styles.profileName}>{displayName}</Text>

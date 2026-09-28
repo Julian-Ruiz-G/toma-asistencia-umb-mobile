@@ -323,40 +323,26 @@ def handle_join_class(event, body):
 
     class_payload = _verify_token(class_token)
     if not class_payload or class_payload.get('role') != 'class':
-        return _response(400, {'error': 'InvalidClassToken'})
+        return _response(400, {
+            'error': 'InvalidClassToken',
+            'message': 'El QR de la clase no es válido o ya venció. Pide al docente que lo genere de nuevo.',
+        })
 
     class_id = str(class_payload.get('classId') or '').strip()
     teacher_email = str(class_payload.get('teacherEmail') or '').strip().lower()
     if not class_id or not teacher_email:
-        return _response(400, {'error': 'InvalidClassToken'})
+        return _response(400, {
+            'error': 'InvalidClassToken',
+            'message': 'El QR de la clase no es válido o ya venció. Pide al docente que lo genere de nuevo.',
+        })
 
     student_email = str(payload.get('sub') or '').strip().lower()
     now = int(time.time())
 
-    provided_name = (body.get('studentName') or body.get('fullName') or '').strip()
-    provided_code = (body.get('studentCode') or '').strip()
-
-    student_name = None
-    student_code = provided_code or None
-    try:
-        scan_resp = dynamodb.scan(
-            TableName=DDB_TABLE,
-            FilterExpression='#E = :e AND #R = :r',
-            ExpressionAttributeNames={'#E': 'Email', '#R': 'Role'},
-            ExpressionAttributeValues={':e': {'S': student_email}, ':r': {'S': 'student'}},
-            Limit=1,
-        )
-        items = (scan_resp or {}).get('Items') or []
-        if items:
-            it = items[0]
-            student_name = _display_person_name(_ddb_s(it, 'FullName'), provided_name) or None
-            if not student_code:
-                student_code = _ddb_s(it, 'StudentCode') or None
-        else:
-            student_name = _display_person_name(provided_name) or None
-    except Exception:
-        student_name = _display_person_name(provided_name) or None
-        student_code = student_code
+    # Nombre y código salen del perfil guardado, no del body (lo controla el cliente).
+    profile = _scan_find_student_by_email(student_email) or {}
+    student_name = _display_person_name(_ddb_s(profile, 'FullName')) or None
+    student_code = _ddb_s(profile, 'StudentCode') or None
 
     enroll_pk = f"ENROLL#{class_id}#{student_email}"
     enroll_item = {
@@ -439,12 +425,11 @@ def handle_my_classes(event, body):
     if role == 'teacher':
         enroll_counts = {}
         try:
-            enroll_scan = dynamodb.scan(
+            enroll_scan = _ddb_scan(
                 TableName=DDB_TABLE,
                 FilterExpression='#T = :t AND #TE = :e',
                 ExpressionAttributeNames={'#T': 'Type', '#TE': 'TeacherEmail'},
                 ExpressionAttributeValues={':t': {'S': 'Enrollment'}, ':e': {'S': email}},
-                Limit=1000,
             )
             enroll_items = (enroll_scan or {}).get('Items') or []
             for en in enroll_items:
@@ -456,12 +441,11 @@ def handle_my_classes(event, body):
             enroll_counts = {}
 
         try:
-            scan_resp = dynamodb.scan(
+            scan_resp = _ddb_scan(
                 TableName=DDB_TABLE,
                 FilterExpression='#T = :t AND #TE = :e',
                 ExpressionAttributeNames={'#T': 'Type', '#TE': 'TeacherEmail'},
                 ExpressionAttributeValues={':t': {'S': 'Class'}, ':e': {'S': email}},
-                Limit=200,
             )
         except Exception as e:
             logger.exception('DynamoDB scan failed (my-classes teacher)')
@@ -491,11 +475,10 @@ def handle_my_classes(event, body):
                     'FilterExpression': '#T = :t AND #SE = :e',
                     'ExpressionAttributeNames': {'#T': 'Type', '#SE': 'StudentEmail'},
                     'ExpressionAttributeValues': {':t': {'S': 'Enrollment'}, ':e': {'S': email}},
-                    'Limit': 200,
                 }
                 if last_key:
                     scan_kwargs['ExclusiveStartKey'] = last_key
-                scan_resp = dynamodb.scan(**scan_kwargs)
+                scan_resp = _ddb_scan(**scan_kwargs)
                 enrolls.extend((scan_resp or {}).get('Items') or [])
                 last_key = (scan_resp or {}).get('LastEvaluatedKey')
                 if not last_key:
@@ -591,12 +574,11 @@ def handle_class_details(event, body):
         return _response(403, {'error': 'Forbidden'})
 
     try:
-        scan_resp = dynamodb.scan(
+        scan_resp = _ddb_scan(
             TableName=DDB_TABLE,
             FilterExpression='#T = :t AND #CID = :cid',
             ExpressionAttributeNames={'#T': 'Type', '#CID': 'ClassId'},
             ExpressionAttributeValues={':t': {'S': 'Enrollment'}, ':cid': {'S': class_id}},
-            Limit=300,
         )
     except Exception as e:
         logger.exception('DynamoDB scan failed (class-details enrollments)')
@@ -609,8 +591,8 @@ def handle_class_details(event, body):
     attendance_session = None
     try:
         today = time.strftime('%Y-%m-%d', time.gmtime(time.time() + CO_TZ_OFFSET_SECONDS))
-        session_scan_resp = dynamodb.scan(
-            TableName=DDB_TABLE,
+        session_scan_resp = _ddb_scan(
+            first_only=True,
             FilterExpression='#T = :t AND #CID = :cid AND #SD = :sd',
             ExpressionAttributeNames={
                 '#T': 'Type',
@@ -622,7 +604,6 @@ def handle_class_details(event, body):
                 ':cid': {'S': class_id},
                 ':sd': {'S': today}
             },
-            Limit=1,
         )
         session_items = (session_scan_resp or {}).get('Items') or []
         if session_items:
@@ -657,11 +638,10 @@ def handle_class_details(event, body):
                         ':t': {'S': 'AttendanceSession'},
                         ':cid': {'S': class_id},
                     },
-                    'Limit': 100,
                 }
                 if last_key_sessions:
                     scan_sess_kwargs['ExclusiveStartKey'] = last_key_sessions
-                sess_resp = dynamodb.scan(**scan_sess_kwargs)
+                sess_resp = _ddb_scan(**scan_sess_kwargs)
                 seen_ids = {row.get('sessionId') for row in attendance_sessions_full}
                 for it in (sess_resp or {}).get('Items') or []:
                     sid = (_ddb_s(it, 'SessionId') or '').strip()
@@ -719,12 +699,11 @@ def handle_class_details(event, body):
     try:
         needs_profiles = True
         if needs_profiles:
-            scan_students = dynamodb.scan(
+            scan_students = _ddb_scan(
                 TableName=DDB_TABLE,
                 FilterExpression='#R = :r',
                 ExpressionAttributeNames={'#R': 'Role'},
                 ExpressionAttributeValues={':r': {'S': 'student'}},
-                Limit=500,
             )
             for it in (scan_students or {}).get('Items') or []:
                 e = (_ddb_s(it, 'Email') or '').strip().lower()
@@ -884,12 +863,11 @@ def handle_remove_student_from_class(event, body):
 
     if not deleted:
         try:
-            scan_resp = dynamodb.scan(
+            scan_resp = _ddb_scan(
                 TableName=DDB_TABLE,
                 FilterExpression='#T = :t AND #CID = :cid',
                 ExpressionAttributeNames={'#T': 'Type', '#CID': 'ClassId'},
                 ExpressionAttributeValues={':t': {'S': 'Enrollment'}, ':cid': {'S': class_id}},
-                Limit=300,
             )
             for en in (scan_resp or {}).get('Items') or []:
                 se = (_ddb_s(en, 'StudentEmail') or '').strip().lower()
@@ -980,7 +958,7 @@ def handle_delete_class(event, body):
     # ==========================================
 
     try:
-        enroll_scan = dynamodb.scan(
+        enroll_scan = _ddb_scan(
             TableName=DDB_TABLE,
             FilterExpression='ClassId = :cid AND begins_with(RekognitionId, :prefix)',
             ExpressionAttributeValues={
@@ -1010,7 +988,7 @@ def handle_delete_class(event, body):
     # ==========================================
 
     try:
-        session_scan = dynamodb.scan(
+        session_scan = _ddb_scan(
             TableName=DDB_TABLE,
             FilterExpression='ClassId = :cid AND begins_with(RekognitionId, :prefix)',
             ExpressionAttributeValues={
@@ -1031,7 +1009,7 @@ def handle_delete_class(event, body):
             # =========================
 
             try:
-                attendance_scan = dynamodb.scan(
+                attendance_scan = _ddb_scan(
                     TableName=DDB_TABLE,
                     FilterExpression='SessionId = :sid',
                     ExpressionAttributeValues={

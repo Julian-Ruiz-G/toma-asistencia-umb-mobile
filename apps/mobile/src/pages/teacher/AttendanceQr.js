@@ -1,24 +1,38 @@
-import React, { useMemo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { COLORS } from '../../ui/theme';
-import { useColors } from '../../ui/ThemeContext';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
+import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { ArrowLeft } from 'lucide-react-native';
-import QRCode from 'react-native-qrcode-svg';
+import ScannableQR from '../../components/ScannableQR';
 
 import { Button } from '../../components/Button';
+import { CREATE_ATTENDANCE_QR_URL } from '../../config';
+import { useAuth } from '../../state/auth';
+import { useColors } from '../../ui/ThemeContext';
 
-export default function AttendanceQr({ navigation, route }) {
-  const COLORS = useColors();
-  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
-  const attendance = route?.params?.attendance;
-  const attendanceToken =
+// El token del QR vence a los 90 s en el backend; se renueva antes para que una
+// captura compartida con alguien fuera del salón deje de servir enseguida.
+const REFRESH_MS = 45 * 1000;
+
+function pickAttendanceToken(attendance) {
+  return (
     attendance?.attendanceToken ||
     attendance?.token ||
     attendance?.attendance?.attendanceToken ||
     attendance?.session?.attendanceToken ||
     attendance?.attendanceSession?.attendanceToken ||
     attendance?.attendance_session?.attendanceToken ||
-    '';
+    ''
+  );
+}
+
+export default function AttendanceQr({ navigation, route }) {
+  const COLORS = useColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
+  const { width: windowWidth } = useWindowDimensions();
+  // Tarjeta: ancho de pantalla - 48 de márgenes (máx. 360) - 36 de relleno; el QR suma 32 de borde blanco.
+  const qrSize = Math.max(160, Math.min(240, Math.min(windowWidth - 48, 360) - 36 - 32));
+  const { authToken } = useAuth();
+  const attendance = route?.params?.attendance;
   const corte = attendance?.corte || attendance?.session?.corte || attendance?.attendanceSession?.corte || '';
   const sessionId =
     attendance?.sessionId ||
@@ -26,6 +40,55 @@ export default function AttendanceQr({ navigation, route }) {
     attendance?.attendanceSession?.sessionId ||
     attendance?.attendance_session?.sessionId ||
     '';
+  const classId =
+    attendance?.classId ||
+    attendance?.session?.classId ||
+    attendance?.attendanceSession?.classId ||
+    '';
+
+  const [attendanceToken, setAttendanceToken] = useState(pickAttendanceToken(attendance));
+  const [stoppedMessage, setStoppedMessage] = useState('');
+  const stoppedRef = useRef(false);
+
+  const refreshToken = useCallback(async () => {
+    if (stoppedRef.current || !CREATE_ATTENDANCE_QR_URL || !authToken || !classId) return;
+    try {
+      const resp = await fetch(CREATE_ATTENDANCE_QR_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({ classId, corte: corte || undefined }),
+      });
+      let json = null;
+      try {
+        json = JSON.parse(await resp.text());
+      } catch {
+        json = null;
+      }
+      if (resp.ok && json?.attendanceToken) {
+        setAttendanceToken(String(json.attendanceToken));
+        return;
+      }
+      if (resp.status === 400 || resp.status === 403) {
+        // Fuera del horario de clase (u otra regla del backend): se deja de renovar.
+        stoppedRef.current = true;
+        setAttendanceToken('');
+        setStoppedMessage(json?.message || 'El QR de asistencia ya no está disponible.');
+      }
+    } catch {
+      // Sin conexión: se reintenta en el siguiente ciclo.
+    }
+  }, [authToken, classId, corte]);
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshToken();
+      const id = setInterval(refreshToken, REFRESH_MS);
+      return () => clearInterval(id);
+    }, [refreshToken])
+  );
 
   return (
     <View style={styles.root}>
@@ -43,13 +106,16 @@ export default function AttendanceQr({ navigation, route }) {
           <Text style={styles.sub}>Corte: {corte}</Text>
 
           {attendanceToken ? (
-            <View style={styles.qrWrap}>
-              <View style={styles.qrBox}>
-                <QRCode value={String(attendanceToken)} size={240} />
+            <>
+              <View style={styles.qrWrap}>
+                <View style={styles.qrBox}>
+                  <ScannableQR value={String(attendanceToken)} size={qrSize} />
+                </View>
               </View>
-            </View>
+              <Text style={styles.muted}>El código se renueva solo cada 45 segundos.</Text>
+            </>
           ) : (
-            <Text style={styles.muted}>No se pudo obtener el token de asistencia</Text>
+            <Text style={styles.muted}>{stoppedMessage || 'No se pudo obtener el token de asistencia'}</Text>
           )}
 
           <View style={{ height: 14 }} />
@@ -75,7 +141,8 @@ export default function AttendanceQr({ navigation, route }) {
 }
 
 const createStyles = (COLORS) => StyleSheet.create({
-  root: { flex: 1, backgroundColor: COLORS.text },
+  // Fondo oscuro fijo en ambos temas: el texto de la cabecera es blanco.
+  root: { flex: 1, backgroundColor: COLORS.scheme === 'dark' ? COLORS.background : COLORS.text },
   header: {
     paddingTop: 54,
     paddingHorizontal: 24,
@@ -92,6 +159,6 @@ const createStyles = (COLORS) => StyleSheet.create({
   title: { fontSize: 16, fontWeight: '900', color: COLORS.text, textAlign: 'center' },
   sub: { marginTop: 6, color: COLORS.muted, textAlign: 'center' },
   qrWrap: { marginTop: 14, alignItems: 'center' },
-  qrBox: { backgroundColor: COLORS.card, borderRadius: 16, padding: 10 },
+  qrBox: { borderRadius: 16 },
   muted: { marginTop: 14, color: COLORS.muted, textAlign: 'center' },
 });

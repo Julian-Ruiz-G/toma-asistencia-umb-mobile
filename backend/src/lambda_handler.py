@@ -17,9 +17,6 @@ from routes.auth import (
     handle_update_my_profile,
     handle_login_student,
     handle_change_password,
-    handle_forgot_password,
-    handle_reset_password,
-    handle_request_register_code,
     handle_captcha_challenge,
     handle_captcha_verify,
     handle_validate_register_photo,
@@ -29,6 +26,7 @@ from routes.bulk import handle_admin_bulk_import
 from routes.admin import (
     handle_admin_students,
     handle_admin_students_by_class,
+    handle_admin_classes,
     handle_admin_update_student,
     handle_admin_delete_student,
     handle_admin_teachers,
@@ -80,6 +78,7 @@ ROUTE_HANDLERS = [
     ("/set-consent", handle_set_consent),
     ("/update-my-profile", handle_update_my_profile),
     ("/admin-students-by-class", handle_admin_students_by_class),
+    ("/admin-classes", handle_admin_classes),
     ("/admin-students", handle_admin_students),
     ("/admin-update-student", handle_admin_update_student),
     ("/admin-delete-student", handle_admin_delete_student),
@@ -94,9 +93,6 @@ ROUTE_HANDLERS = [
     ("/admin-request-profile", handle_admin_request_profile),
     ("/login-student", handle_login_student),
     ("/change-password", handle_change_password),
-    ("/forgot-password", handle_forgot_password),
-    ("/request-register-code", handle_request_register_code),
-    ("/reset-password", handle_reset_password),
     ("/create-class", handle_create_class),
     ("/update-class", handle_update_class),
     ("/create-attendance-qr", handle_create_attendance_qr),
@@ -132,25 +128,13 @@ ROUTE_SUFFIXES = [s for s, _ in ROUTE_HANDLERS] + [s for s, _ in IMAGE_ROUTES] +
 
 
 def lambda_handler(event, context):
-    logger.info(f"Event: {json.dumps(event, default=str)}")
-    logger.info(f"Context: {context}")
-
-    http_method = (event.get("requestContext") or {}).get("http", {}).get("method") or (
-        event.get("requestContext") or {}
-    ).get("httpMethod")
-    path = (event.get("requestContext") or {}).get("http", {}).get("path") or (
-        event.get("requestContext") or {}
-    ).get("path")
-
-    logger.info(
-        f"REQUEST DEBUG: method={http_method}, path={path}, path_type={type(path)}, "
-        f"endswith_delete={path.endswith('/delete-class') if path else 'None'}"
-    )
-
     try:
         method = event.get("requestContext", {}).get("http", {}).get("method") or event.get("httpMethod") or "POST"
     except Exception:
         method = "POST"
+
+    # Solo método y ruta: el body lleva contraseñas y fotos (datos biométricos) y no debe ir a CloudWatch.
+    logger.info(f"Request: {method} {_get_path(event) if isinstance(event, dict) else ''}")
 
     if method == "OPTIONS":
         return _response(200, {"message": "ok"})
@@ -187,8 +171,8 @@ def lambda_handler(event, context):
 
         try:
             image_bytes = base64.b64decode(image_b64)
-        except Exception as e:
-            return _response(400, {"error": "Invalid base64 image", "details": str(e)})
+        except Exception:
+            return _response(400, {"error": "Invalid base64 image"})
 
         img = None
         width = None
@@ -212,6 +196,6 @@ def lambda_handler(event, context):
 
         return handle_recognize(event, body, image_bytes_fixed, img, width, height)
 
-    except Exception as e:
+    except Exception:
         logger.exception("Unhandled error")
-        return _response(500, {"error": "InternalServerError", "details": str(e)})
+        return _response(500, {"error": "InternalServerError"})

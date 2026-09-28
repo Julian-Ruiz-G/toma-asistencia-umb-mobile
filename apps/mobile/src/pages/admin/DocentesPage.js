@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { appAlert } from '../../ui/appNotice';
 import {
-  ArrowLeft,
   CheckCircle,
   ChevronLeft,
   ChevronRight,
@@ -21,6 +20,7 @@ import { useColors } from '../../ui/ThemeContext';
 import { ADMIN_CREATE_TEACHER_URL, ADMIN_DELETE_TEACHER_URL, ADMIN_TEACHERS_URL, ADMIN_UPDATE_TEACHER_URL } from '../../config';
 import { useAuth } from '../../state/auth';
 import { gapsLabel, requestProfileCompletion, teacherGaps } from '../../utils/profileGaps';
+import { AdminNavButtons, useAdminDrawer } from '../../components/AdminDrawer';
 
 const mockTeachers = [
   { id: '1', code: 'DOC001', firstName: 'Dr. Roberto', lastName: 'Martínez Vega', email: 'roberto.martinez@umb.edu.co', department: 'Ingeniería', specialization: 'Sistemas', status: 'active', subjectsCount: 4, biometricRegistered: true, lastAccess: '2024-01-15' },
@@ -34,6 +34,7 @@ const mockTeachers = [
 export default function DocentesPage({ navigation }) {
   const COLORS = useColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
+  const { drawer, openDrawer, goBack } = useAdminDrawer(navigation, 'AdminTeachers');
   const { authToken } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -149,11 +150,10 @@ export default function DocentesPage({ navigation }) {
 
   return (
     <View style={styles.root}>
+      {drawer}
       <View style={styles.header}>
         <View style={styles.headerTop}>
-          <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <ArrowLeft size={20} color={COLORS.icon} />
-          </Pressable>
+          <AdminNavButtons onBack={goBack} onMenu={openDrawer} buttonStyle={styles.backBtn} size={20} color={COLORS.icon} />
           <View>
             <Text style={styles.headerTitle}>Docentes</Text>
             <Text style={styles.headerSubtitle}>{teachers.length} registrados</Text>
@@ -170,7 +170,7 @@ export default function DocentesPage({ navigation }) {
                 setCurrentPage(1);
               }}
               placeholder="Buscar..."
-              placeholderTextcolor={COLORS.placeholder}
+              placeholderTextColor={COLORS.placeholder}
               style={styles.searchInput}
             />
           </View>
@@ -363,7 +363,7 @@ export default function DocentesPage({ navigation }) {
               value={draft.fullName}
               onChangeText={(t) => setDraft((p) => ({ ...p, fullName: t }))}
               placeholder="Ej: Ana María Pérez"
-              placeholderTextcolor={COLORS.placeholder}
+              placeholderTextColor={COLORS.placeholder}
               style={styles.modalInput}
             />
             <View style={{ height: 10 }} />
@@ -373,7 +373,7 @@ export default function DocentesPage({ navigation }) {
               value={draft.email}
               onChangeText={(t) => setDraft((p) => ({ ...p, email: t }))}
               placeholder="docente@umb.edu.co"
-              placeholderTextcolor={COLORS.placeholder}
+              placeholderTextColor={COLORS.placeholder}
               autoCapitalize="none"
               keyboardType="email-address"
               style={styles.modalInput}
@@ -385,7 +385,7 @@ export default function DocentesPage({ navigation }) {
               value={draft.teacherCode}
               onChangeText={(t) => setDraft((p) => ({ ...p, teacherCode: t }))}
               placeholder="DOC001"
-              placeholderTextcolor={COLORS.placeholder}
+              placeholderTextColor={COLORS.placeholder}
               autoCapitalize="none"
               style={styles.modalInput}
             />
@@ -396,7 +396,7 @@ export default function DocentesPage({ navigation }) {
               value={draft.password}
               onChangeText={(t) => setDraft((p) => ({ ...p, password: t }))}
               placeholder="******"
-              placeholderTextcolor={COLORS.placeholder}
+              placeholderTextColor={COLORS.placeholder}
               secureTextEntry
               autoCapitalize="none"
               style={styles.modalInput}
@@ -433,7 +433,7 @@ export default function DocentesPage({ navigation }) {
                   let json;
                   try { json = JSON.parse(text); } catch { json = null; }
                   if (!resp.ok) {
-                    const msg = (json && (json.error || json.message || json.details)) || text || `HTTP ${resp.status}`;
+                    const msg = (json && (json.message || json.error)) || text || `HTTP ${resp.status}`;
                     throw new Error(msg);
                   }
 
@@ -476,7 +476,7 @@ export default function DocentesPage({ navigation }) {
               value={editDraft.fullName}
               onChangeText={(t) => setEditDraft((p) => ({ ...p, fullName: t }))}
               placeholder="Ej: Ana María Pérez"
-              placeholderTextcolor={COLORS.placeholder}
+              placeholderTextColor={COLORS.placeholder}
               style={styles.modalInput}
             />
 
@@ -486,7 +486,7 @@ export default function DocentesPage({ navigation }) {
               value={editDraft.teacherCode}
               onChangeText={(t) => setEditDraft((p) => ({ ...p, teacherCode: t }))}
               placeholder="DOC001"
-              placeholderTextcolor={COLORS.placeholder}
+              placeholderTextColor={COLORS.placeholder}
               autoCapitalize="none"
               style={styles.modalInput}
             />
@@ -497,7 +497,7 @@ export default function DocentesPage({ navigation }) {
               value={editDraft.password}
               onChangeText={(t) => setEditDraft((p) => ({ ...p, password: t }))}
               placeholder="******"
-              placeholderTextcolor={COLORS.placeholder}
+              placeholderTextColor={COLORS.placeholder}
               secureTextEntry
               autoCapitalize="none"
               style={styles.modalInput}
@@ -531,7 +531,7 @@ export default function DocentesPage({ navigation }) {
                   let json;
                   try { json = JSON.parse(text); } catch { json = null; }
                   if (!resp.ok) {
-                    const msg = (json && (json.error || json.message || json.details)) || text || `HTTP ${resp.status}`;
+                    const msg = (json && (json.message || json.error)) || text || `HTTP ${resp.status}`;
                     throw new Error(msg);
                   }
 

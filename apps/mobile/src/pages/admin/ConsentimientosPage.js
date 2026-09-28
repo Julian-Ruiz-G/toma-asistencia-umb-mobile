@@ -1,265 +1,298 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
-  ArrowLeft,
-  CheckCircle,
-  Clock,
-  Search,
-  Send,
-  XCircle,
-} from 'lucide-react-native';
+  ActivityIndicator,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
+import { CheckCircle, Clock, Search, Send } from 'lucide-react-native';
 
-import OverlayDismiss from '../../components/OverlayDismiss';
-import { Button } from '../../components/Button';
-import { COLORS } from '../../ui/theme';
-import { useColors } from '../../ui/ThemeContext';
+import { AdminNavButtons, useAdminDrawer } from '../../components/AdminDrawer';
+import RequestConsentsModal from '../../components/RequestConsentsModal';
 import { ADMIN_CONSENTS_URL } from '../../config';
 import { useAuth } from '../../state/auth';
+import { appAlert } from '../../ui/appNotice';
+import { useColors } from '../../ui/ThemeContext';
+import { personDisplayName } from '../../utils/displayName';
+import { formatActionDateTime } from '../../utils/formatDateTime';
+import { requestProfileCompletion } from '../../utils/profileGaps';
 
-const mockConsentimientos = [
-  { id: '1', studentName: 'Juan Pérez', studentId: '202301099', type: 'biometric', status: 'approved', requestedDate: '2024-01-10', responseDate: '2024-01-12', expiryDate: '2025-01-12' },
-  { id: '2', studentName: 'María López', studentId: '202302156', type: 'data', status: 'pending', requestedDate: '2024-01-15' },
-  { id: '3', studentName: 'Carlos Ruiz', studentId: '202301088', type: 'photo', status: 'rejected', requestedDate: '2024-01-08', responseDate: '2024-01-09' },
-  { id: '4', studentName: 'Ana García', studentId: '202303201', type: 'location', status: 'approved', requestedDate: '2024-01-05', responseDate: '2024-01-06', expiryDate: '2025-01-06' },
-  { id: '5', studentName: 'Pedro Martínez', studentId: '202301045', type: 'biometric', status: 'expired', requestedDate: '2023-01-10', responseDate: '2023-01-12', expiryDate: '2024-01-12' },
-  { id: '6', studentName: 'Laura Sánchez', studentId: '202302178', type: 'data', status: 'pending', requestedDate: '2024-01-14' },
+const ROLE_FILTERS = [
+  { key: 'all', label: 'Todos' },
+  { key: 'student', label: 'Estudiantes' },
+  { key: 'teacher', label: 'Docentes' },
 ];
+const STATUS_FILTERS = [
+  { key: 'all', label: 'Cualquier estado' },
+  { key: 'pending', label: 'Pendientes' },
+  { key: 'approved', label: 'Al día' },
+];
+const MISSING_LABEL = { terms: 'Términos', privacy: 'Privacidad', biometric: 'Biometría' };
 
-const typeConfig = {
-  biometric: { label: 'Datos biométricos', color: COLORS.textSecondary, bg: COLORS.surface },
-  terms: { label: 'Términos', color: COLORS.textSecondary, bg: COLORS.surface },
-  privacy: { label: 'Privacidad', color: COLORS.textSecondary, bg: COLORS.surface },
-};
-
-const statusConfig = {
-  pending: { Icon: Clock, color: COLORS.warning, bg: COLORS.warningBg, label: 'Pendiente' },
-  approved: { Icon: CheckCircle, color: COLORS.successStrong, bg: COLORS.successBg, label: 'Aprobado' },
-  rejected: { Icon: XCircle, color: COLORS.danger, bg: COLORS.dangerBg, label: 'No otorgado' },
-};
-
-function formatConsentDate(value) {
-  const n = Number(value);
-  if (!n) return '—';
-  const ms = n > 1e12 ? n : n * 1000;
-  try {
-    return new Date(ms).toLocaleString('es-CO');
-  } catch {
-    return String(value);
-  }
+function toRow(c) {
+  const role = c?.role === 'teacher' ? 'teacher' : 'student';
+  const terms = c?.acceptTerms === true;
+  const privacy = c?.acceptPrivacy === true;
+  const biometric = role === 'student' ? c?.biometricConsent === true || c?.hasFace === true : null;
+  // La Lambda nueva envía `missing`; con la anterior se calcula aquí.
+  const missing = Array.isArray(c?.missing)
+    ? c.missing
+    : [!terms && 'terms', !privacy && 'privacy', role === 'student' && !biometric && 'biometric'].filter(Boolean);
+  return {
+    id: `${role}:${c?.email || ''}`,
+    role,
+    email: String(c?.email || ''),
+    name: personDisplayName(c?.fullName, c?.email || 'Sin nombre'),
+    code: String((role === 'teacher' ? c?.teacherCode : c?.studentCode) || ''),
+    terms,
+    privacy,
+    biometric,
+    missing,
+    status: missing.length ? 'pending' : 'approved',
+    updatedAt: c?.updatedAt || null,
+  };
 }
 
 export default function ConsentimientosPage({ navigation }) {
   const COLORS = useColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
+  const { drawer, openDrawer, goBack } = useAdminDrawer(navigation, 'AdminConsents');
   const { authToken } = useAuth();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [typeFilter, setTypeFilter] = useState('all');
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [query, setQuery] = useState('');
+  const [roleFilter, setRoleFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [showNewRequestModal, setShowNewRequestModal] = useState(false);
+  const [showRequestAll, setShowRequestAll] = useState(false);
+  const [requesting, setRequesting] = useState('');
+  const [requested, setRequested] = useState({});
 
-  const [consents, setConsents] = useState([]);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        if (!authToken) return;
-        if (!ADMIN_CONSENTS_URL) return;
-        const resp = await fetch(ADMIN_CONSENTS_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${authToken}`,
-          },
-          body: JSON.stringify({}),
-        });
-        const text = await resp.text();
-        let json;
-        try { json = JSON.parse(text); } catch { json = null; }
-        if (!resp.ok) return;
-        const arr = Array.isArray(json?.consents) ? json.consents : [];
-        const mapped = arr.map((c, idx) => {
-          const biometric = c?.biometricConsent === true || c?.hasFace === true;
-          const terms = c?.acceptTerms === true;
-          const privacy = c?.acceptPrivacy === true;
-          const allOk = biometric && terms && privacy;
-          return {
-            id: String(c?.email || idx),
-            studentName: String(c?.fullName || c?.email || ''),
-            studentId: String(c?.studentCode || ''),
-            email: String(c?.email || ''),
-            type: 'biometric',
-            status: allOk ? 'approved' : biometric || terms || privacy ? 'pending' : 'rejected',
-            acceptTerms: terms,
-            acceptPrivacy: privacy,
-            biometricConsent: biometric,
-            requestedDate: formatConsentDate(c?.updatedAt),
-          };
-        });
-        setConsents(mapped);
-      } catch {
-        // ignore
-      }
-    })();
+  const load = useCallback(async () => {
+    if (!authToken || !ADMIN_CONSENTS_URL) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setError('');
+    try {
+      const resp = await fetch(ADMIN_CONSENTS_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+        body: JSON.stringify({}),
+      });
+      const text = await resp.text();
+      let json;
+      try { json = JSON.parse(text); } catch { json = null; }
+      if (!resp.ok) throw new Error(json?.message || json?.error || `HTTP ${resp.status}`);
+      setRows((Array.isArray(json?.consents) ? json.consents : []).map(toRow));
+    } catch (e) {
+      setError(e?.message || 'No se pudieron cargar los consentimientos.');
+    } finally {
+      setLoading(false);
+    }
   }, [authToken]);
 
+  useFocusEffect(useCallback(() => { load(); }, [load]));
+
   const stats = useMemo(() => {
+    const pending = rows.filter((r) => r.status === 'pending');
     return {
-      total: consents.length,
-      pending: consents.filter((c) => c.status === 'pending').length,
-      approved: consents.filter((c) => c.status === 'approved').length,
-      rejected: consents.filter((c) => c.status === 'rejected').length,
+      total: rows.length,
+      approved: rows.length - pending.length,
+      pending: pending.length,
+      studentsPending: pending.filter((r) => r.role === 'student').length,
+      teachersPending: pending.filter((r) => r.role === 'teacher').length,
     };
-  }, [consents]);
+  }, [rows]);
 
   const filtered = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    return consents.filter((c) => {
-      const matchesSearch = !q || c.studentName.toLowerCase().includes(q) || c.studentId.toLowerCase().includes(q);
-      const matchesType =
-        typeFilter === 'all' ||
-        (typeFilter === 'biometric' && c.biometricConsent) ||
-        (typeFilter === 'terms' && c.acceptTerms) ||
-        (typeFilter === 'privacy' && c.acceptPrivacy);
-      const matchesStatus = statusFilter === 'all' || c.status === statusFilter;
-      return matchesSearch && matchesType && matchesStatus;
+    const q = query.trim().toLowerCase();
+    return rows.filter((r) => {
+      if (roleFilter !== 'all' && r.role !== roleFilter) return false;
+      if (statusFilter !== 'all' && r.status !== statusFilter) return false;
+      if (!q) return true;
+      return [r.name, r.email, r.code].some((v) => v.toLowerCase().includes(q));
     });
-  }, [searchQuery, typeFilter, statusFilter, consents]);
+  }, [rows, query, roleFilter, statusFilter]);
 
-  const typeOptions = useMemo(() => ['all', 'biometric', 'terms', 'privacy'], []);
-  const statusOptions = useMemo(() => ['all', 'pending', 'approved', 'rejected'], []);
+  const requestOne = async (row) => {
+    setRequesting(row.id);
+    try {
+      await requestProfileCompletion(authToken, { email: row.email, role: row.role, consentsOnly: true });
+      setRequested((prev) => ({ ...prev, [row.id]: true }));
+    } catch (e) {
+      appAlert('No se pudo enviar', e?.message || String(e));
+    } finally {
+      setRequesting('');
+    }
+  };
 
   return (
     <View style={styles.root}>
+      {drawer}
       <View style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <ArrowLeft size={20} color={COLORS.icon} />
-        </Pressable>
+        <AdminNavButtons onBack={goBack} onMenu={openDrawer} buttonStyle={styles.backBtn} size={20} color={COLORS.icon} />
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Consentimientos</Text>
-          <Text style={styles.headerSubtitle}>Gestión de permisos</Text>
+          <Text style={styles.headerSubtitle}>Estudiantes y docentes</Text>
         </View>
-        <Pressable onPress={() => setShowNewRequestModal(true)} style={styles.sendBtn}>
+        <Pressable
+          onPress={() => setShowRequestAll(true)}
+          style={styles.sendBtn}
+          accessibilityLabel="Pedir consentimientos pendientes"
+        >
           <Send size={18} color={COLORS.white} />
         </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={styles.body}>
+      <ScrollView
+        contentContainerStyle={styles.body}
+        refreshControl={<RefreshControl refreshing={loading && rows.length > 0} onRefresh={load} />}
+        keyboardShouldPersistTaps="handled"
+      >
         <View style={styles.statsRow}>
-          <View style={styles.statMini}><Text style={styles.statNum}>{stats.total}</Text><Text style={styles.statLbl}>Total</Text></View>
-          <View style={styles.statMini}><Text style={[styles.statNum, { color: COLORS.warning }]}>{stats.pending}</Text><Text style={styles.statLbl}>Pend.</Text></View>
-          <View style={styles.statMini}><Text style={[styles.statNum, { color: COLORS.successStrong }]}>{stats.approved}</Text><Text style={styles.statLbl}>Ap.</Text></View>
-          <View style={styles.statMini}><Text style={[styles.statNum, { color: COLORS.dangerStrong }]}>{stats.rejected}</Text><Text style={styles.statLbl}>No</Text></View>
+          <Stat value={stats.total} label="Total" styles={styles} />
+          <Stat value={stats.approved} label="Al día" styles={styles} color={COLORS.successStrong} />
+          <Stat value={stats.studentsPending} label="Est. pend." styles={styles} color={COLORS.warning} />
+          <Stat value={stats.teachersPending} label="Doc. pend." styles={styles} color={COLORS.warning} />
         </View>
 
-        <View style={{ height: 12 }} />
+        {stats.pending > 0 ? (
+          <Pressable onPress={() => setShowRequestAll(true)} style={styles.requestAllBtn}>
+            <Send size={16} color={COLORS.primary} />
+            <Text style={styles.requestAllText}>
+              {`Pedir a los ${stats.pending} pendientes`}
+            </Text>
+          </Pressable>
+        ) : null}
 
         <View style={styles.filtersCard}>
           <View style={styles.searchWrap}>
             <Search size={16} color={COLORS.placeholder} />
             <TextInput
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholder="Buscar estudiante..."
-              placeholderTextcolor={COLORS.placeholder}
+              value={query}
+              onChangeText={setQuery}
+              placeholder="Buscar por nombre, código o correo"
+              placeholderTextColor={COLORS.placeholder}
               style={styles.searchInput}
             />
           </View>
-
-          <View style={{ height: 10 }} />
-
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pillsRow}>
-            {typeOptions.map((t) => {
-              const active = typeFilter === t;
-              const label = t === 'all' ? 'Todos' : typeConfig[t].label;
-              return (
-                <Pressable key={t} onPress={() => setTypeFilter(t)} style={[styles.pill, active ? styles.pillActive : null]}>
-                  <Text style={[styles.pillText, active ? styles.pillTextActive : null]}>{label}</Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-
-          <View style={{ height: 10 }} />
-
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pillsRow}>
-            {statusOptions.map((s) => {
-              const active = statusFilter === s;
-              const label = s === 'all' ? 'Estados' : statusConfig[s].label;
-              return (
-                <Pressable key={s} onPress={() => setStatusFilter(s)} style={[styles.pill, active ? styles.pillActive : null]}>
-                  <Text style={[styles.pillText, active ? styles.pillTextActive : null]}>{label}</Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
+          <Pills options={ROLE_FILTERS} value={roleFilter} onChange={setRoleFilter} styles={styles} />
+          <Pills options={STATUS_FILTERS} value={statusFilter} onChange={setStatusFilter} styles={styles} />
         </View>
 
-        <View style={{ height: 12 }} />
+        {error ? <Text style={styles.error}>{error}</Text> : null}
+        {loading && rows.length === 0 ? <ActivityIndicator style={{ marginTop: 24 }} color={COLORS.primary} /> : null}
 
         <View style={styles.listCard}>
-          {filtered.map((item) => {
-            const typeCfg = typeConfig[item.type];
-            const statusCfg = statusConfig[item.status];
+          {filtered.map((item, i) => {
+            const pending = item.status === 'pending';
+            const sent = requested[item.id];
             return (
-              <View key={item.id} style={styles.row}>
+              <View key={item.id} style={[styles.row, i < filtered.length - 1 ? styles.rowDivider : null]}>
                 <View style={styles.rowTop}>
-                  <View style={[styles.tag, { backgroundColor: typeCfg.bg }]}
->
-                    <Text style={[styles.tagText, { color: typeCfg.color }]}>{typeCfg.label}</Text>
+                  <View style={[styles.tag, styles.tagRole]}>
+                    <Text style={[styles.tagText, styles.tagRoleText]}>{item.role === 'teacher' ? 'Docente' : 'Estudiante'}</Text>
                   </View>
-                  <View style={[styles.tag, { backgroundColor: statusCfg.bg, flexDirection: 'row', alignItems: 'center', gap: 6 }]}
->
-                    <statusCfg.Icon size={14} color={statusCfg.color} />
-                    <Text style={[styles.tagText, { color: statusCfg.color }]}>{statusCfg.label}</Text>
+                  <View style={[styles.tag, pending ? styles.tagPending : styles.tagOk]}>
+                    {pending
+                      ? <Clock size={12} color={COLORS.warning} />
+                      : <CheckCircle size={12} color={COLORS.successStrong} />}
+                    <Text style={[styles.tagText, { color: pending ? COLORS.warning : COLORS.successStrong }]}>
+                      {pending ? 'Pendiente' : 'Al día'}
+                    </Text>
                   </View>
                 </View>
-                <Text style={styles.studentName}>{item.studentName}</Text>
-                <Text style={styles.studentId}>{item.studentId || item.email}</Text>
+                <Text style={styles.name}>{item.name}</Text>
+                <Text style={styles.sub}>{[item.code, item.email].filter(Boolean).join(' · ')}</Text>
                 <View style={styles.flagsRow}>
-                  <Text style={[styles.flag, item.acceptTerms ? styles.flagOn : styles.flagOff]}>
-                    {item.acceptTerms ? 'Términos: sí' : 'Términos: no'}
-                  </Text>
-                  <Text style={[styles.flag, item.acceptPrivacy ? styles.flagOn : styles.flagOff]}>
-                    {item.acceptPrivacy ? 'Privacidad: sí' : 'Privacidad: no'}
-                  </Text>
-                  <Text style={[styles.flag, item.biometricConsent ? styles.flagOn : styles.flagOff]}>
-                    {item.biometricConsent ? 'Biometría: sí' : 'Biometría: no'}
-                  </Text>
+                  <Flag on={item.terms} label="Términos" styles={styles} />
+                  <Flag on={item.privacy} label="Privacidad" styles={styles} />
+                  {item.role === 'student' ? <Flag on={item.biometric} label="Biometría" styles={styles} /> : null}
                 </View>
-                <Text style={styles.smallMeta}>Actualizado: {item.requestedDate}</Text>
+                <View style={styles.rowBottom}>
+                  <Text style={styles.smallMeta}>
+                    {item.updatedAt ? `Actualizado: ${formatActionDateTime(item.updatedAt)}` : 'Sin cambios registrados'}
+                  </Text>
+                  {pending ? (
+                    sent ? (
+                      <Text style={styles.sentText}>Solicitud enviada</Text>
+                    ) : (
+                      <Pressable
+                        onPress={() => requestOne(item)}
+                        disabled={requesting === item.id}
+                        style={styles.askBtn}
+                        accessibilityLabel={`Pedir ${item.missing.map((m) => MISSING_LABEL[m] || m).join(', ')}`}
+                      >
+                        {requesting === item.id
+                          ? <ActivityIndicator size="small" color={COLORS.white} />
+                          : <Text style={styles.askText}>Pedir</Text>}
+                      </Pressable>
+                    )
+                  ) : null}
+                </View>
               </View>
             );
           })}
 
-          {filtered.length === 0 ? (
+          {!loading && filtered.length === 0 ? (
             <View style={styles.emptyWrap}>
               <Text style={styles.emptyTitle}>Sin resultados</Text>
-              <Text style={styles.emptyText}>No hay consentimientos para esos filtros.</Text>
+              <Text style={styles.emptyText}>No hay personas con esos filtros.</Text>
             </View>
           ) : null}
         </View>
-
-        <View style={{ height: 18 }} />
       </ScrollView>
 
-      <Modal visible={showNewRequestModal} transparent animationType="fade" onRequestClose={() => setShowNewRequestModal(false)}>
-        <OverlayDismiss style={styles.modalOverlay} onClose={() => setShowNewRequestModal(false)}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Nueva Solicitud</Text>
-            <Text style={styles.modalText}>Formulario simplificado (mock)</Text>
-
-            <View style={{ height: 12 }} />
-            <Button fullWidth onPress={() => setShowNewRequestModal(false)}>
-              Enviar
-            </Button>
-            <View style={{ height: 10 }} />
-            <Button fullWidth variant="outline" onPress={() => setShowNewRequestModal(false)}>
-              Cancelar
-            </Button>
-          </View>
-        </OverlayDismiss>
-      </Modal>
+      <RequestConsentsModal
+        visible={showRequestAll}
+        onClose={() => setShowRequestAll(false)}
+        pending={{ studentsPending: stats.studentsPending, teachersPending: stats.teachersPending }}
+        onSent={() => {
+          const next = {};
+          rows.filter((r) => r.status === 'pending').forEach((r) => { next[r.id] = true; });
+          setRequested((prev) => ({ ...prev, ...next }));
+        }}
+      />
     </View>
+  );
+}
+
+function Stat({ value, label, styles, color }) {
+  return (
+    <View style={styles.statMini}>
+      <Text style={[styles.statNum, color ? { color } : null]}>{value}</Text>
+      <Text style={styles.statLbl}>{label}</Text>
+    </View>
+  );
+}
+
+function Pills({ options, value, onChange, styles }) {
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pillsRow}>
+      {options.map((o) => {
+        const active = value === o.key;
+        return (
+          <Pressable key={o.key} onPress={() => onChange(o.key)} style={[styles.pill, active ? styles.pillActive : null]}>
+            <Text style={[styles.pillText, active ? styles.pillTextActive : null]}>{o.label}</Text>
+          </Pressable>
+        );
+      })}
+    </ScrollView>
+  );
+}
+
+function Flag({ on, label, styles }) {
+  return (
+    <Text style={[styles.flag, on ? styles.flagOn : styles.flagOff]}>
+      {`${label}: ${on ? 'sí' : 'no'}`}
+    </Text>
   );
 }
 
@@ -270,36 +303,44 @@ const createStyles = (COLORS) => StyleSheet.create({
   sendBtn: { width: 42, height: 42, borderRadius: 14, backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontWeight: '900', color: COLORS.text, fontSize: 18 },
   headerSubtitle: { marginTop: 2, color: COLORS.muted, fontSize: 12 },
-  body: { padding: 16, paddingBottom: 26 },
+  body: { padding: 16, paddingBottom: 32, gap: 12 },
   statsRow: { flexDirection: 'row', gap: 8 },
   statMini: { flex: 1, backgroundColor: COLORS.card, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border, paddingVertical: 10, alignItems: 'center' },
-  statNum: { fontWeight: '900', color: COLORS.text, fontSize: 16 },
+  statNum: { fontWeight: '900', color: COLORS.text, fontSize: 16, fontVariant: ['tabular-nums'] },
   statLbl: { marginTop: 2, color: COLORS.muted, fontSize: 10 },
-  filtersCard: { backgroundColor: COLORS.card, borderRadius: 14, borderWidth: 1, borderColor: COLORS.border, padding: 12 },
+  requestAllBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12, borderRadius: 14, borderWidth: 1, borderColor: COLORS.primaryBorder || COLORS.border, backgroundColor: COLORS.primarySoft },
+  requestAllText: { color: COLORS.primary, fontWeight: '900' },
+  filtersCard: { backgroundColor: COLORS.card, borderRadius: 14, borderWidth: 1, borderColor: COLORS.border, padding: 12, gap: 10 },
   searchWrap: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: COLORS.border, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10 },
   searchInput: { flex: 1, color: COLORS.text },
-  pillsRow: { gap: 10 },
-  pill: { paddingHorizontal: 12, paddingVertical: 10, borderRadius: 999, backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border },
+  pillsRow: { gap: 8 },
+  pill: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border },
   pillActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
   pillText: { color: COLORS.muted, fontWeight: '900', fontSize: 12 },
   pillTextActive: { color: COLORS.white },
+  error: { color: COLORS.danger, fontWeight: '700' },
   listCard: { backgroundColor: COLORS.card, borderRadius: 14, borderWidth: 1, borderColor: COLORS.border, overflow: 'hidden' },
-  row: { padding: 12, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  row: { padding: 12 },
+  rowDivider: { borderBottomWidth: 1, borderBottomColor: COLORS.border },
   rowTop: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
-  tag: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999 },
+  tag: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999 },
   tagText: { fontWeight: '900', fontSize: 11 },
-  studentName: { marginTop: 10, fontWeight: '900', color: COLORS.text },
-  studentId: { marginTop: 2, color: COLORS.muted },
-  smallMeta: { marginTop: 6, color: COLORS.placeholder, fontSize: 12 },
+  tagRole: { backgroundColor: COLORS.surface },
+  tagRoleText: { color: COLORS.textSecondary },
+  tagPending: { backgroundColor: COLORS.warningBg },
+  tagOk: { backgroundColor: COLORS.successBg },
+  name: { marginTop: 10, fontWeight: '900', color: COLORS.text },
+  sub: { marginTop: 2, color: COLORS.muted, fontSize: 12 },
   flagsRow: { marginTop: 8, flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  flag: { fontSize: 11, fontWeight: '800', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999 },
+  flag: { fontSize: 11, fontWeight: '800', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999, overflow: 'hidden' },
   flagOn: { backgroundColor: COLORS.successBg, color: COLORS.success },
   flagOff: { backgroundColor: COLORS.dangerBg, color: COLORS.danger },
+  rowBottom: { marginTop: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  smallMeta: { flex: 1, color: COLORS.placeholder, fontSize: 12 },
+  askBtn: { minWidth: 72, alignItems: 'center', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, backgroundColor: COLORS.primary },
+  askText: { color: COLORS.white, fontWeight: '900', fontSize: 12 },
+  sentText: { color: COLORS.successStrong, fontWeight: '800', fontSize: 12 },
   emptyWrap: { alignItems: 'center', paddingVertical: 22 },
   emptyTitle: { fontWeight: '900', color: COLORS.text },
   emptyText: { marginTop: 6, color: COLORS.muted },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.50)', alignItems: 'center', justifyContent: 'center', padding: 24 },
-  modalCard: { backgroundColor: COLORS.card, borderRadius: 18, padding: 18, width: '100%', maxWidth: 360 },
-  modalTitle: { fontWeight: '900', color: COLORS.text, fontSize: 18 },
-  modalText: { marginTop: 6, color: COLORS.muted },
 });

@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import {
-  ArrowLeft,
   Download,
   Eye,
   Edit,
@@ -15,6 +14,7 @@ import { COLORS } from '../../ui/theme';
 import { useColors } from '../../ui/ThemeContext';
 import { ADMIN_LOGS_URL } from '../../config';
 import { useAuth } from '../../state/auth';
+import { AdminNavButtons, useAdminDrawer } from '../../components/AdminDrawer';
 
 function classifyAction(action) {
   const value = String(action || '').toLowerCase();
@@ -54,6 +54,7 @@ const actionConfig = {
 export default function AuditoriaPage({ navigation }) {
   const COLORS = useColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
+  const { drawer, openDrawer, goBack } = useAdminDrawer(navigation, 'AdminAudit');
   const { authToken } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [actionFilter, setActionFilter] = useState('all');
@@ -115,10 +116,9 @@ export default function AuditoriaPage({ navigation }) {
 
   return (
     <View style={styles.root}>
+      {drawer}
       <View style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <ArrowLeft size={20} color={COLORS.icon} />
-        </Pressable>
+        <AdminNavButtons onBack={goBack} onMenu={openDrawer} buttonStyle={styles.backBtn} size={20} color={COLORS.icon} />
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Auditoría</Text>
           <Text style={styles.headerSubtitle}>Registro de acciones</Text>
@@ -149,7 +149,7 @@ export default function AuditoriaPage({ navigation }) {
               value={searchQuery}
               onChangeText={setSearchQuery}
               placeholder="Buscar usuario o recurso..."
-              placeholderTextcolor={COLORS.placeholder}
+              placeholderTextColor={COLORS.placeholder}
               style={styles.searchInput}
             />
           </View>

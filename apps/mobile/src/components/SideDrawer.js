@@ -200,11 +200,16 @@ export function SideDrawer({
                 {items.map((item) => {
                   const Icon = item.Icon;
                   return (
-                    <Pressable key={item.label} onPress={() => go(item)} style={styles.item}>
-                      <View style={styles.itemIcon}>
-                        {Icon ? <Icon size={18} color={COLORS.icon} /> : null}
+                    <Pressable
+                      key={item.label}
+                      onPress={() => go(item)}
+                      style={[styles.item, item.active ? styles.itemActive : null]}
+                      accessibilityState={{ selected: !!item.active }}
+                    >
+                      <View style={[styles.itemIcon, item.active ? styles.itemIconActive : null]}>
+                        {Icon ? <Icon size={18} color={item.active ? COLORS.primary : COLORS.icon} /> : null}
                       </View>
-                      <Text style={styles.itemLabel}>{item.label}</Text>
+                      <Text style={[styles.itemLabel, item.active ? styles.itemLabelActive : null]}>{item.label}</Text>
                     </Pressable>
                   );
                 })}
@@ -310,6 +315,9 @@ function makeStyles(COLORS) {
       justifyContent: 'center',
     },
     itemLabel: { flex: 1, fontWeight: '800', color: COLORS.text, fontSize: 15 },
+    itemActive: { backgroundColor: COLORS.primarySoft },
+    itemIconActive: { backgroundColor: COLORS.card },
+    itemLabelActive: { color: COLORS.primary },
     logoutBtn: {
       marginHorizontal: 10,
       marginTop: 4,

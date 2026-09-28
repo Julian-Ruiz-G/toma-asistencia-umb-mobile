@@ -52,7 +52,8 @@
         {
           "photosPermission": "La foto de perfil se guarda solo en este dispositivo, no se envía a AWS."
         }
-      ]
+      ],
+      "expo-secure-store"
     ]
   }
 }

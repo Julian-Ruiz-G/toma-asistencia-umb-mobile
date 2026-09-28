@@ -1,18 +1,20 @@
 import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
-import { ArrowLeft, Check, QrCode } from 'lucide-react-native';
-import QRCode from 'react-native-qrcode-svg';
+import { Check, QrCode } from 'lucide-react-native';
+import ScannableQR from '../../components/ScannableQR';
 
 import { Button } from '../../components/Button';
 import { COLORS } from '../../ui/theme';
 import { useColors } from '../../ui/ThemeContext';
 import { appAlert } from '../../ui/appNotice';
+import { AdminNavButtons, useAdminDrawer } from '../../components/AdminDrawer';
 
 const GENERAL_PAYLOAD = 'UMB-ASISTENCIA|institucional';
 
 export default function QRInstitucionalPage({ navigation }) {
   const COLORS = useColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
+  const { drawer, openDrawer, goBack } = useAdminDrawer(navigation, 'AdminQrInstitutional');
   const [activeTab, setActiveTab] = useState('general');
   const [copied, setCopied] = useState(false);
   const [eventName, setEventName] = useState('');
@@ -64,10 +66,9 @@ export default function QRInstitucionalPage({ navigation }) {
 
   return (
     <View style={styles.root}>
+      {drawer}
       <View style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <ArrowLeft size={20} color={COLORS.icon} />
-        </Pressable>
+        <AdminNavButtons onBack={goBack} onMenu={openDrawer} buttonStyle={styles.backBtn} size={20} color={COLORS.icon} />
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>QR Institucional</Text>
           <Text style={styles.headerSubtitle}>Genera códigos QR</Text>
@@ -91,7 +92,7 @@ export default function QRInstitucionalPage({ navigation }) {
         <View style={styles.card}>
           {payload ? (
             <View style={styles.qrPreview}>
-              <QRCode value={payload} size={168} />
+              <ScannableQR value={payload} size={168} />
             </View>
           ) : (
             <View style={styles.qrPreview}>

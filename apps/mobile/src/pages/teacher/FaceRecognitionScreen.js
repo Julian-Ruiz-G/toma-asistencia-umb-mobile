@@ -417,7 +417,7 @@ const createStyles = (COLORS) => StyleSheet.create({
   instructionWrap: { position: 'absolute', left: 0, right: 0, bottom: 132, alignItems: 'center', paddingHorizontal: 24 },
   instructionText: { color: 'rgba(255,255,255,0.82)', backgroundColor: 'rgba(0,0,0,0.45)', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 999, fontWeight: '700' },
 
-  resultsPanel: { backgroundColor: COLORS.text, borderTopWidth: 1, borderTopColor: COLORS.text, paddingHorizontal: 24, paddingVertical: 14 },
+  resultsPanel: { backgroundColor: COLORS.scheme === 'dark' ? COLORS.card : COLORS.text, borderTopWidth: 1, borderTopColor: COLORS.scheme === 'dark' ? COLORS.card : COLORS.text, paddingHorizontal: 24, paddingVertical: 14 },
   resultsTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   resultsTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   resultsTitle: { color: COLORS.white, fontWeight: '900' },
@@ -432,9 +432,9 @@ const createStyles = (COLORS) => StyleSheet.create({
   faceRowCode: { color: COLORS.placeholder, fontSize: 12 },
   faceRowPct: { color: COLORS.placeholder, fontSize: 12 },
 
-  bottom: { backgroundColor: COLORS.text, paddingHorizontal: 24, paddingTop: 16, paddingBottom: 22 },
+  bottom: { backgroundColor: COLORS.scheme === 'dark' ? COLORS.card : COLORS.text, paddingHorizontal: 24, paddingTop: 16, paddingBottom: 22 },
   bottomRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 26 },
-  smallCircleBtn: { width: 48, height: 48, borderRadius: 24, backgroundColor: COLORS.text, alignItems: 'center', justifyContent: 'center' },
+  smallCircleBtn: { width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
   captureOuter: { width: 80, height: 80, borderRadius: 40, borderWidth: 4, borderColor: COLORS.white, alignItems: 'center', justifyContent: 'center' },
   captureInner: { width: 64, height: 64, borderRadius: 32, backgroundColor: COLORS.card, alignItems: 'center', justifyContent: 'center' },
 });

@@ -58,7 +58,9 @@ DDB_TABLE = os.getenv('DDB_TABLE', 'face_recognition')
 FACE_MATCH_THRESHOLD = int(os.getenv('FACE_MATCH_THRESHOLD', '60'))
 MAX_MATCHES = int(os.getenv('MAX_MATCHES', '5'))
 ADMIN_TOKEN = os.getenv('ADMIN_TOKEN', '')
-AUTH_SECRET = os.getenv('AUTH_SECRET', '') or ADMIN_TOKEN
+# Secreto propio para firmar JWT. No se reutiliza ADMIN_TOKEN: si ese token se filtra,
+# no debe permitir firmar sesiones de ningún rol.
+AUTH_SECRET = os.getenv('AUTH_SECRET', '')
 
 # Attendance schedule timezone: Colombia is UTC-5 (no DST)
 CO_TZ_OFFSET_SECONDS = -5 * 60 * 60
@@ -108,34 +110,24 @@ def _delete_related_items_by_student_email(email: str) -> int:
     if not e:
         return 0
     deleted = 0
-    last_key = None
-    for _ in range(0, 20):
-        kwargs = {
-            'TableName': DDB_TABLE,
-            'FilterExpression': '#SE = :e',
-            'ExpressionAttributeNames': {'#SE': 'StudentEmail'},
-            'ExpressionAttributeValues': {':e': {'S': e}},
-            'Limit': 200,
-        }
-        if last_key:
-            kwargs['ExclusiveStartKey'] = last_key
+    try:
+        scan_resp = _ddb_scan(
+            FilterExpression='#SE = :e',
+            ExpressionAttributeNames={'#SE': 'StudentEmail'},
+            ExpressionAttributeValues={':e': {'S': e}},
+        )
+    except Exception:
+        logger.exception('DynamoDB scan failed (related student records)')
+        return 0
+    for it in scan_resp.get('Items') or []:
+        pk = _ddb_s(it, 'RekognitionId')
+        if not pk:
+            continue
         try:
-            scan_resp = dynamodb.scan(**kwargs)
+            dynamodb.delete_item(TableName=DDB_TABLE, Key={'RekognitionId': {'S': pk}})
+            deleted += 1
         except Exception:
-            logger.exception('DynamoDB scan failed (related student records)')
-            break
-        for it in (scan_resp or {}).get('Items') or []:
-            pk = _ddb_s(it, 'RekognitionId')
-            if not pk:
-                continue
-            try:
-                dynamodb.delete_item(TableName=DDB_TABLE, Key={'RekognitionId': {'S': pk}})
-                deleted += 1
-            except Exception:
-                logger.exception(f'DynamoDB delete related item failed pk={pk}')
-        last_key = (scan_resp or {}).get('LastEvaluatedKey')
-        if not last_key:
-            break
+            logger.exception(f'DynamoDB delete related item failed pk={pk}')
     return deleted
 
 
@@ -206,6 +198,10 @@ def _cors_headers():
 
 
 def _response(status, body):
+    # Los errores internos se registran en CloudWatch; al cliente no se le exponen detalles.
+    if int(status) >= 500 and isinstance(body, dict) and 'details' in body:
+        logger.error(f"Internal error {status} {body.get('error')}: {body.get('details')}")
+        body = {k: v for k, v in body.items() if k != 'details'}
     return {
         'statusCode': status,
         'headers': _cors_headers(),
@@ -229,31 +225,50 @@ def _response_text(status: int, text: str, content_type: str = 'text/plain; char
     }
 
 
+_SCAN_MAX_PAGES = 500
+
+
+def _ddb_scan(first_only: bool = False, **kwargs) -> dict:
+    """Scan que recorre todas las páginas de la tabla.
+
+    DynamoDB aplica `Limit` a los ítems evaluados *antes* del filtro, así que un scan de una
+    sola página con `Limit` pierde coincidencias en cuanto la tabla crece. Aquí se ignora
+    `Limit` y se pagina con LastEvaluatedKey. Con `first_only` se detiene en la primera
+    coincidencia. Devuelve {'Items': [...]}, igual que dynamodb.scan.
+    """
+    kwargs.pop('Limit', None)
+    kwargs.setdefault('TableName', DDB_TABLE)
+    start_key = kwargs.pop('ExclusiveStartKey', None)
+    items = []
+    for _ in range(_SCAN_MAX_PAGES):
+        if start_key:
+            kwargs['ExclusiveStartKey'] = start_key
+        resp = dynamodb.scan(**kwargs) or {}
+        items.extend(resp.get('Items') or [])
+        if first_only and items:
+            return {'Items': items[:1]}
+        start_key = resp.get('LastEvaluatedKey')
+        if not start_key:
+            break
+    else:
+        logger.warning(f'Scan truncated after {_SCAN_MAX_PAGES} pages: {kwargs.get("FilterExpression")}')
+    return {'Items': items}
+
+
 def _scan_find_student_by_email(email: str) -> dict | None:
     try:
         if not email:
             return None
-        last_key = None
-        for _ in range(0, 10):
-            kwargs = {
-                'TableName': DDB_TABLE,
-                'FilterExpression': '#E = :e AND #R = :r',
-                'ExpressionAttributeNames': {'#E': 'Email', '#R': 'Role'},
-                'ExpressionAttributeValues': {':e': {'S': email}, ':r': {'S': 'student'}},
-                'Limit': 200,
-            }
-            if last_key:
-                kwargs['ExclusiveStartKey'] = last_key
-
-            scan_resp = dynamodb.scan(**kwargs)
-            items = (scan_resp or {}).get('Items') or []
-            if items:
-                return items[0]
-            last_key = (scan_resp or {}).get('LastEvaluatedKey')
-            if not last_key:
-                break
-        return None
+        resp = _ddb_scan(
+            first_only=True,
+            FilterExpression='#E = :e AND #R = :r',
+            ExpressionAttributeNames={'#E': 'Email', '#R': 'Role'},
+            ExpressionAttributeValues={':e': {'S': email}, ':r': {'S': 'student'}},
+        )
+        items = resp.get('Items') or []
+        return items[0] if items else None
     except Exception:
+        logger.exception('DynamoDB scan failed (find student by email)')
         return None
 
 
@@ -263,53 +278,67 @@ def _scan_find_user_by_email(email: str, roles: list[str] | None = None, types: 
         if not e:
             return None
 
-        roles = roles or []
-        types = types or []
-        last_key = None
+        clauses = []
+        expr_names = {'#E': 'Email'}
+        expr_vals = {':e': {'S': e}}
 
-        for _ in range(0, 10):
-            clauses = []
-            expr_names = {'#E': 'Email'}
-            expr_vals = {':e': {'S': e}}
+        for i, r in enumerate(roles or []):
+            expr_names['#R'] = 'Role'
+            expr_vals[f':r{i}'] = {'S': str(r)}
+            clauses.append(f'#R = :r{i}')
 
-            if roles:
-                expr_names['#R'] = 'Role'
-                for i, r in enumerate(roles):
-                    key = f":r{i}"
-                    expr_vals[key] = {'S': str(r)}
-                    clauses.append(f"#R = {key}")
+        for i, t in enumerate(types or []):
+            expr_names['#T'] = 'Type'
+            expr_vals[f':t{i}'] = {'S': str(t)}
+            clauses.append(f'#T = :t{i}')
 
-            if types:
-                expr_names['#T'] = 'Type'
-                for i, t in enumerate(types):
-                    key = f":t{i}"
-                    expr_vals[key] = {'S': str(t)}
-                    clauses.append(f"#T = {key}")
+        filter_expr = '#E = :e'
+        if clauses:
+            filter_expr = f"#E = :e AND ({' OR '.join(clauses)})"
 
-            filter_expr = '#E = :e'
-            if clauses:
-                filter_expr = f"#E = :e AND ({' OR '.join(clauses)})"
-
-            kwargs = {
-                'TableName': DDB_TABLE,
-                'FilterExpression': filter_expr,
-                'ExpressionAttributeNames': expr_names,
-                'ExpressionAttributeValues': expr_vals,
-                'Limit': 200,
-            }
-            if last_key:
-                kwargs['ExclusiveStartKey'] = last_key
-
-            scan_resp = dynamodb.scan(**kwargs)
-            items = (scan_resp or {}).get('Items') or []
-            if items:
-                return items[0]
-            last_key = (scan_resp or {}).get('LastEvaluatedKey')
-            if not last_key:
-                break
-        return None
+        resp = _ddb_scan(
+            first_only=True,
+            FilterExpression=filter_expr,
+            ExpressionAttributeNames=expr_names,
+            ExpressionAttributeValues=expr_vals,
+        )
+        items = resp.get('Items') or []
+        return items[0] if items else None
     except Exception:
+        logger.exception('DynamoDB scan failed (find user by email)')
         return None
+
+
+def _find_enrollment(class_id: str, student_email: str) -> dict | None:
+    """Matrícula de un estudiante en una clase: primero por clave (ENROLL#clase#correo), luego por scan."""
+    class_id = str(class_id or '').strip()
+    student_email = str(student_email or '').strip().lower()
+    if not class_id or not student_email:
+        return None
+    pks = []
+    for pk in (f'ENROLL#{class_id}#{student_email}', f'ENROLL#{class_id}#{student_email}'.lower()):
+        if pk not in pks:
+            pks.append(pk)
+    for pk in pks:
+        try:
+            it = (dynamodb.get_item(TableName=DDB_TABLE, Key={'RekognitionId': {'S': pk}}) or {}).get('Item')
+        except Exception:
+            logger.exception('DynamoDB get_item failed (find enrollment)')
+            it = None
+        if it and _ddb_s(it, 'Type') == 'Enrollment':
+            return it
+    resp = _ddb_scan(
+        first_only=True,
+        FilterExpression='#T = :t AND #CID = :cid AND #SE = :se',
+        ExpressionAttributeNames={'#T': 'Type', '#CID': 'ClassId', '#SE': 'StudentEmail'},
+        ExpressionAttributeValues={
+            ':t': {'S': 'Enrollment'},
+            ':cid': {'S': class_id},
+            ':se': {'S': student_email},
+        },
+    )
+    items = resp.get('Items') or []
+    return items[0] if items else None
 
 
 def _audit_log(actor_email: str | None, actor_role: str | None, action: str, details: dict | None = None):
@@ -330,7 +359,7 @@ def _audit_log(actor_email: str | None, actor_role: str | None, action: str, det
             item['Details'] = {'S': json.dumps(details, ensure_ascii=False, separators=(',', ':'))}
         dynamodb.put_item(TableName=DDB_TABLE, Item=item)
     except Exception:
-        pass
+        logger.exception('audit log write failed')
 
 
 def _co_today_yyyy_mm_dd() -> str:
@@ -567,8 +596,61 @@ def _login_ttl_seconds(body) -> int:
     return 60 * 60 * 24
 
 
+_SCRYPT_PREFIX = 'scrypt$'
+_SCRYPT_N, _SCRYPT_R, _SCRYPT_P = 2 ** 14, 8, 1
+
+
 def _hash_password(password: str, salt_hex: str) -> str:
-    return hashlib.sha256((salt_hex + password).encode('utf-8')).hexdigest()
+    digest = hashlib.scrypt(
+        (password or '').encode('utf-8'),
+        salt=bytes.fromhex(salt_hex),
+        n=_SCRYPT_N,
+        r=_SCRYPT_R,
+        p=_SCRYPT_P,
+        dklen=32,
+    )
+    return _SCRYPT_PREFIX + digest.hex()
+
+
+def _legacy_hash_password(password: str, salt_hex: str) -> str:
+    # Formato anterior (un solo SHA-256). Solo se usa para validar cuentas aún no migradas.
+    return hashlib.sha256((salt_hex + (password or '')).encode('utf-8')).hexdigest()
+
+
+def _verify_password(password: str, salt_hex: str, stored_hash: str) -> bool:
+    if not password or not salt_hex or not stored_hash:
+        return False
+    try:
+        if stored_hash.startswith(_SCRYPT_PREFIX):
+            computed = _hash_password(password, salt_hex)
+        else:
+            computed = _legacy_hash_password(password, salt_hex)
+    except ValueError:
+        return False
+    return hmac.compare_digest(computed, stored_hash)
+
+
+def _password_needs_upgrade(stored_hash: str) -> bool:
+    return bool(stored_hash) and not stored_hash.startswith(_SCRYPT_PREFIX)
+
+
+def _upgrade_password_hash(pk: str, password: str) -> None:
+    """Re-hashea con scrypt una contraseña guardada en el formato antiguo (tras un login válido)."""
+    if not pk:
+        return
+    try:
+        salt_hex = _new_salt_hex()
+        dynamodb.update_item(
+            TableName=DDB_TABLE,
+            Key={'RekognitionId': {'S': pk}},
+            UpdateExpression='SET PasswordSalt = :salt, PasswordHash = :hash',
+            ExpressionAttributeValues={
+                ':salt': {'S': salt_hex},
+                ':hash': {'S': _hash_password(password, salt_hex)},
+            },
+        )
+    except Exception:
+        logger.exception('Password hash upgrade failed')
 
 
 def _new_salt_hex() -> str:
@@ -605,13 +687,20 @@ def _put_private_object(key: str, data: bytes, content_type: str) -> bool:
         return False
 
 
-def _presign_private_object(key: str, expires: int = 600) -> str:
+def _presign_private_object(key: str, expires: int = 600, file_name: str = '', content_type: str = '') -> str:
     if not JUSTIFICATION_BUCKET or not key:
         return ''
+    params = {'Bucket': JUSTIFICATION_BUCKET, 'Key': key}
+    if content_type:
+        params['ResponseContentType'] = content_type
+    if file_name:
+        # inline: el navegador lo muestra si puede (PDF, fotos); si no (Word), lo descarga.
+        safe = re.sub(r'[^A-Za-z0-9._ -]', '_', file_name)[:120] or 'soporte'
+        params['ResponseContentDisposition'] = f'inline; filename="{safe}"'
     try:
         return s3.generate_presigned_url(
             'get_object',
-            Params={'Bucket': JUSTIFICATION_BUCKET, 'Key': key},
+            Params=params,
             ExpiresIn=int(expires),
         )
     except Exception:
@@ -651,25 +740,13 @@ def _ddb_n(item: dict, key: str) -> str:
         return ''
 
 
-def _ddb_scan_all(filter_expression: str, names: dict, values: dict, limit_per_page: int = 300, max_pages: int = 25) -> list:
-    items = []
-    last_key = None
-    for _ in range(max_pages):
-        kwargs = {
-            'TableName': DDB_TABLE,
-            'FilterExpression': filter_expression,
-            'ExpressionAttributeNames': names,
-            'ExpressionAttributeValues': values,
-            'Limit': int(limit_per_page),
-        }
-        if last_key:
-            kwargs['ExclusiveStartKey'] = last_key
-        resp = dynamodb.scan(**kwargs)
-        items.extend((resp or {}).get('Items') or [])
-        last_key = (resp or {}).get('LastEvaluatedKey')
-        if not last_key:
-            break
-    return items
+def _ddb_scan_all(filter_expression: str, names: dict, values: dict, limit_per_page=None, max_pages=None) -> list:
+    # limit_per_page / max_pages se aceptan por compatibilidad, pero ya no recortan resultados.
+    return _ddb_scan(
+        FilterExpression=filter_expression,
+        ExpressionAttributeNames=names,
+        ExpressionAttributeValues=values,
+    ).get('Items') or []
 
 
 def _normalize_attendance_status(raw: str) -> str:
@@ -685,30 +762,18 @@ def _normalize_attendance_status(raw: str) -> str:
 
 def _count_student_attendance_totals(student_email: str) -> dict:
     totals = {'asistencia': 0, 'retardo': 0, 'inasistencia': 0}
-    last_key = None
     try:
-        for _ in range(0, 10):
-            kwargs = {
-                'TableName': DDB_TABLE,
-                'FilterExpression': '#T = :t AND #SE = :se',
-                'ExpressionAttributeNames': {'#T': 'Type', '#SE': 'StudentEmail'},
-                'ExpressionAttributeValues': {
-                    ':t': {'S': 'Attendance'},
-                    ':se': {'S': student_email},
-                },
-                'Limit': 300,
-            }
-            if last_key:
-                kwargs['ExclusiveStartKey'] = last_key
-            att_scan = dynamodb.scan(**kwargs)
-            for att in (att_scan or {}).get('Items') or []:
-                st = _normalize_attendance_status(_ddb_s(att, 'Status'))
-                totals[st] = int(totals.get(st, 0)) + 1
-            last_key = (att_scan or {}).get('LastEvaluatedKey')
-            if not last_key:
-                break
+        items = _ddb_scan_all(
+            '#T = :t AND #SE = :se',
+            {'#T': 'Type', '#SE': 'StudentEmail'},
+            {':t': {'S': 'Attendance'}, ':se': {'S': student_email}},
+        )
     except Exception:
+        logger.exception('DynamoDB scan failed (student attendance totals)')
         return totals
+    for att in items:
+        st = _normalize_attendance_status(_ddb_s(att, 'Status'))
+        totals[st] = int(totals.get(st, 0)) + 1
     return totals
 
 
@@ -853,6 +918,9 @@ def _notify_student_attendance(student_email: str, session_id: str, class_id: st
 
 
 ABSENCE_WARN_AT = 3
+
+# Vida del token del QR de asistencia. La pantalla del docente lo renueva antes de que venza.
+ATTENDANCE_QR_TTL_SECONDS = 90
 
 
 def _absence_warning_action(count: int, already_sent: bool) -> str:
@@ -1102,9 +1170,15 @@ def _build_register_captcha() -> dict:
     return {'prompt': prompt, 'options': [int(x) for x in options], 'answer': int(answer)}
 
 
+def _captcha_answer_mac(nonce: str, answer) -> str:
+    """HMAC de la respuesta: el payload del JWT es legible, así que la respuesta nunca va en claro."""
+    msg = f'captcha:{nonce}:{str(answer).strip()}'.encode('utf-8')
+    return _b64url_encode(hmac.new(AUTH_SECRET.encode('utf-8'), msg, hashlib.sha256).digest())
+
+
 def _verify_register_captcha(token: str, answer) -> tuple[bool, str]:
     if not AUTH_SECRET:
-        return True, ''
+        return False, 'CaptchaInvalid'
     payload = _verify_token(str(token or ''))
     if not payload or payload.get('role') != 'captcha':
         return False, 'CaptchaInvalid'
@@ -1112,9 +1186,12 @@ def _verify_register_captcha(token: str, answer) -> tuple[bool, str]:
     iat = int(payload.get('iat') or 0)
     if iat and (now - iat) < 1:
         return False, 'CaptchaTooFast'
-    expected = str(payload.get('ans') if payload.get('ans') is not None else '')
+    expected = str(payload.get('ah') or '')
+    nonce = str(payload.get('nonce') or '')
     got = str(answer if answer is not None else '').strip()
-    if not expected or got != expected:
+    if not expected or not nonce or not got:
+        return False, 'CaptchaFailed'
+    if not hmac.compare_digest(_captcha_answer_mac(nonce, got), expected):
         return False, 'CaptchaFailed'
     return True, ''
 

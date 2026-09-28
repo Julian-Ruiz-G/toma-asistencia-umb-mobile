@@ -7,11 +7,10 @@ import * as Sharing from 'expo-sharing';
 import { appAlert } from '../../ui/appNotice';
 import {
   AlertCircle,
-  ArrowLeft,
   CheckCircle,
   Download,
   FileSpreadsheet,
-  Upload
+  Upload,
 } from 'lucide-react-native';
 
 import { Button } from '../../components/Button';
@@ -19,6 +18,7 @@ import { COLORS } from '../../ui/theme';
 import { useColors } from '../../ui/ThemeContext';
 import { ADMIN_BULK_IMPORT_URL } from '../../config';
 import { useAuth } from '../../state/auth';
+import { AdminNavButtons, useAdminDrawer } from '../../components/AdminDrawer';
 
 const KINDS = [
   {
@@ -171,6 +171,7 @@ function toPayloadRows(kind, rows) {
 export default function CargaMasivaPage({ navigation }) {
   const COLORS = useColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
+  const { drawer, openDrawer, goBack } = useAdminDrawer(navigation, 'AdminBulkUpload');
   const insets = useSafeAreaInsets();
   const { authToken } = useAuth();
   const [kind, setKind] = useState('docentes');
@@ -288,10 +289,9 @@ export default function CargaMasivaPage({ navigation }) {
 
   return (
     <View style={styles.root}>
+      {drawer}
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 16) }]}>
-        <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <ArrowLeft size={20} color={COLORS.icon} />
-        </Pressable>
+        <AdminNavButtons onBack={goBack} onMenu={openDrawer} buttonStyle={styles.backBtn} size={20} color={COLORS.icon} />
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Carga masiva</Text>
           <Text style={styles.headerSubtitle}>Importa un archivo CSV</Text>

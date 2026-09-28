@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { appAlert } from '../../ui/appNotice';
 import {
-  ArrowLeft,
   CheckCircle,
   ChevronLeft,
   ChevronRight,
@@ -12,7 +11,6 @@ import {
   Search,
   Send,
   Trash2,
-  X,
   XCircle,
 } from 'lucide-react-native';
 
@@ -24,17 +22,19 @@ import { ADMIN_DELETE_STUDENT_URL, ADMIN_STUDENTS_URL, ADMIN_STUDENTS_BY_CLASS_U
 import { useAuth } from '../../state/auth';
 import { prettyLabel } from '../../utils/adminDashboard';
 import { gapsLabel, requestProfileCompletion, studentGaps } from '../../utils/profileGaps';
+import { AdminNavButtons, useAdminDrawer } from '../../components/AdminDrawer';
 
 export default function EstudiantesPage({ navigation }) {
   const COLORS = useColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
+  const { drawer, openDrawer, goBack } = useAdminDrawer(navigation, 'AdminStudents');
   const { authToken } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [students, setStudents] = useState([]);
   const [studentsByClass, setStudentsByClass] = useState([]);
   const [showEdit, setShowEdit] = useState(false);
-  const [editDraft, setEditDraft] = useState({ email: '', fullName: '', studentCode: '' });
+  const [editDraft, setEditDraft] = useState({ email: '', fullName: '', studentCode: '', password: '' });
   const [deletingId, setDeletingId] = useState('');
   const [requestingId, setRequestingId] = useState('');
 
@@ -209,11 +209,10 @@ export default function EstudiantesPage({ navigation }) {
 
   return (
     <View style={styles.root}>
+      {drawer}
       <View style={styles.header}>
         <View style={styles.headerTop}>
-          <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <ArrowLeft size={20} color={COLORS.icon} />
-          </Pressable>
+          <AdminNavButtons onBack={goBack} onMenu={openDrawer} buttonStyle={styles.backBtn} size={20} color={COLORS.icon} />
           <View>
             <Text style={styles.headerTitle}>Estudiantes</Text>
             <Text style={styles.headerSubtitle}>{students.length} registrados</Text>
@@ -230,7 +229,7 @@ export default function EstudiantesPage({ navigation }) {
                 setCurrentPage(1);
               }}
               placeholder="Buscar..."
-              placeholderTextcolor={COLORS.placeholder}
+              placeholderTextColor={COLORS.placeholder}
               style={styles.searchInput}
             />
           </View>
@@ -332,6 +331,7 @@ export default function EstudiantesPage({ navigation }) {
                         email: String(s.email || ''),
                         fullName: String(`${s.firstName} ${s.lastName}`.trim()),
                         studentCode: String(s.code || ''),
+                        password: '',
                       });
                       setShowEdit(true);
                     }}
@@ -391,7 +391,7 @@ export default function EstudiantesPage({ navigation }) {
               value={editDraft.fullName}
               onChangeText={(t) => setEditDraft((p) => ({ ...p, fullName: t }))}
               placeholder="Ej: Juan Pérez"
-              placeholderTextcolor={COLORS.placeholder}
+              placeholderTextColor={COLORS.placeholder}
               style={styles.modalInput}
             />
 
@@ -401,10 +401,23 @@ export default function EstudiantesPage({ navigation }) {
               value={editDraft.studentCode}
               onChangeText={(t) => setEditDraft((p) => ({ ...p, studentCode: t }))}
               placeholder="2023..."
-              placeholderTextcolor={COLORS.placeholder}
+              placeholderTextColor={COLORS.placeholder}
               autoCapitalize="none"
               style={styles.modalInput}
             />
+
+            <View style={{ height: 10 }} />
+            <Text style={styles.modalLabel}>Contraseña temporal (opcional)</Text>
+            <TextInput
+              value={editDraft.password}
+              onChangeText={(t) => setEditDraft((p) => ({ ...p, password: t }))}
+              placeholder="Para restablecer el acceso"
+              placeholderTextColor={COLORS.placeholder}
+              secureTextEntry
+              autoCapitalize="none"
+              style={styles.modalInput}
+            />
+            <Text style={styles.modalHint}>El estudiante deberá cambiarla al iniciar sesión.</Text>
 
             <View style={{ height: 12 }} />
             <Button
@@ -419,6 +432,8 @@ export default function EstudiantesPage({ navigation }) {
                     fullName: String(editDraft.fullName || '').trim(),
                     studentCode: String(editDraft.studentCode || '').trim(),
                   };
+                  const tempPassword = String(editDraft.password || '').trim();
+                  if (tempPassword) payload.password = tempPassword;
                   if (!payload.email) throw new Error('Email inválido');
 
                   const resp = await fetch(ADMIN_UPDATE_STUDENT_URL, {
@@ -433,7 +448,7 @@ export default function EstudiantesPage({ navigation }) {
                   let json;
                   try { json = JSON.parse(text); } catch { json = null; }
                   if (!resp.ok) {
-                    const msg = (json && (json.error || json.message || json.details)) || text || `HTTP ${resp.status}`;
+                    const msg = (json && (json.message || json.error)) || text || `HTTP ${resp.status}`;
                     throw new Error(msg);
                   }
 
@@ -530,5 +545,6 @@ const createStyles = (COLORS) => StyleSheet.create({
   modalTitle: { fontWeight: '900', color: COLORS.text, fontSize: 18 },
   modalText: { marginTop: 6, color: COLORS.muted },
   modalLabel: { marginTop: 8, color: COLORS.textSecondary, fontWeight: '900', fontSize: 12 },
+  modalHint: { marginTop: 6, color: COLORS.textSecondary, fontSize: 12 },
   modalInput: { marginTop: 6, borderWidth: 1, borderColor: COLORS.border, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10, color: COLORS.text },
 });

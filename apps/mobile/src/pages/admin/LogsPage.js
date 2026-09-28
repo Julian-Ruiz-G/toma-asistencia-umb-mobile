@@ -10,7 +10,6 @@ import {
 } from 'react-native';
 import {
   AlertCircle,
-  ArrowLeft,
   CheckCircle,
   Download,
   Info,
@@ -23,6 +22,7 @@ import { COLORS } from '../../ui/theme';
 import { useColors } from '../../ui/ThemeContext';
 import { ADMIN_LOGS_URL } from '../../config';
 import { useAuth } from '../../state/auth';
+import { AdminNavButtons, useAdminDrawer } from '../../components/AdminDrawer';
 
 const mockLogs = [
   { id: '1', timestamp: '2024-01-15 14:32:15', level: 'info', module: 'Auth', message: 'Usuario inició sesión', user: 'admin@umb.edu.co' },
@@ -45,6 +45,7 @@ const levelConfig = {
 export default function LogsPage({ navigation }) {
   const COLORS = useColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
+  const { drawer, openDrawer, goBack } = useAdminDrawer(navigation, 'AdminLogs');
   const { authToken } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [levelFilter, setLevelFilter] = useState('all');
@@ -129,10 +130,9 @@ export default function LogsPage({ navigation }) {
 
   return (
     <View style={styles.root}>
+      {drawer}
       <View style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <ArrowLeft size={20} color={COLORS.icon} />
-        </Pressable>
+        <AdminNavButtons onBack={goBack} onMenu={openDrawer} buttonStyle={styles.backBtn} size={20} color={COLORS.icon} />
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Logs</Text>
           <Text style={styles.headerSubtitle}>Monitoreo del sistema</Text>
@@ -164,7 +164,7 @@ export default function LogsPage({ navigation }) {
               value={searchQuery}
               onChangeText={setSearchQuery}
               placeholder="Buscar..."
-              placeholderTextcolor={COLORS.placeholder}
+              placeholderTextColor={COLORS.placeholder}
               style={styles.searchInput}
             />
           </View>

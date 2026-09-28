@@ -136,7 +136,23 @@ export function emptyDashboard() {
     sessions: { today: 0, last7Days: [], todayList: [] },
     reportsTotal: 0,
     classesTotal: 0,
+    justifications: { total: 0, pending: 0 },
+    consents: { studentsPending: 0, teachersPending: 0, pending: 0 },
   };
+}
+
+function consentsPending(json, students, teachers) {
+  // El backend ya los cuenta; si aún no está desplegado, se calculan con las listas.
+  if (json?.consents) {
+    const studentsPending = num(json.consents.studentsPending);
+    const teachersPending = num(json.consents.teachersPending);
+    return { studentsPending, teachersPending, pending: num(json.consents.pending, studentsPending + teachersPending) };
+  }
+  const studentsPending = students.filter(
+    (s) => !(s.acceptTerms && s.acceptPrivacy && (s.biometricConsent || s.hasFace))
+  ).length;
+  const teachersPending = teachers.filter((t) => !(t.acceptTerms === true && t.acceptPrivacy === true)).length;
+  return { studentsPending, teachersPending, pending: studentsPending + teachersPending };
 }
 
 function pickText(row, keys) {
@@ -313,6 +329,11 @@ function normalize(json, extras = {}) {
     },
     reportsTotal: num(json?.reports?.total ?? json?.sessions?.today),
     classesTotal: num(json?.classes?.total ?? json?.teachers?.classesTotal),
+    justifications: {
+      total: num(json?.justifications?.total),
+      pending: num(json?.justifications?.pending),
+    },
+    consents: consentsPending(json, list, teachers),
   };
 }
 

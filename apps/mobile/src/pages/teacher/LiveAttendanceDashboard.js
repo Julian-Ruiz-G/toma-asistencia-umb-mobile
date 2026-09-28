@@ -347,7 +347,7 @@ export default function LiveAttendanceDashboard({ navigation, route }) {
               value={sessionId}
               onChangeText={setSessionId}
               placeholder="sessionId"
-              placeholderTextcolor={COLORS.placeholder}
+              placeholderTextColor={COLORS.placeholder}
               style={styles.sessionInput}
               autoCapitalize="none"
               autoCorrect={false}
@@ -399,7 +399,7 @@ export default function LiveAttendanceDashboard({ navigation, route }) {
             value={searchQuery}
             onChangeText={setSearchQuery}
             placeholder="Buscar estudiante..."
-            placeholderTextcolor={COLORS.placeholder}
+            placeholderTextColor={COLORS.placeholder}
             style={styles.searchInput}
           />
         </View>

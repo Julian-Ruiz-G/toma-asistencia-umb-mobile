@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { ArrowLeft, Search } from 'lucide-react-native';
+import { Search } from 'lucide-react-native';
 
 import { FilterChips, HBarChart, StatusBreakdown, WeekBars } from '../../components/MiniCharts';
 import { useColors } from '../../ui/ThemeContext';
@@ -9,6 +9,7 @@ import { useAuth } from '../../state/auth';
 import { personDisplayName } from '../../utils/displayName';
 import { formatActionDateTime } from '../../utils/formatDateTime';
 import { fetchAdminDashboard, filterAttendanceRows, labelKey, lastNDayBuckets, prettyLabel, statusLabel, weekdayShort } from '../../utils/adminDashboard';
+import { AdminNavButtons, useAdminDrawer } from '../../components/AdminDrawer';
 
 const SECTIONS = {
   students: {
@@ -32,6 +33,7 @@ const SECTIONS = {
 export default function AdminInsight({ navigation, route }) {
   const COLORS = useColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
+  const { drawer, openDrawer, goBack } = useAdminDrawer(navigation, 'AdminInsight');
   const { authToken } = useAuth();
   const section = String(route?.params?.section || 'students');
   const meta = SECTIONS[section] || SECTIONS.students;
@@ -165,11 +167,10 @@ export default function AdminInsight({ navigation, route }) {
 
   return (
     <View style={styles.root}>
+      {drawer}
       <View style={styles.header}>
         <View style={styles.headerTop}>
-          <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <ArrowLeft size={20} color={COLORS.white} />
-          </Pressable>
+          <AdminNavButtons onBack={goBack} onMenu={openDrawer} buttonStyle={styles.backBtn} size={20} color={COLORS.white} />
           <View style={{ flex: 1 }}>
             <Text style={styles.headerTitle}>{meta.title}</Text>
             <Text style={styles.headerSubtitle}>{meta.subtitle}</Text>

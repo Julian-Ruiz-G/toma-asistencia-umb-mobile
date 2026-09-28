@@ -1,7 +1,57 @@
 from runtime import *  # noqa: F401,F403
 
 JUSTIFICATION_DAYS = 7
+# Lambda recibe como máximo 6 MB por petición y el archivo llega en base64 (+33 %).
 MAX_JUSTIFICATION_BYTES = 4 * 1024 * 1024
+
+# Tipos de soporte permitidos: extensión -> tipo MIME.
+JUSTIFICATION_FILE_TYPES = {
+    'pdf': 'application/pdf',
+    'doc': 'application/msword',
+    'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'jpg': 'image/jpeg',
+    'png': 'image/png',
+    'webp': 'image/webp',
+    'heic': 'image/heic',
+}
+_EXT_ALIASES = {'jpeg': 'jpg', 'heif': 'heic'}
+
+
+def _sniff_file_type(raw: bytes) -> str:
+    """Tipo real según los primeros bytes; '' si no es un formato permitido."""
+    head = raw[:16]
+    if head.startswith(b'%PDF'):
+        return 'pdf'
+    if head.startswith(b'\xff\xd8\xff'):
+        return 'jpg'
+    if head.startswith(b'\x89PNG'):
+        return 'png'
+    if head[:4] == b'RIFF' and head[8:12] == b'WEBP':
+        return 'webp'
+    if head[4:8] == b'ftyp' and head[8:12] in (b'heic', b'heix', b'hevc', b'heif', b'mif1', b'msf1'):
+        return 'heic'
+    if head.startswith(b'\xd0\xcf\x11\xe0'):
+        return 'doc'
+    if head.startswith(b'PK\x03\x04'):
+        # .docx es un zip; se confirma buscando la carpeta word/.
+        return 'docx' if b'word/' in raw[:200000] else ''
+    return ''
+
+
+def _justification_file(raw: bytes, file_name: str):
+    """((extensión, tipo MIME, nombre), '') o (None, mensaje de error)."""
+    kind = _sniff_file_type(raw)
+    if not kind:
+        return None, 'Formato no permitido. Adjunta un PDF, un Word (.doc o .docx) o una foto (JPG, PNG, HEIC).'
+    name = ' '.join(str(file_name or '').split())[:120]
+    ext = name.rsplit('.', 1)[-1].lower() if '.' in name else ''
+    ext = _EXT_ALIASES.get(ext, ext)
+    if ext and ext in JUSTIFICATION_FILE_TYPES and ext != kind:
+        return None, 'El contenido del archivo no coincide con su extensión.'
+    if not name or ext != kind:
+        base = name.rsplit('.', 1)[0] if '.' in name else (name or 'soporte')
+        name = f'{base}.{kind}'
+    return (kind, JUSTIFICATION_FILE_TYPES[kind], name), ''
 
 
 def justification_deadline_epoch(session_date: str = '', marked_at=None) -> int:
@@ -46,6 +96,9 @@ def _justification_view(item: dict) -> dict:
         'reviewNote': _ddb_s(item, 'ReviewNote'),
         'fileKey': _ddb_s(item, 'FileKey'),
         'hasFile': bool(_ddb_s(item, 'FileKey')),
+        'fileName': _ddb_s(item, 'FileName') or None,
+        'fileType': _ddb_s(item, 'FileType') or ('jpg' if _ddb_s(item, 'FileKey') else None),
+        'contentType': _ddb_s(item, 'FileContentType') or ('image/jpeg' if _ddb_s(item, 'FileKey') else None),
         'sessionDate': _ddb_s(item, 'SessionDate'),
         'createdAt': int(created) if str(created).isdigit() else None,
         'deadlineEpoch': int(deadline) if str(deadline).isdigit() else None,
@@ -213,16 +266,25 @@ def handle_submit_justification(event, body):
         })
 
     file_key = ''
-    image_b64 = body.get('imageBase64') if isinstance(body, dict) else None
-    if image_b64:
-        raw_bytes = _normalize_b64_image(str(image_b64))
+    file_info = None
+    # fileBase64 + fileName (PDF, Word, fotos); imageBase64 se mantiene para versiones anteriores de la app.
+    file_b64 = (body.get('fileBase64') or body.get('imageBase64')) if isinstance(body, dict) else None
+    if file_b64:
+        raw_bytes = _normalize_b64_image(str(file_b64))
         if not raw_bytes:
             return _response(400, {'error': 'InvalidFile', 'message': 'No se pudo leer el archivo adjunto.'})
         if len(raw_bytes) > MAX_JUSTIFICATION_BYTES:
             return _response(400, {'error': 'FileTooLarge', 'message': 'El archivo debe pesar menos de 4 MB.'})
-        file_key = f'justifications/{class_id}/{session_id}/{student_email}/{uuid.uuid4().hex}.jpg'
-        if not _put_private_object(file_key, raw_bytes, 'image/jpeg'):
-            file_key = ''
+        file_info, file_error = _justification_file(raw_bytes, body.get('fileName') or '')
+        if not file_info:
+            return _response(400, {'error': 'InvalidFileType', 'message': file_error})
+        ext, content_type, _name = file_info
+        file_key = f'justifications/{class_id}/{session_id}/{student_email}/{uuid.uuid4().hex}.{ext}'
+        if not _put_private_object(file_key, raw_bytes, content_type):
+            return _response(500, {
+                'error': 'FileUploadFailed',
+                'message': 'No se pudo guardar el archivo. Intenta de nuevo.',
+            })
 
     if not student_name:
         student_name = _display_person_name(body.get('studentName') if isinstance(body, dict) else '') or student_email
@@ -244,6 +306,9 @@ def handle_submit_justification(event, body):
     }
     if file_key:
         item['FileKey'] = {'S': file_key}
+        item['FileType'] = {'S': file_info[0]}
+        item['FileContentType'] = {'S': file_info[1]}
+        item['FileName'] = {'S': file_info[2]}
     try:
         dynamodb.put_item(TableName=DDB_TABLE, Item=item)
     except Exception as e:
@@ -279,13 +344,15 @@ def handle_list_justifications(event, body):
     token = _get_bearer_token(event)
     payload = _verify_token(token)
     role = str((payload or {}).get('role') or '')
-    if not payload or role not in ('student', 'teacher'):
+    if not payload or role not in ('student', 'teacher', 'admin'):
         return _response(401, {'error': 'Unauthorized'})
 
     email = str(payload.get('sub') or '').strip().lower()
     class_id = (body.get('classId') or '').strip() if isinstance(body, dict) else ''
     now = int(time.time())
-    if role == 'student':
+    if role == 'admin':
+        items = _ddb_scan_all('#T = :t', {'#T': 'Type'}, {':t': {'S': 'Justification'}})
+    elif role == 'student':
         items = _ddb_scan_all(
             '#T = :t AND #SE = :se',
             {'#T': 'Type', '#SE': 'StudentEmail'},
@@ -305,8 +372,16 @@ def handle_list_justifications(event, body):
         status = _expire_if_needed(it, now)
         view = _justification_view(it)
         view['status'] = status
-        if role == 'teacher' and view.get('fileKey'):
-            view['photoUrl'] = _presign_private_object(view['fileKey'])
+        if view.get('fileKey'):
+            # Cada rol solo recibe las suyas: el estudiante, las propias; el docente, las de sus clases.
+            view['fileUrl'] = _presign_private_object(
+                view['fileKey'],
+                file_name=view.get('fileName') or '',
+                content_type=view.get('contentType') or '',
+            )
+            if str(view.get('contentType') or '').startswith('image/'):
+                view['photoUrl'] = view['fileUrl']  # compatibilidad con versiones anteriores de la app
+        view.pop('fileKey', None)
         rows.append(view)
     rows.sort(key=lambda r: int(r.get('createdAt') or 0), reverse=True)
     return _response(200, {'ok': True, 'justifications': rows})

@@ -1,3 +1,5 @@
+# Copia este archivo como samconfig.toml (ignorado por git) y reemplaza los valores.
+# Genera cada secreto con: python -c "import secrets; print(secrets.token_urlsafe(48))"
 version = 0.1
 
 [default.deploy.parameters]
@@ -7,6 +9,6 @@ s3_prefix = "sam-app"
 region = "us-east-2"
 capabilities = "CAPABILITY_IAM"
 disable_rollback = true
-parameter_overrides = "CollectionName=\"recoEstu\" AdminToken=\"PON_AQUI_EL_TOKEN\" DDBTableName=\"face_recognition\" FaceMatchThreshold=\"70\" MaxMatches=\"5\""
+parameter_overrides = "CollectionName=\"recoEstu\" AdminToken=\"PON_AQUI_UN_TOKEN_ALEATORIO\" AuthSecret=\"PON_AQUI_OTRO_SECRETO_ALEATORIO_DE_32+_CARACTERES\" DDBTableName=\"face_recognition\" FaceMatchThreshold=\"85\" MaxMatches=\"5\" SesFromEmail=\"\""
 image_repositories = []
 confirm_changeset = true

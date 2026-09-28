@@ -70,9 +70,10 @@ function requestSucceeded(json) {
   return Boolean(json?.notification) || (json?.ok === true && Array.isArray(json?.missing));
 }
 
-export async function requestProfileCompletion(authToken, { email, role = 'student' } = {}) {
+export async function requestProfileCompletion(authToken, { email, role = 'student', consentsOnly = false } = {}) {
   if (!authToken) throw new Error('Sesión inválida');
-  const payload = { email, role };
+  // consentsOnly: pide solo términos, privacidad y biometría, no los datos del perfil.
+  const payload = { email, role, ...(consentsOnly ? { consentsOnly: true } : {}) };
 
   const first = await postRequest(ADMIN_REQUEST_PROFILE_URL, authToken, payload);
   if (first.ok && requestSucceeded(first.json)) return first.json;
@@ -84,13 +85,42 @@ export async function requestProfileCompletion(authToken, { email, role = 'stude
 
   if (needsDeploy(first.err) || first.status === 404) {
     const second = await postRequest(ADMIN_CONSENTS_URL, authToken, {
+      ...payload,
       action: 'request-profile',
-      email,
-      role,
     });
     if (second.ok && requestSucceeded(second.json)) return second.json;
     throw new Error('El servidor aún no tiene esta función. Hay que desplegar la Lambda.');
   }
 
   throw new Error(first.err);
+}
+
+/**
+ * Pide los consentimientos pendientes (términos, privacidad y, en estudiantes, biometría)
+ * a todos los usuarios del rol: 'student', 'teacher' o 'all'. Cada uno recibe una notificación.
+ */
+export async function requestAllConsents(authToken, role = 'all') {
+  if (!authToken) throw new Error('Sesión inválida');
+  const res = await postRequest(ADMIN_CONSENTS_URL, authToken, { action: 'request-all', role });
+  if (!res.ok) {
+    if (needsDeploy(res.err) || res.status === 404) {
+      throw new Error('El servidor aún no tiene esta función. Hay que desplegar la Lambda.');
+    }
+    throw new Error(res.json?.message || res.err);
+  }
+  if (typeof res.json?.total !== 'number') {
+    // La Lambda anterior ignora la acción y devuelve la lista: no se envió nada.
+    throw new Error('El servidor aún no tiene esta función. Hay que desplegar la Lambda.');
+  }
+  return res.json;
+}
+
+export function requestAllSummary(result) {
+  const students = Number(result?.studentsNotified || 0);
+  const teachers = Number(result?.teachersNotified || 0);
+  if (!students && !teachers) return 'Todos tienen los consentimientos al día. No se envió ninguna solicitud.';
+  const parts = [];
+  if (students) parts.push(`${students} ${students === 1 ? 'estudiante' : 'estudiantes'}`);
+  if (teachers) parts.push(`${teachers} ${teachers === 1 ? 'docente' : 'docentes'}`);
+  return `Se envió la solicitud a ${parts.join(' y ')}. La verán en sus notificaciones.`;
 }

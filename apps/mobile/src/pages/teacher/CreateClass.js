@@ -174,7 +174,7 @@ function TextField({ label, value, onChangeText, placeholder, autoCapitalize = '
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextcolor={COLORS.placeholder}
+        placeholderTextColor={COLORS.placeholder}
         autoCapitalize={autoCapitalize}
         style={tf.input}
       />

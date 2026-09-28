@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { appAlert } from '../../ui/appNotice';
 import { useFocusEffect } from '@react-navigation/native';
 import { ArrowLeft, BookOpen, Clock, Pencil, QrCode, Users } from 'lucide-react-native';
-import QRCode from 'react-native-qrcode-svg';
+import ScannableQR from '../../components/ScannableQR';
 
 import { Button } from '../../components/Button';
 import { COLORS } from '../../ui/theme';
@@ -136,7 +136,7 @@ export default function ClassDetails({ navigation, route }) {
             </View>
             <Text style={styles.muted}>Los estudiantes lo escanean para unirse a la clase.</Text>
             <View style={{ alignItems: 'center', marginTop: 14 }}>
-              <QRCode value={String(classToken)} size={200} />
+              <ScannableQR value={String(classToken)} size={200} />
             </View>
           </Animated.View>
         ) : null}

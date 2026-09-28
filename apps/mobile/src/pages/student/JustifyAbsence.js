@@ -1,7 +1,9 @@
 import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as ImagePicker from 'expo-image-picker';
-import { ArrowLeft, ImagePlus } from 'lucide-react-native';
+import { ArrowLeft, FileText, ImagePlus, X } from 'lucide-react-native';
 
 import { Button } from '../../components/Button';
 import { SUBMIT_JUSTIFICATION_URL } from '../../config';
@@ -9,14 +11,30 @@ import { useAuth } from '../../state/auth';
 import { appAlert } from '../../ui/appNotice';
 import { useColors } from '../../ui/ThemeContext';
 
+// Debe coincidir con MAX_JUSTIFICATION_BYTES del backend.
+const MAX_FILE_BYTES = 4 * 1024 * 1024;
+const DOCUMENT_TYPES = [
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'image/*',
+];
+
+function formatSize(bytes) {
+  const n = Number(bytes || 0);
+  if (!n) return '';
+  if (n < 1024 * 1024) return `${Math.max(1, Math.round(n / 1024))} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export default function JustifyAbsence({ navigation, route }) {
   const record = route?.params?.record || {};
   const COLORS = useColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const { authToken } = useAuth();
   const [reason, setReason] = useState('');
-  const [imageBase64, setImageBase64] = useState('');
-  const [fileLabel, setFileLabel] = useState('');
+  // { base64, name, size, kind: 'photo' | 'document' }
+  const [file, setFile] = useState(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -37,9 +55,41 @@ export default function JustifyAbsence({ navigation, route }) {
       setError('No se pudo leer la imagen.');
       return;
     }
-    setImageBase64(asset.base64);
-    setFileLabel(asset.fileName || 'Foto adjunta');
+    const size = Math.floor((asset.base64.length * 3) / 4);
+    if (size > MAX_FILE_BYTES) {
+      setError('La foto pesa más de 4 MB. Elige otra o recórtala.');
+      return;
+    }
+    // Sin extensión: el servidor la pone según el contenido real (la galería puede nombrar .HEIC un JPG).
+    setFile({ base64: asset.base64, name: 'Foto de la excusa', size, kind: 'photo' });
     setError('');
+  };
+
+  const pickDocument = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: DOCUMENT_TYPES,
+        copyToCacheDirectory: true,
+        multiple: false,
+      });
+      if (result.canceled) return;
+      const asset = result.assets?.[0];
+      if (!asset?.uri) return;
+      if (Number(asset.size || 0) > MAX_FILE_BYTES) {
+        setError('El archivo pesa más de 4 MB. Adjunta uno más liviano.');
+        return;
+      }
+      const base64 = await FileSystem.readAsStringAsync(asset.uri, { encoding: FileSystem.EncodingType.Base64 });
+      setFile({
+        base64,
+        name: String(asset.name || 'Soporte'),
+        size: Number(asset.size || Math.floor((base64.length * 3) / 4)),
+        kind: 'document',
+      });
+      setError('');
+    } catch (e) {
+      setError(e?.message || 'No se pudo leer el archivo.');
+    }
   };
 
   const submit = async () => {
@@ -64,7 +114,7 @@ export default function JustifyAbsence({ navigation, route }) {
         body: JSON.stringify({
           sessionId: record.sessionId,
           reason: text,
-          ...(imageBase64 ? { imageBase64 } : {}),
+          ...(file ? { fileBase64: file.base64, fileName: file.name } : {}),
         }),
       });
       const raw = await resp.text();
@@ -76,7 +126,7 @@ export default function JustifyAbsence({ navigation, route }) {
       appAlert(
         'Justificación enviada',
         json?.hasFile
-          ? 'El docente la va a revisar. La foto quedó guardada.'
+          ? 'El docente la va a revisar. El soporte quedó guardado.'
           : 'El docente la va a revisar.'
       );
       navigation.goBack();
@@ -111,10 +161,35 @@ export default function JustifyAbsence({ navigation, route }) {
           style={styles.input}
         />
         <Text style={styles.hint}>Tienes 7 días desde la clase. El docente de la materia aprueba o rechaza.</Text>
-        <Pressable onPress={pickImage} style={styles.fileBtn}>
-          <ImagePlus size={18} color={COLORS.primary} />
-          <Text style={styles.fileText}>{fileLabel || 'Adjuntar foto de la excusa (opcional)'}</Text>
-        </Pressable>
+
+        <Text style={styles.label}>Soporte (opcional)</Text>
+        {file ? (
+          <View style={styles.fileCard}>
+            {file.kind === 'photo'
+              ? <ImagePlus size={18} color={COLORS.primary} />
+              : <FileText size={18} color={COLORS.primary} />}
+            <View style={{ flex: 1 }}>
+              <Text style={styles.fileText} numberOfLines={1}>{file.name}</Text>
+              <Text style={styles.fileMeta}>{formatSize(file.size)}</Text>
+            </View>
+            <Pressable onPress={() => setFile(null)} hitSlop={8} accessibilityLabel="Quitar adjunto">
+              <X size={18} color={COLORS.icon} />
+            </Pressable>
+          </View>
+        ) : (
+          <View style={styles.pickRow}>
+            <Pressable onPress={pickImage} style={styles.fileBtn}>
+              <ImagePlus size={18} color={COLORS.primary} />
+              <Text style={styles.fileText}>Foto</Text>
+            </Pressable>
+            <Pressable onPress={pickDocument} style={styles.fileBtn}>
+              <FileText size={18} color={COLORS.primary} />
+              <Text style={styles.fileText}>Documento</Text>
+            </Pressable>
+          </View>
+        )}
+        <Text style={styles.hint}>PDF, Word o foto de la excusa, de hasta 4 MB.</Text>
+
         {error ? <Text style={styles.error}>{error}</Text> : null}
         <Button fullWidth size="lg" onPress={submit} isLoading={loading}>
           Enviar justificación
@@ -152,17 +227,30 @@ const createStyles = (COLORS) => StyleSheet.create({
     fontWeight: '600',
   },
   hint: { marginTop: 10, marginBottom: 14, color: COLORS.textSecondary, fontSize: 12, fontWeight: '600' },
+  pickRow: { flexDirection: 'row', gap: 10 },
   fileBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 8,
-    marginBottom: 16,
     padding: 12,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: COLORS.border,
     backgroundColor: COLORS.card,
   },
-  fileText: { flex: 1, color: COLORS.text, fontWeight: '700' },
+  fileCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.card,
+  },
+  fileText: { color: COLORS.text, fontWeight: '700' },
+  fileMeta: { marginTop: 2, color: COLORS.muted, fontSize: 12 },
   error: { marginBottom: 12, color: COLORS.danger, fontWeight: '700' },
 });

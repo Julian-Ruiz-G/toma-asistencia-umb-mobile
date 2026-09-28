@@ -32,11 +32,24 @@ const ScanState = {
 };
 
 // Componente principal del escáner QR para estudiantes
+// Rol del token del QR ('class' para unirse, 'attendance' para asistencia). El payload del
+// JWT es legible; la firma la valida el backend, esto solo decide a qué endpoint enviarlo.
+function qrTokenRole(data) {
+  try {
+    const part = String(data || '').split('.')[1];
+    if (!part || typeof atob !== 'function') return '';
+    const b64 = part.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((part.length + 3) % 4);
+    return String(JSON.parse(atob(b64))?.role || '');
+  } catch {
+    return '';
+  }
+}
+
 export default function QRScanner({ navigation }) {
   const COLORS = useColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   // Obtener datos de autenticación del contexto
-  const { authToken, email, fullName, studentCode, refreshStudentClasses } = useAuth();
+  const { authToken, refreshStudentClasses } = useAuth();
   // Estados de permisos de cámara
   const [permission, requestPermission] = useCameraPermissions();
   // Estados locales del componente
@@ -146,18 +159,14 @@ export default function QRScanner({ navigation }) {
     }
     try {
       // Realizar petición POST al backend para marcar asistencia
-      console.log('🔍 DEBUG: Enviando asistencia:', { attendanceToken, studentEmail: email, studentCode });
       const resp = await fetch(MARK_ATTENDANCE_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${authToken}`,
         },
-        body: JSON.stringify({
-          attendanceToken, // Token del QR escaneado
-          studentEmail: email || '', // Email del estudiante
-          studentCode: studentCode || '', // Código del estudiante
-        }),
+        // El backend identifica al estudiante por su sesión; solo necesita el token del QR.
+        body: JSON.stringify({ attendanceToken }),
       });
       const text = await resp.text();
       let json;
@@ -168,7 +177,7 @@ export default function QRScanner({ navigation }) {
       }
       if (!resp.ok) {
         // Manejar errores de respuesta
-        const msg = (json && (json.error || json.message || json.details)) || text || `HTTP ${resp.status}`;
+        const msg = (json && (json.message || json.error)) || text || `HTTP ${resp.status}`;
         throw new Error(msg);
       }
 
@@ -196,50 +205,17 @@ export default function QRScanner({ navigation }) {
       setJoinResult('');
       setScanState(ScanState.success);
     } catch (e) {
-      console.log('❌ DEBUG: Error marcando asistencia:', e);
       // Manejar errores de la petición
       setJoinResult(e?.message || String(e));
       setScanState(ScanState.error);
     }
   };
 
-  // Función para calcular estado de asistencia basado en hora actual (placeholder)
-  const computeAttendanceStatus = () => {
-    const now = new Date();
-    const hours = now.getHours();
-    const minutes = now.getMinutes();
-    // Formatear hora actual como HH:MM
-    const timeString = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
-    setScanTime(timeString);
-    setProcessedAt(formatActionDateTime(now));
-
-    const totalMinutes = hours * 60 + minutes;
-    const classStartMinutes = 8 * 60;
-
-    if (totalMinutes <= classStartMinutes + 10) return 'present';
-    if (totalMinutes <= classStartMinutes + 20) return 'late';
-    return 'absent';
-  };
-
   // Función para reintentar el escaneo
   const handleRetry = () => {
+    setJoinResult('');
     setEnabled(true); // Habilitar escaneo nuevamente
     setScanState(ScanState.scanning); // Cambiar a estado de escaneo
-  };
-
-  // Función para determinar si un token es probablemente de clase (registro)
-  const isLikelyClassToken = (token) => {
-    const t = String(token || '').trim();
-    if (!t) return false;
-    // Los tokens de asistencia suelen ser más largos y tener prefijos diferentes.
-    // Para unirse a clase, el backend espera classToken (usualmente almacenado como classToken en detalles de clase).
-    // Tratamos cualquier token corto-ish, no-URL, no-json como token de clase.
-    if (t.startsWith('http://') || t.startsWith('https://')) return false;
-    if (t.startsWith('{') || t.startsWith('[')) return false;
-    // El prefijo mock antiguo era CLASS_. Seguimos aceptándolo.
-    if (t.startsWith('CLASS_')) return true;
-    // Heurística: classToken en este proyecto es comúnmente un token alfanumérico.
-    return t.length >= 8 && t.length <= 120;
   };
 
   // Función asíncrona para unirse a una clase via QR
@@ -257,18 +233,10 @@ export default function QRScanner({ navigation }) {
     }
 
     try {
-      // Realizar petición POST al backend para unirse a clase
-      console.log('🔍 DEBUG: Enviando registro de clase:', { classToken, studentName: fullName, studentCode });
-      console.log('🔍 DEBUG: JOIN_CLASS_URL:', JOIN_CLASS_URL);
-      console.log('🔍 DEBUG: AuthToken:', authToken ? 'exists' : 'missing');
-      
-      const requestBody = {
-        classToken, // Token de clase del QR
-        studentName: fullName || '',
-        studentCode: studentCode || '', // Código del estudiante
-      };
-      console.log('🔍 DEBUG: Request body:', JSON.stringify(requestBody, null, 2));
-      
+      // Realizar petición POST al backend para unirse a clase.
+      // Nombre y código los toma el backend del perfil del estudiante.
+      const requestBody = { classToken };
+
       const resp = await fetch(JOIN_CLASS_URL, {
         method: 'POST',
         headers: {
@@ -278,30 +246,21 @@ export default function QRScanner({ navigation }) {
         body: JSON.stringify(requestBody),
       });
 
-      console.log('🔍 DEBUG: Response status:', resp.status);
-      console.log('🔍 DEBUG: Response headers:', Object.fromEntries(resp.headers.entries()));
-      
       const text = await resp.text();
-      console.log('🔍 DEBUG: Response text:', text);
-      
       let json;
       try {
         json = JSON.parse(text);
-        console.log('🔍 DEBUG: Parsed JSON:', JSON.stringify(json, null, 2));
       } catch {
-        console.log('❌ DEBUG: Failed to parse JSON response');
         json = null;
       }
 
       if (!resp.ok) {
         // Manejar errores de respuesta
-        const msg = (json && (json.error || json.message || json.details)) || text || `HTTP ${resp.status}`;
-        console.log('❌ DEBUG: Error response:', msg);
+        const msg = (json && (json.message || json.error)) || text || `HTTP ${resp.status}`;
         throw new Error(msg);
       }
 
       // Éxito en el registro
-      console.log('✅ DEBUG: Registration successful:', json);
       const className = json?.className || json?.class?.className || 'la clase';
       setJoinResult(`✅ Te registraste exitosamente en ${className}`);
       setAttendanceStatus('register');
@@ -310,8 +269,6 @@ export default function QRScanner({ navigation }) {
       refreshStudentClasses();
     } catch (e) {
       // Manejar errores de la petición
-      console.log('❌ DEBUG: Exception in submitJoinClass:', e);
-      console.log('❌ DEBUG: Error message:', e?.message || String(e));
       setJoinResult(e?.message || String(e));
       setScanState(ScanState.error);
     }
@@ -335,10 +292,19 @@ export default function QRScanner({ navigation }) {
 
     // Extraer datos del QR
     const data = String(res?.data || '').trim();
-    console.log('🔍 DEBUG: QR data extracted:', data);
     if (!data) {
-      console.log('❌ DEBUG: Empty QR data, setting error state');
       setScanState(ScanState.error);
+      return;
+    }
+
+    // Si el QR dice qué es, se usa eso aunque se haya elegido el otro modo.
+    const role = qrTokenRole(data);
+    if (role === 'class') {
+      await submitJoinClass(data);
+      return;
+    }
+    if (role === 'attendance') {
+      await submitMarkAttendance(data);
       return;
     }
 
@@ -353,16 +319,9 @@ export default function QRScanner({ navigation }) {
       return;
     }
 
-    // Fallback (no debería ocurrir): mantener heurística antigua
-    if (isLikelyClassToken(data)) {
-      await submitJoinClass(data);
-      return;
-    }
-    // Si no se determina el modo, calcular estado de asistencia
-    const status = computeAttendanceStatus();
-    setAttendanceStatus(status);
-    setJoinResult('');
-    setScanState(ScanState.success);
+    // QR que no es de clase ni de asistencia (o sin modo elegido): no se registra nada.
+    setJoinResult('Este QR no es de la app de asistencia. Escanea el código que muestra el docente.');
+    setScanState(ScanState.error);
   };
 
   if (!permission?.granted) {
@@ -467,28 +426,6 @@ export default function QRScanner({ navigation }) {
       </View>
 
       <View style={styles.bottom}>
-        <View style={styles.bottomRow}>
-          <Pressable onPress={() => {}} style={styles.smallCircleBtn}>
-            <View style={styles.galleryThumb} />
-          </Pressable>
-          <Pressable
-            onPress={() => {
-              // Manual trigger for testing
-              if (scanState === ScanState.scanning) {
-                const status = computeAttendanceStatus();
-                setAttendanceStatus(status);
-                setScanState(ScanState.success);
-                setEnabled(false);
-              }
-            }}
-            style={styles.captureOuter}
-          >
-            <View style={styles.captureInner} />
-          </Pressable>
-          <Pressable onPress={() => {}} style={styles.smallCircleBtn}>
-            <Text style={styles.helpText}>?</Text>
-          </Pressable>
-        </View>
         <Text style={styles.bottomHint}>
           {scanMode === 'register'
             ? 'Escanea el QR del profesor para unirte a la clase'
@@ -524,7 +461,7 @@ export default function QRScanner({ navigation }) {
                 </>
               )}
               {!joinResult ? <Text style={styles.resultSub2}>Se registró el escaneo</Text> : null}
-              {scanMode !== 'register' ? (
+              {attendanceStatus !== 'register' ? (
                 <View style={[styles.statusBox, { backgroundColor: cfg.chipBg }]}>
                   <Text style={[styles.statusLine1, { color: cfg.chipText }]}>Estado: {cfg.label}</Text>
                   <Text style={styles.statusLine2}>{scanTime ? `${scanTime} - ${cfg.message}` : cfg.message}</Text>
@@ -539,8 +476,10 @@ export default function QRScanner({ navigation }) {
               <View style={[styles.resultIcon, { backgroundColor: COLORS.dangerStrong }]}>
                 <XCircle size={40} color={COLORS.white} />
               </View>
-              <Text style={styles.resultTitle}>QR Inválido</Text>
-              <Text style={styles.resultMsg}>El código escaneado no corresponde a una clase válida o ha expirado.</Text>
+              <Text style={styles.resultTitle}>No se pudo registrar</Text>
+              <Text style={styles.resultMsg}>
+                {joinResult || 'El código escaneado no corresponde a una clase válida o ha expirado.'}
+              </Text>
               <Button fullWidth variant="outline" onPress={handleRetry}>
                 Intentar de nuevo
               </Button>
@@ -659,13 +598,7 @@ const createStyles = (COLORS) => StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.45)',
   },
 
-  bottom: { backgroundColor: COLORS.text, paddingHorizontal: 24, paddingTop: 18, paddingBottom: 22 },
-  bottomRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 26 },
-  smallCircleBtn: { width: 48, height: 48, borderRadius: 24, backgroundColor: COLORS.text, alignItems: 'center', justifyContent: 'center' },
-  galleryThumb: { width: 22, height: 22, borderRadius: 6, backgroundColor: COLORS.muted },
-  helpText: { color: COLORS.white, fontWeight: '900', fontSize: 16 },
-  captureOuter: { width: 80, height: 80, borderRadius: 40, borderWidth: 4, borderColor: COLORS.white, alignItems: 'center', justifyContent: 'center' },
-  captureInner: { width: 64, height: 64, borderRadius: 32, backgroundColor: COLORS.card },
+  bottom: { backgroundColor: COLORS.scheme === 'dark' ? COLORS.card : COLORS.text, paddingHorizontal: 24, paddingTop: 18, paddingBottom: 22 },
   bottomHint: { marginTop: 12, textAlign: 'center', color: COLORS.muted },
 
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.80)', alignItems: 'center', justifyContent: 'center', padding: 24 },

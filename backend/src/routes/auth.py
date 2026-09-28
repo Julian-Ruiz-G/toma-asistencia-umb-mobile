@@ -2,15 +2,7 @@ from runtime import *  # noqa: F401,F403
 
 def handle_register_teacher(event, body):
     provided = _get_header(event, 'x-admin-token')
-    try:
-        logger.info(
-            f"admin_token_check configured={bool(ADMIN_TOKEN)} configured_len={len(ADMIN_TOKEN or '')} "
-            f"provided_len={len(provided or '')} match={bool(ADMIN_TOKEN) and (provided == ADMIN_TOKEN)}"
-        )
-    except Exception:
-        pass
-
-    if not ADMIN_TOKEN or provided != ADMIN_TOKEN:
+    if not ADMIN_TOKEN or not hmac.compare_digest(str(provided or ''), ADMIN_TOKEN):
         return _response(403, {'error': 'Forbidden'})
 
     teacher_code = (body.get('teacherCode') or body.get('codigoDocente') or '').strip()
@@ -85,9 +77,10 @@ def handle_login_teacher(event, body):
     if not salt_hex or not stored_hash:
         return _login_fail()
 
-    computed = _hash_password(password, salt_hex)
-    if computed != stored_hash:
+    if not _verify_password(password, salt_hex, stored_hash):
         return _login_fail()
+    if _password_needs_upgrade(stored_hash):
+        _upgrade_password_hash(_ddb_s(item, 'RekognitionId'), password)
 
     stored_code = (item.get('TeacherCode', {}) or {}).get('S')
     if teacher_code and stored_code and teacher_code != stored_code:
@@ -139,9 +132,10 @@ def handle_login_admin(event, body):
     if not salt_hex or not stored_hash:
         return _login_fail()
 
-    computed = _hash_password(password, salt_hex)
-    if computed != stored_hash:
+    if not _verify_password(password, salt_hex, stored_hash):
         return _login_fail()
+    if _password_needs_upgrade(stored_hash):
+        _upgrade_password_hash(_ddb_s(item, 'RekognitionId'), password)
 
     now = int(time.time())
     token = None
@@ -314,9 +308,10 @@ def handle_login_student(event, body):
     if not salt_hex or not stored_hash:
         return _login_fail()
 
-    computed = _hash_password(password, salt_hex)
-    if computed != stored_hash:
+    if not _verify_password(password, salt_hex, stored_hash):
         return _login_fail()
+    if _password_needs_upgrade(stored_hash):
+        _upgrade_password_hash(_ddb_s(item, 'RekognitionId'), password)
 
     stored_student_code = _ddb_s(item, 'StudentCode')
     if student_code and stored_student_code and student_code != stored_student_code:
@@ -347,15 +342,17 @@ def handle_captcha_challenge(event, body):
     now = int(time.time())
     token = None
     if AUTH_SECRET:
+        nonce = secrets.token_hex(8)
         try:
             token = _sign_token({
                 'role': 'captcha',
-                'ans': str(challenge['answer']),
+                'ah': _captcha_answer_mac(nonce, challenge['answer']),
                 'iat': now,
                 'exp': now + 180,
-                'nonce': secrets.token_hex(8),
+                'nonce': nonce,
             })
         except Exception:
+            logger.exception('captcha token signing failed')
             token = None
     return _response(200, {
         'ok': True,
@@ -381,14 +378,13 @@ def handle_validate_register_photo(event, body, image_bytes_fixed, img=None, wid
             Image={'Bytes': image_bytes_fixed},
             Attributes=['ALL'],
         )
-    except Exception as e:
+    except Exception:
         logger.exception('detect_faces failed (validate-register-photo)')
         return _response(400, {
             'ok': False,
             'error': 'FaceDetectFailed',
             'message': 'No se pudo analizar la foto. Intenta de nuevo.',
             'issues': ['No se pudo analizar la foto. Intenta de nuevo.'],
-            'details': str(e),
         })
     face_details = detect_resp.get('FaceDetails') or []
     photo_issues = _register_photo_issues(face_details)
@@ -458,13 +454,6 @@ def handle_register(event, body, image_bytes_fixed, img=None, width=None, height
     if not email.endswith('@academia.umb.edu.co'):
         return _response(400, {'error': 'InvalidEmailDomain', 'message': 'El correo debe terminar en @academia.umb.edu.co'})
 
-    email_code = ''
-    if isinstance(body, dict):
-        email_code = str(body.get('emailCode') or body.get('codigoCorreo') or '').strip()
-    code_ok, code_error = _register_email_code_ok(email, email_code)
-    if not code_ok:
-        return code_error
-
     # Validar complejidad de la contraseña
     if len(password) < 8:
         return _response(400, {'error': 'PasswordTooShort', 'message': 'La contraseña debe tener mínimo 8 caracteres'})
@@ -485,32 +474,38 @@ def handle_register(event, body, image_bytes_fixed, img=None, width=None, height
     if not consent_biometric:
         return _response(400, {'error': 'BiometricConsentNotAccepted', 'message': 'Debe autorizar el tratamiento de datos biométricos'})
 
+    # Un correo, una cuenta (antes lo garantizaba el código enviado por correo).
+    existing_account = _scan_find_student_by_email(email)
+    if not existing_account:
+        try:
+            existing_account = (dynamodb.get_item(
+                TableName=DDB_TABLE,
+                Key={'RekognitionId': {'S': f'USER#{email}'}},
+            ) or {}).get('Item')
+        except Exception:
+            logger.exception('DynamoDB get_item failed (register email check)')
+            return _response(500, {'error': 'DynamoDBGetFailed'})
+    if existing_account:
+        return _response(409, {
+            'error': 'EmailAlreadyRegistered',
+            'message': 'Ese correo ya tiene una cuenta. Inicia sesión o pide al administrador que restablezca tu contraseña.',
+        })
+
     # Verificar si el código de estudiante ya está registrado
     try:
-        scan_resp = dynamodb.scan(
-            TableName=DDB_TABLE,
+        scan_resp = _ddb_scan(
+            first_only=True,
             FilterExpression='#SC = :sc AND #R = :r',
             ExpressionAttributeNames={'#SC': 'StudentCode', '#R': 'Role'},
             ExpressionAttributeValues={':sc': {'S': student_code}, ':r': {'S': 'student'}},
-            Limit=1,
         )
         items = (scan_resp or {}).get('Items') or []
         if items:
-            existing_item = items[0]
-            existing_email = _ddb_s(existing_item, 'Email')
-            existing_name = _ddb_s(existing_item, 'FullName')
-
-            error_msg = f'El código de estudiante {student_code} ya está registrado'
-            if existing_name:
-                error_msg += f' en el estudiante {existing_name}'
-            if existing_email and existing_email != email:
-                error_msg += f' ({existing_email})'
-
-            logger.warning(f'StudentCode already registered: code={student_code}, existing_email={existing_email}, new_email={email}')
+            # No se revela a quién pertenece: el registro es público.
+            logger.warning(f'StudentCode already registered: code={student_code}')
             return _response(409, {
                 'error': 'StudentCodeAlreadyRegistered',
-                'message': error_msg,
-                'existingEmail': existing_email
+                'message': f'El código estudiantil {student_code} ya está registrado. Si es tuyo, inicia sesión o contacta al administrador.',
             })
     except Exception as e:
         logger.warning(f'StudentCode duplicate check failed: {e}')
@@ -539,39 +534,12 @@ def handle_register(event, body, image_bytes_fixed, img=None, width=None, height
         )
         matches = search_resp.get('FaceMatches', [])
         if matches:
-            # Rostro ya registrado
-            best_match = matches[0]
-            similarity = float(best_match.get('Similarity', 0))
-            face_id = best_match.get('Face', {}).get('FaceId')
-
-            # Obtener información del estudiante existente
-            existing_email = None
-            existing_name = None
-            if face_id:
-                try:
-                    ddb_resp = dynamodb.get_item(
-                        TableName=DDB_TABLE,
-                        Key={'RekognitionId': {'S': face_id}}
-                    )
-                    existing_item = (ddb_resp or {}).get('Item')
-                    if existing_item:
-                        existing_email = _ddb_s(existing_item, 'Email')
-                        existing_name = _ddb_s(existing_item, 'FullName')
-                except Exception:
-                    pass
-
-            error_msg = 'Este rostro ya está registrado'
-            if existing_name:
-                error_msg += f' en el estudiante {existing_name}'
-            if existing_email and existing_email != email:
-                error_msg += f' ({existing_email})'
-
-            logger.warning(f'Face already registered: similarity={similarity}%, existing_email={existing_email}, new_email={email}')
+            # No se revela a quién pertenece el rostro: permitiría identificar personas con una foto.
+            similarity = float(matches[0].get('Similarity', 0))
+            logger.warning(f'Face already registered: similarity={similarity:.1f}%')
             return _response(409, {
                 'error': 'FaceAlreadyRegistered',
-                'message': error_msg,
-                'similarity': similarity,
-                'existingEmail': existing_email
+                'message': 'Este rostro ya está registrado en otra cuenta. Si es tuya, inicia sesión o contacta al administrador.',
             })
     except Exception as e:
         logger.warning(f'Face duplicate check failed: {e}')
@@ -628,7 +596,6 @@ def handle_register(event, body, image_bytes_fixed, img=None, width=None, height
         logger.exception('DynamoDB put_item failed')
         return _response(500, {'error': 'DynamoDBPutFailed', 'details': str(e)})
 
-    _clear_register_email_code(email)
     return _response(200, {
         'ok': True,
         'faceId': face_id,
@@ -651,24 +618,6 @@ def _account_for_session(email: str, role: str) -> dict | None:
     if not item or _ddb_s(item, 'Role') != role:
         return None
     return item
-
-
-def _account_by_email(email: str) -> dict | None:
-    email = (email or '').strip().lower()
-    if not email:
-        return None
-    try:
-        resp = dynamodb.get_item(TableName=DDB_TABLE, Key={'RekognitionId': {'S': f'USER#{email}'}})
-        item = (resp or {}).get('Item')
-    except Exception:
-        logger.exception('DynamoDB get_item failed (account-by-email)')
-        item = None
-    if item and _ddb_s(item, 'PasswordHash') and _ddb_s(item, 'Role') in ('teacher', 'admin'):
-        return item
-    student = _scan_find_student_by_email(email)
-    if student and _ddb_s(student, 'PasswordHash'):
-        return student
-    return None
 
 
 def _apply_new_password(pk: str, new_password: str, clear_reset: bool = False):
@@ -709,9 +658,9 @@ def handle_change_password(event, body):
 
     salt_hex = _ddb_s(item, 'PasswordSalt')
     stored_hash = _ddb_s(item, 'PasswordHash')
-    if not salt_hex or not stored_hash or _hash_password(current, salt_hex) != stored_hash:
+    if not _verify_password(current, salt_hex, stored_hash):
         return _response(400, {'error': 'InvalidCurrentPassword', 'message': 'La contraseña actual no coincide.'})
-    if _hash_password(new_password, salt_hex) == stored_hash:
+    if _verify_password(new_password, salt_hex, stored_hash):
         return _response(400, {'error': 'PasswordUnchanged', 'message': 'La nueva contraseña debe ser distinta a la actual.'})
 
     issue = _password_issue(new_password)
@@ -729,219 +678,3 @@ def handle_change_password(event, body):
 
     _audit_log(email, role, 'change-password', {})
     return _response(200, {'ok': True, 'mustChangePassword': False})
-
-
-_FORGOT_MESSAGE = 'Si el correo está registrado, enviamos un código para restablecer la contraseña. Revisa la bandeja y el correo no deseado.'
-_EMAIL_NOT_CONFIGURED = 'La recuperación por correo no está disponible. Falta el remitente SesFromEmail, verificado en Amazon SES (us-east-2).'
-_STUDENT_EMAIL_DOMAIN = '@academia.umb.edu.co'
-
-
-def _verify_pk(email: str) -> str:
-    return f"VERIFY#{email.strip().lower()}"
-
-
-def _register_email_code_ok(email: str, code: str):
-    if not SES_FROM_EMAIL:
-        return False, _response(503, {
-            'error': 'EmailNotConfigured',
-            'message': 'No se puede verificar el correo porque el envío no está configurado.',
-        })
-    if not code.isdigit() or len(code) != 6:
-        return False, _response(400, {
-            'error': 'EmailCodeRequired',
-            'message': 'Escribe el código de 6 dígitos que enviamos a tu correo.',
-        })
-    try:
-        resp = dynamodb.get_item(
-            TableName=DDB_TABLE,
-            Key={'RekognitionId': {'S': _verify_pk(email)}},
-        )
-    except Exception as e:
-        logger.exception('DynamoDB get_item failed (register email code)')
-        return False, _response(500, {'error': 'DynamoDBGetFailed', 'details': str(e)})
-    item = (resp or {}).get('Item')
-    exp = int(_ddb_n(item or {}, 'CodeExp') or '0')
-    code_salt = _ddb_s(item or {}, 'CodeSalt')
-    code_hash = _ddb_s(item or {}, 'CodeHash')
-    now = int(time.time())
-    if not item or not exp or now > exp or not code_salt or not code_hash:
-        return False, _response(400, {
-            'error': 'InvalidEmailCode',
-            'message': 'El código no es válido o ya venció. Pide uno nuevo.',
-        })
-    if not hmac.compare_digest(_hash_password(code, code_salt), code_hash):
-        return False, _response(400, {
-            'error': 'InvalidEmailCode',
-            'message': 'El código no es válido o ya venció. Pide uno nuevo.',
-        })
-    return True, None
-
-
-def _clear_register_email_code(email: str):
-    try:
-        dynamodb.delete_item(
-            TableName=DDB_TABLE,
-            Key={'RekognitionId': {'S': _verify_pk(email)}},
-        )
-    except Exception:
-        logger.exception('DynamoDB delete_item failed (register email code)')
-
-
-def handle_request_register_code(event, body):
-    email = (body.get('email') or body.get('correo') or '').strip().lower() if isinstance(body, dict) else ''
-    if not email:
-        return _response(400, {'error': 'Missing field: email', 'message': 'Escribe el correo institucional.'})
-    if not email.endswith(_STUDENT_EMAIL_DOMAIN) or email.startswith('@') or email.count('@') != 1:
-        return _response(400, {
-            'error': 'InvalidEmailDomain',
-            'message': 'El correo debe terminar en @academia.umb.edu.co',
-        })
-    if not SES_FROM_EMAIL:
-        return _response(503, {
-            'error': 'EmailNotConfigured',
-            'message': 'No se puede enviar el código porque el correo de salida no está configurado.',
-        })
-    if _account_by_email(email):
-        return _response(409, {
-            'error': 'EmailAlreadyRegistered',
-            'message': 'Ese correo ya tiene una cuenta. Inicia sesión o recupera la contraseña.',
-        })
-
-    pk = _verify_pk(email)
-    now = int(time.time())
-    try:
-        existing = dynamodb.get_item(TableName=DDB_TABLE, Key={'RekognitionId': {'S': pk}})
-    except Exception as e:
-        logger.exception('DynamoDB get_item failed (request-register-code)')
-        return _response(500, {'error': 'DynamoDBGetFailed', 'details': str(e)})
-    prev = (existing or {}).get('Item') or {}
-    sent_at = int(_ddb_n(prev, 'CodeSentAt') or '0')
-    if sent_at and now - sent_at < 60:
-        return _response(429, {
-            'error': 'EmailCodeTooSoon',
-            'message': 'Espera un momento antes de pedir otro código.',
-        })
-
-    code = f'{secrets.randbelow(1000000):06d}'
-    code_salt = _new_salt_hex()
-    item = {
-        'RekognitionId': {'S': pk},
-        'Type': {'S': 'EmailVerification'},
-        'Email': {'S': email},
-        'CodeSalt': {'S': code_salt},
-        'CodeHash': {'S': _hash_password(code, code_salt)},
-        'CodeExp': {'N': str(now + 15 * 60)},
-        'CodeSentAt': {'N': str(now)},
-    }
-    try:
-        dynamodb.put_item(TableName=DDB_TABLE, Item=item)
-    except Exception as e:
-        logger.exception('DynamoDB put_item failed (request-register-code)')
-        return _response(500, {'error': 'DynamoDBPutFailed', 'details': str(e)})
-
-    sent = _send_text_email(
-        email,
-        'Código para verificar tu correo',
-        (
-            f'Tu código de registro en Toma Asistencia UMB es {code}.\n'
-            'Vence en 15 minutos. Si no estás creando una cuenta, ignora este correo.\n'
-        ),
-    )
-    if not sent:
-        _clear_register_email_code(email)
-        logger.warning('register email code was not delivered')
-        return _response(503, {
-            'error': 'EmailNotDelivered',
-            'message': 'No se pudo enviar el código. Revisa que el correo pueda recibir mensajes.',
-        })
-    return _response(200, {
-        'ok': True,
-        'message': 'Enviamos un código de 6 dígitos a tu correo. Revisa la bandeja y el correo no deseado.',
-    })
-
-
-def handle_forgot_password(event, body):
-    email = (body.get('email') or body.get('correo') or '').strip().lower() if isinstance(body, dict) else ''
-    if not email or '@' not in email:
-        return _response(400, {'error': 'Missing field: email', 'message': 'Escribe el correo de la cuenta.'})
-    if not SES_FROM_EMAIL:
-        return _response(503, {
-            'error': 'EmailNotConfigured',
-            'message': _EMAIL_NOT_CONFIGURED,
-        })
-
-    item = _account_by_email(email)
-    if not item:
-        return _response(200, {'ok': True, 'message': _FORGOT_MESSAGE})
-
-    now = int(time.time())
-    sent_at = int(_ddb_n(item, 'ResetCodeSentAt') or '0')
-    if sent_at and now - sent_at < 60:
-        return _response(200, {'ok': True, 'message': _FORGOT_MESSAGE})
-
-    code = f'{secrets.randbelow(1000000):06d}'
-    code_salt = _new_salt_hex()
-    pk = _ddb_s(item, 'RekognitionId')
-    try:
-        dynamodb.update_item(
-            TableName=DDB_TABLE,
-            Key={'RekognitionId': {'S': pk}},
-            UpdateExpression='SET ResetCodeSalt = :salt, ResetCodeHash = :hash, ResetCodeExp = :exp, ResetCodeSentAt = :sent',
-            ExpressionAttributeValues={
-                ':salt': {'S': code_salt},
-                ':hash': {'S': _hash_password(code, code_salt)},
-                ':exp': {'N': str(now + 15 * 60)},
-                ':sent': {'N': str(now)},
-            },
-        )
-    except Exception as e:
-        logger.exception('DynamoDB update_item failed (forgot-password)')
-        return _response(500, {'error': 'DynamoDBUpdateFailed', 'details': str(e)})
-
-    sent = _send_text_email(
-        email,
-        'Código para restablecer tu contraseña',
-        (
-            f'Tu código de Toma Asistencia UMB es {code}.\n'
-            'Vence en 15 minutos. Si no solicitaste este cambio, ignora este correo.\n'
-        ),
-    )
-    if not sent:
-        logger.warning('forgot-password email was not delivered')
-    return _response(200, {'ok': True, 'message': _FORGOT_MESSAGE})
-
-
-def handle_reset_password(event, body):
-    email = (body.get('email') or body.get('correo') or '').strip().lower() if isinstance(body, dict) else ''
-    code = (body.get('code') or body.get('codigo') or '').strip() if isinstance(body, dict) else ''
-    new_password = (body.get('newPassword') or body.get('nuevaContrasena') or '').strip() if isinstance(body, dict) else ''
-    if not email or not code or not new_password:
-        return _response(400, {'error': 'Missing fields: email, code, newPassword', 'message': 'Escribe el correo, el código y la nueva contraseña.'})
-
-    issue = _password_issue(new_password)
-    if issue:
-        return _response(400, {'error': issue[0], 'message': issue[1]})
-
-    item = _account_by_email(email)
-    if not item:
-        return _response(400, {'error': 'InvalidResetCode', 'message': 'El código no es válido o ya venció.'})
-
-    exp = int(_ddb_n(item, 'ResetCodeExp') or '0')
-    code_salt = _ddb_s(item, 'ResetCodeSalt')
-    code_hash = _ddb_s(item, 'ResetCodeHash')
-    now = int(time.time())
-    if not exp or now > exp or not code_salt or not code_hash:
-        return _response(400, {'error': 'InvalidResetCode', 'message': 'El código no es válido o ya venció.'})
-    if not hmac.compare_digest(_hash_password(code, code_salt), code_hash):
-        return _response(400, {'error': 'InvalidResetCode', 'message': 'El código no es válido o ya venció.'})
-
-    pk = _ddb_s(item, 'RekognitionId')
-    try:
-        _apply_new_password(pk, new_password, clear_reset=True)
-    except Exception as e:
-        logger.exception('DynamoDB update_item failed (reset-password)')
-        return _response(500, {'error': 'DynamoDBUpdateFailed', 'details': str(e)})
-
-    _audit_log(email, _ddb_s(item, 'Role') or None, 'reset-password', {})
-    return _response(200, {'ok': True, 'message': 'La contraseña quedó actualizada. Ya puedes iniciar sesión.'})
-

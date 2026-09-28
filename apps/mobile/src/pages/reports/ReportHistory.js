@@ -179,7 +179,7 @@ export default function ReportHistory({ navigation }) {
               value={searchQuery}
               onChangeText={setSearchQuery}
               placeholder="Buscar clase o sesión..."
-              placeholderTextcolor={COLORS.placeholder}
+              placeholderTextColor={COLORS.placeholder}
               style={styles.searchInput}
             />
           </View>
