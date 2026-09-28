@@ -274,6 +274,7 @@ def handle_mark_attendance(event, body):
 
     class_name = _ddb_s(class_item, 'ClassName') if class_item else class_id
     _notify_student_attendance(student_email, session_id, class_id, class_name, status, now, 'qr')
+    _sync_absence_warning(student_email, class_id, class_name, teacher_email, student_name or '', now)
 
     return _response(200, {
         'ok': True,
@@ -545,6 +546,7 @@ def handle_set_attendance_status(event, body):
 
     class_name = _ddb_s(class_item, 'ClassName') or class_id
     _notify_student_attendance(student_email, session_id, class_id, class_name, status, now, 'manual')
+    _sync_absence_warning(student_email, class_id, class_name, teacher_email, student_name or '', now)
 
     return _response(200, {
         'ok': True,
@@ -838,7 +840,11 @@ def handle_confirm_attendance_photo(event, body):
 
         final_status = status
         now_ts = int(time.time())
-        if in_photo:
+        method = (_ddb_s(attend_item, 'Method') or '').strip().lower() if attend_item else ''
+        excused = method == 'justification' or status == 'justificada'
+        if excused:
+            final_status = 'asistencia'
+        elif in_photo:
             if status not in ('asistencia', 'retardo'):
                 final_status = photo_status
             else:
@@ -856,7 +862,7 @@ def handle_confirm_attendance_photo(event, body):
             'StudentEmail': {'S': se},
             'MarkedAt': {'N': str(marked_at or now_ts)},
             'Status': {'S': final_status},
-            'Method': {'S': 'face' if in_photo else (_ddb_s(attend_item, 'Method') if attend_item else 'photo')},
+            'Method': {'S': 'justification' if excused else ('face' if in_photo else (_ddb_s(attend_item, 'Method') if attend_item else 'photo'))},
             'PhotoConfirmedAt': {'N': str(now_ts)},
         }
         if base_info.get('studentName'):
@@ -885,6 +891,19 @@ def handle_confirm_attendance_photo(event, body):
             'markedAt': marked_at or now_ts,
             'presentInPhoto': in_photo,
         })
+
+    absence_counts = _absence_counts_for_class(class_id)
+    for se in roster_emails:
+        info = roster_by_email.get(se) or {}
+        _sync_absence_warning(
+            se,
+            class_id,
+            class_name,
+            teacher,
+            info.get('studentName') or '',
+            int(time.time()),
+            absence_counts.get(se, 0),
+        )
 
     # Lock the session to avoid later QR scans flipping statuses after photo confirmation.
     try:
@@ -1060,22 +1079,24 @@ def handle_attendance_report(event, body):
                         'X' if st == 'retardo' else '',
                         sess.get('sessionId') or '',
                         sess.get('sessionDate') or '',
-                        '',
+                        'Justificada' if st == 'justificada' else '',
                     ])
         else:
             w.writerow(['#', 'CÓDIGO_ESTUDIANTE', 'NOMBRE_ESTUDIANTE', 'CORREO', 'SESIONES', 'ASISTENCIA', 'RETARDO', 'FALLAS', 'PORCENTAJE'])
             for idx, se in enumerate(sorted(roster_emails), start=1):
-                present = late = absent = 0
+                present = late = absent = excused = 0
                 for sess in sessions:
                     st = att_by_sess_email.get((sess['sessionId'], se), 'inasistencia')
                     if st == 'asistencia':
                         present += 1
                     elif st == 'retardo':
                         late += 1
+                    elif st == 'justificada':
+                        excused += 1
                     else:
                         absent += 1
-                total = max(len(sessions), 1)
-                pct = int(round(((present + late) / total) * 100)) if sessions else 0
+                counted = max(len(sessions) - excused, 1)
+                pct = int(round(((present + late) / counted) * 100)) if sessions else 0
                 info = roster_by_email.get(se) or {}
                 w.writerow([
                     str(idx),
@@ -1232,6 +1253,7 @@ def handle_attendance_report(event, body):
         si = 'X' if st == 'asistencia' else ''
         no = 'X' if st == 'inasistencia' else ''
         ret = 'X' if st == 'retardo' else ''
+        obs = 'Justificada' if st == 'justificada' else ''
         w.writerow([
             str(idx),
             base_info.get('studentCode') or '',
@@ -1243,7 +1265,7 @@ def handle_attendance_report(event, body):
             ret,
             session_id,
             _ddb_s(session_item, 'SessionDate'),
-            '',
+            obs,
         ])
 
     csv_text = out.getvalue()
@@ -1471,6 +1493,7 @@ def handle_student_notifications(event, body):
         if not class_item:
             continue
         class_name = _ddb_s(class_item, 'ClassName') or 'la clase'
+        class_room = (_ddb_s(class_item, 'Room') or '').strip()
         starts = []
         schedule = _ddb_schedule(class_item, 'Schedule')
         if schedule:
@@ -1488,14 +1511,15 @@ def handle_student_notifications(event, body):
                 continue
             diff = mins - now_min
             if 1 <= diff <= 5:
+                place = f' en el salón {class_room}' if class_room else ''
                 _add_notif(_upsert_student_notification(
                     student_email,
                     f'NOTIF#soon#{cid}#{session_date}'.lower(),
                     'Clase por comenzar',
-                    f'{class_name} empieza a las {st}. Faltan 5 minutos.',
+                    f'{class_name} empieza a las {st}{place}. Faltan 5 minutos.',
                     'info',
                     now,
-                    extra={'ClassId': cid, 'ClassName': class_name},
+                    extra={'ClassId': cid, 'ClassName': class_name, 'Room': class_room},
                     keep_created=True,
                 ))
 
@@ -1557,7 +1581,7 @@ def handle_student_notifications(event, body):
                 f'No se registró tu asistencia en {class_name or "la clase"}.',
                 'attendance',
                 now,
-                extra={'ClassId': class_id, 'SessionId': session_id, 'ClassName': class_name or ''},
+                extra={'ClassId': class_id, 'SessionId': session_id, 'ClassName': class_name or '', 'Action': 'justify'},
                 keep_created=True,
             ))
             if photo_confirmed_at:
@@ -1568,7 +1592,7 @@ def handle_student_notifications(event, body):
                     f'No fuiste reconocido por foto en {class_name or "la clase"}.',
                     'warning',
                     now,
-                    extra={'ClassId': class_id, 'SessionId': session_id, 'ClassName': class_name or ''},
+                    extra={'ClassId': class_id, 'SessionId': session_id, 'ClassName': class_name or '', 'Action': 'justify'},
                     keep_created=True,
                 ))
 
@@ -1730,6 +1754,8 @@ def handle_student_attendance_history(event, body):
             return 'present'
         if st in ('retardo', 'late', 'tardanza'):
             return 'late'
+        if st in ('justificada', 'justified', 'excusa'):
+            return 'justified'
         return 'absent'
 
     sess_items = []
@@ -1863,10 +1889,17 @@ def handle_student_attendance_history(event, body):
     except Exception:
         pass
 
+    try:
+        from routes.justifications import enrich_history_records
+        records = enrich_history_records(records, student_email)
+    except Exception:
+        logger.exception('enrich history justifications failed')
+
     summary = {
         'present': sum(1 for r in records if r.get('status') == 'present'),
         'late': sum(1 for r in records if r.get('status') == 'late'),
         'absent': sum(1 for r in records if r.get('status') == 'absent'),
+        'justified': sum(1 for r in records if r.get('status') == 'justified'),
         'total': len(records),
     }
 

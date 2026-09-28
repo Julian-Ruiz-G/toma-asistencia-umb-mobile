@@ -93,7 +93,41 @@ export default function StudentHome({ navigation }) {
     }
   };
 
+  const loadAttendanceStats = useCallback(async () => {
+    if (!authToken || !STUDENT_ATTENDANCE_HISTORY_URL) return;
+    try {
+      const resp = await fetch(STUDENT_ATTENDANCE_HISTORY_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({}),
+      });
+      const text = await resp.text();
+      let json;
+      try { json = JSON.parse(text); } catch { json = null; }
+      if (!resp.ok) return;
+      const records = Array.isArray(json?.records) ? json.records : [];
+      const count = (status) => records.filter((r) => r?.status === status).length;
+      setAttendanceStats({
+        present: count('present') + count('justified'),
+        late: count('late'),
+        absent: count('absent'),
+        loaded: true,
+      });
+    } catch {
+      // ignore
+    }
+  }, [authToken]);
+
   // Efecto para cargar clases al montar el componente
+  useFocusEffect(
+    useCallback(() => {
+      loadAttendanceStats();
+    }, [loadAttendanceStats])
+  );
+
   useEffect(() => {
     loadClasses();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -122,43 +156,6 @@ export default function StudentHome({ navigation }) {
           }
           if (resp.ok) {
             setDailySummary(json);
-          }
-        }
-
-        if (STUDENT_ATTENDANCE_HISTORY_URL) {
-          const resp = await fetch(STUDENT_ATTENDANCE_HISTORY_URL, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${authToken}`,
-            },
-            body: JSON.stringify({}),
-          });
-          const text = await resp.text();
-          let json;
-          try {
-            json = JSON.parse(text);
-          } catch {
-            json = null;
-          }
-          if (resp.ok) {
-            const summary = json?.summary || {};
-            const records = Array.isArray(json?.records) ? json.records : [];
-            const present = Number(summary.present);
-            const late = Number(summary.late);
-            const absent = Number(summary.absent);
-            setAttendanceStats({
-              present: Number.isFinite(present)
-                ? present
-                : records.filter((r) => r?.status === 'present').length,
-              late: Number.isFinite(late)
-                ? late
-                : records.filter((r) => r?.status === 'late').length,
-              absent: Number.isFinite(absent)
-                ? absent
-                : records.filter((r) => r?.status === 'absent' || r?.status === 'inasistencia').length,
-              loaded: true,
-            });
           }
         }
 
@@ -439,7 +436,9 @@ export default function StudentHome({ navigation }) {
             {classes.map((c, idx) => {
               const title = c?.className || c?.subject || c?.name || 'Clase';
               const group = c?.group || c?.groupName || c?.grupo || '';
+              const room = c?.room || c?.classroom || c?.aula || '';
               const classId = c?.classId || c?.id;
+              const classLine = [group ? `Grupo ${group}` : '', room ? `Aula ${room}` : ''].filter(Boolean).join(' · ');
               const status = classStatusMeta(c);
               const accent = resolveClassColor(classColors[String(classId || '')]);
               return (
@@ -456,7 +455,7 @@ export default function StudentHome({ navigation }) {
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.activityTitle}>{title}</Text>
-                      <Text style={styles.activitySub}>{group ? `Grupo ${group}` : 'Toca para ver detalles'}</Text>
+                      <Text style={styles.activitySub}>{classLine || 'Toca para ver detalles'}</Text>
                     </View>
                     <View style={[styles.statusPill, { backgroundColor: status.pillBg, borderColor: status.pillBorder }]}>
                       <Text style={[styles.statusPillText, { color: status.pillText }]}>{status.label}</Text>

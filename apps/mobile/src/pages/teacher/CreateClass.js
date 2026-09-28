@@ -302,6 +302,7 @@ export default function CreateClass({ navigation, route }) {
   const [subjectCode, setSubjectCode] = useState('');
   const [period, setPeriod] = useState('1');
   const [group, setGroup] = useState('');
+  const [room, setRoom] = useState('');
   const [scheduleBlocks, setScheduleBlocks] = useState([EMPTY_BLOCK()]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -325,6 +326,7 @@ export default function CreateClass({ navigation, route }) {
         const rawPeriod = String(c?.period || '1').trim();
         setPeriod(rawPeriod === '2' ? '2' : '1');
         setGroup(String(c?.group || ''));
+        setRoom(String(c?.room || c?.classroom || c?.aula || ''));
         const sch = Array.isArray(c?.schedule) ? c.schedule : [];
         if (sch.length > 0) {
           setScheduleBlocks(sch.map((s) => ({
@@ -354,6 +356,7 @@ export default function CreateClass({ navigation, route }) {
     if (!authToken) { appAlert('Sesión inválida', 'Vuelve a iniciar sesión.'); return; }
     if (!className.trim()) { appAlert('Faltan datos', 'Ingresa el nombre de la clase.'); return; }
     if (!group) { appAlert('Faltan datos', 'Selecciona el grupo.'); return; }
+    if (!room.trim()) { appAlert('Faltan datos', 'Indica el salón de la clase.'); return; }
 
     // Validar bloques
     const validBlocks = scheduleBlocks.filter((b) => b.day && b.startTime && b.endTime);
@@ -382,6 +385,7 @@ export default function CreateClass({ navigation, route }) {
           ...(isEdit ? { classId: editClassId } : {}),
           className: className.trim(),
           group: group.trim(),
+          room: room.trim(),
           startTime: derived.startTime,
           endTime: derived.endTime,
           subjectCode: subjectCode.trim(),
@@ -454,6 +458,14 @@ export default function CreateClass({ navigation, route }) {
             value={group}
             onChangeText={setGroup}
             placeholder="Ej: C1, A1, VIR, SIS1"
+            autoCapitalize="characters"
+          />
+
+          <TextField
+            label="Salón *"
+            value={room}
+            onChangeText={setRoom}
+            placeholder="Ej: 301, Bloque C 204"
             autoCapitalize="characters"
           />
 

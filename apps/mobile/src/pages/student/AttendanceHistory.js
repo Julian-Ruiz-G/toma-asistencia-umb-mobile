@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { appAlert } from '../../ui/appNotice';
 import {
   AlertCircle,
@@ -14,7 +15,9 @@ import {
   X,
   XCircle,
 } from 'lucide-react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import OverlayDismiss from '../../components/OverlayDismiss';
+import { Button } from '../../components/Button';
 import { COLORS } from '../../ui/theme';
 import { useColors } from '../../ui/ThemeContext';
 import Animated, { enterDown, listEnter } from '../../ui/motion';
@@ -24,7 +27,8 @@ import { formatActionDateTime } from '../../utils/formatDateTime';
 
 export default function AttendanceHistory({ navigation, route }) {
   const COLORS = useColors();
-  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
+  const insets = useSafeAreaInsets();
+  const styles = useMemo(() => createStyles(COLORS, insets), [COLORS, insets]);
   const { authToken } = useAuth();
   const initialFilter = String(route?.params?.filter || 'all');
   const [filter, setFilter] = useState(initialFilter);
@@ -40,54 +44,58 @@ export default function AttendanceHistory({ navigation, route }) {
     }
   }, [route?.params?.filter]);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        if (!authToken || !STUDENT_ATTENDANCE_HISTORY_URL) {
-          setAttendanceData([]);
-          return;
-        }
-        setLoading(true);
-        const resp = await fetch(STUDENT_ATTENDANCE_HISTORY_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${authToken}`,
-          },
-          body: JSON.stringify({}),
-        });
-        const text = await resp.text();
-        let json;
-        try {
-          json = JSON.parse(text);
-        } catch {
-          json = null;
-        }
-        if (!resp.ok) {
-          const msg = (json && (json.error || json.message || json.details)) || text || `HTTP ${resp.status}`;
-          throw new Error(msg);
-        }
-        const arr = Array.isArray(json?.records) ? json.records : [];
-        setAttendanceData(arr.map((r, idx) => ({
-          id: String(r?.id || `${r?.sessionId || idx}`),
-          date: String(r?.date || r?.dateRaw || '—'),
-          dateRaw: String(r?.dateRaw || ''),
-          subject: String(r?.subject || 'Clase'),
-          professor: String(r?.professor || 'Docente'),
-          time: String(r?.time || '—'),
-          status: String(r?.status || 'absent'),
-          sessionId: String(r?.sessionId || ''),
-          classId: String(r?.classId || ''),
-          markedAt: r?.markedAt ?? null,
-        })));
-      } catch (e) {
-        appAlert('Error', e?.message || String(e));
+  const loadHistory = useCallback(async () => {
+    try {
+      if (!authToken || !STUDENT_ATTENDANCE_HISTORY_URL) {
         setAttendanceData([]);
-      } finally {
-        setLoading(false);
+        return;
       }
-    })();
+      setLoading(true);
+      const resp = await fetch(STUDENT_ATTENDANCE_HISTORY_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({}),
+      });
+      const text = await resp.text();
+      let json;
+      try {
+        json = JSON.parse(text);
+      } catch {
+        json = null;
+      }
+      if (!resp.ok) {
+        const msg = (json && (json.error || json.message || json.details)) || text || `HTTP ${resp.status}`;
+        throw new Error(msg);
+      }
+      const arr = Array.isArray(json?.records) ? json.records : [];
+      setAttendanceData(arr.map((r, idx) => ({
+        id: String(r?.id || `${r?.sessionId || idx}`),
+        date: String(r?.date || r?.dateRaw || '—'),
+        dateRaw: String(r?.dateRaw || ''),
+        subject: String(r?.subject || 'Clase'),
+        professor: String(r?.professor || 'Docente'),
+        time: String(r?.time || '—'),
+        status: String(r?.status || 'absent'),
+        sessionId: String(r?.sessionId || ''),
+        classId: String(r?.classId || ''),
+        markedAt: r?.markedAt ?? null,
+        justificationStatus: String(r?.justificationStatus || ''),
+        canJustify: r?.canJustify === true,
+      })));
+    } catch (e) {
+      appAlert('Error', e?.message || String(e));
+      setAttendanceData([]);
+    } finally {
+      setLoading(false);
+    }
   }, [authToken]);
+
+  useFocusEffect(useCallback(() => {
+    loadHistory();
+  }, [loadHistory]));
 
   const filtered = useMemo(() => attendanceData.filter(r => filter === 'all' || r.status === filter), [attendanceData, filter]);
 
@@ -95,12 +103,14 @@ export default function AttendanceHistory({ navigation, route }) {
     const present = attendanceData.filter(r => r.status === 'present').length;
     const late = attendanceData.filter(r => r.status === 'late').length;
     const absent = attendanceData.filter(r => r.status === 'absent').length;
+    const justified = attendanceData.filter(r => r.status === 'justified').length;
     const total = attendanceData.length;
-    return { present, late, absent, total };
+    return { present, late, absent, justified, total };
   }, [attendanceData]);
 
-  const percent = stats.total
-    ? Math.round(((stats.present + stats.late) / stats.total) * 100)
+  const counted = Math.max(stats.total - stats.justified, 0);
+  const percent = counted
+    ? Math.round(((stats.present + stats.late) / counted) * 100)
     : 0;
 
   const toggleStatFilter = (value) => {
@@ -114,6 +124,8 @@ export default function AttendanceHistory({ navigation, route }) {
         return { label: 'Presente', Icon: CheckCircle, bg: COLORS.successSoft, border: COLORS.successBorder, text: COLORS.success, icon: COLORS.successStrong };
       case 'late':
         return { label: 'Retardo', Icon: AlertCircle, bg: COLORS.warningSoft, border: COLORS.warningBorder, text: COLORS.warning, icon: COLORS.warningStrong };
+      case 'justified':
+        return { label: 'Justificada', Icon: CheckCircle, bg: COLORS.successSoft, border: COLORS.successBorder, text: COLORS.success, icon: COLORS.successStrong };
       default:
         return { label: 'Ausente', Icon: XCircle, bg: COLORS.dangerSoft, border: COLORS.dangerBorder, text: COLORS.danger, icon: COLORS.dangerStrong };
     }
@@ -173,10 +185,10 @@ export default function AttendanceHistory({ navigation, route }) {
         </Animated.View>
 
         <Animated.View entering={enterDown(120)} style={styles.percentCard}>
-          <View>
-            <Text style={styles.percentSub}>Porcentaje de asistencia</Text>
-            <Text style={styles.percentValue}>{percent}%</Text>
-          </View>
+                <View style={{ flex: 1, paddingRight: 12 }}>
+                  <Text style={styles.percentSub}>Porcentaje de asistencia</Text>
+                  <Text style={styles.percentValue}>{percent}%</Text>
+                </View>
           <View style={styles.percentIconWrap}>
             <BookOpen size={28} color={COLORS.white} />
           </View>
@@ -233,7 +245,7 @@ export default function AttendanceHistory({ navigation, route }) {
               <View style={{ flex: 1 }}>
                 <View style={styles.recordTopRow}>
                   <View style={{ flex: 1, paddingRight: 8 }}>
-                    <Text style={styles.recordSubject}>{r.subject}</Text>
+                    <Text style={styles.recordSubject} numberOfLines={2}>{r.subject}</Text>
                     <Text style={styles.recordProf}>{r.professor}</Text>
                   </View>
                   <View style={[styles.statusPill, { backgroundColor: cfg.bg }]}>
@@ -323,6 +335,29 @@ export default function AttendanceHistory({ navigation, route }) {
                     </Text>
                   </View>
                 </View>
+                {selected.justificationStatus === 'enviada' ? (
+                  <Text style={styles.detailHint}>La justificación está en revisión.</Text>
+                ) : null}
+                {selected.justificationStatus === 'rechazada' ? (
+                  <Text style={styles.detailHint}>La justificación fue rechazada. Puedes enviar otra si el plazo sigue abierto.</Text>
+                ) : null}
+                {selected.justificationStatus === 'vencida' ? (
+                  <Text style={styles.detailHint}>El plazo para justificar esta falta ya venció.</Text>
+                ) : null}
+                {selected.canJustify ? (
+                  <View style={styles.justifyWrap}>
+                    <Button
+                      fullWidth
+                      onPress={() => {
+                        const record = selected;
+                        setSelected(null);
+                        navigation.navigate('JustifyAbsence', { record });
+                      }}
+                    >
+                      Justificar falta
+                    </Button>
+                  </View>
+                ) : null}
               </>
             ) : null}
           </View>
@@ -332,19 +367,19 @@ export default function AttendanceHistory({ navigation, route }) {
   );
 }
 
-const createStyles = (COLORS) => StyleSheet.create({
+const createStyles = (COLORS, insets) => StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.background },
   header: {
     backgroundColor: COLORS.card,
     paddingHorizontal: 24,
     paddingBottom: 16,
-    paddingTop: 48,
+    paddingTop: Math.max(insets?.top || 0, 12) + 10,
     flexDirection: 'row',
     alignItems: 'center',
   },
   backBtn: { padding: 8, marginLeft: -8, marginRight: 12, borderRadius: 999 },
-  headerTitle: { fontSize: 20, fontWeight: '800', color: COLORS.text },
-  headerSubtitle: { marginTop: 2, fontSize: 14, color: COLORS.muted },
+  headerTitle: { fontSize: 22, lineHeight: 28, fontWeight: '800', color: COLORS.text },
+  headerSubtitle: { marginTop: 2, fontSize: 14, lineHeight: 20, color: COLORS.muted },
   body: { paddingHorizontal: 24, paddingVertical: 18, paddingBottom: 30 },
   statsRow: { flexDirection: 'row', gap: 10 },
   statMiniCard: {
@@ -421,11 +456,11 @@ const createStyles = (COLORS) => StyleSheet.create({
   },
   recordIconWrap: { width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   recordTopRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
-  recordSubject: { fontWeight: '900', color: COLORS.text, fontSize: 14 },
+  recordSubject: { fontWeight: '900', color: COLORS.text, fontSize: 15, lineHeight: 20 },
   recordProf: { marginTop: 2, color: COLORS.muted, fontSize: 12 },
-  statusPill: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999 },
-  statusPillText: { fontWeight: '900', fontSize: 12 },
-  recordMetaRow: { marginTop: 10, flexDirection: 'row', gap: 14 },
+  statusPill: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, flexShrink: 0 },
+  statusPillText: { fontWeight: '900', fontSize: 12, lineHeight: 16 },
+  recordMetaRow: { marginTop: 10, flexDirection: 'row', flexWrap: 'wrap', gap: 14 },
   metaItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   metaText: { color: COLORS.muted, fontSize: 12 },
   emptyWrap: { alignItems: 'center', paddingVertical: 40 },
@@ -441,6 +476,9 @@ const createStyles = (COLORS) => StyleSheet.create({
     backgroundColor: COLORS.card,
     borderRadius: 18,
     padding: 18,
+    width: '100%',
+    maxWidth: 420,
+    alignSelf: 'center',
   },
   detailHeader: { flexDirection: 'row', alignItems: 'flex-start' },
   detailKicker: { fontSize: 12, color: COLORS.muted, fontWeight: '700' },
@@ -468,4 +506,6 @@ const createStyles = (COLORS) => StyleSheet.create({
   detailRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginTop: 12 },
   detailLabel: { fontSize: 12, color: COLORS.muted },
   detailValue: { marginTop: 2, fontWeight: '800', color: COLORS.text },
+  detailHint: { marginTop: 8, marginBottom: 4, color: COLORS.textSecondary, fontWeight: '700' },
+  justifyWrap: { marginTop: 16, width: '100%' },
 });

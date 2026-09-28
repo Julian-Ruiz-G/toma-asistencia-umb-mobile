@@ -22,6 +22,7 @@ Backend serverless (AWS Lambda + API Gateway) para la app de asistencia UMB. Usa
    - `CollectionName` (por defecto `famouspersons`)
    - `DDBTableName` (por defecto `face_recognition`)
    - `FaceMatchThreshold` y `MaxMatches`
+   - `SesFromEmail`: correo verificado en Amazon SES, región `us-east-2`. Sin ese valor, el registro no envía el código y “Olvidé mi contraseña” responde que la recuperación no está disponible. En el sandbox de SES el destinatario también tiene que estar verificado.
 2. Build del proyecto:
    ```powershell
    sam build --use-container

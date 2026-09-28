@@ -46,6 +46,8 @@ function mapNotification(n, idx) {
     time: formatActionDateTime(n?.createdAt || n?.markedAt || n?.time, String(n?.time || 'Hoy')),
     read: Boolean(n?.read),
     classId: n?.classId ? String(n.classId) : '',
+    sessionId: n?.sessionId ? String(n.sessionId) : '',
+    className: String(n?.className || ''),
     action: String(n?.action || ''),
     open: String(n?.open || ''),
     missing: String(n?.missing || ''),
@@ -164,7 +166,7 @@ export default function Notifications({ navigation }) {
   const classSoonNotices = useMemo(() => classSoon.filter(classSoonIsDue).map((a) => ({
     id: a.id,
     title: 'Clase por comenzar',
-    message: `${a.className} empieza a las ${a.time}. Faltan 5 minutos.`,
+    message: `${a.className} empieza a las ${a.time}${a.room ? ` en el salón ${a.room}` : ''}. Faltan 5 minutos.`,
     type: 'info',
     time: a.time,
     read: Boolean(a.read),
@@ -237,6 +239,22 @@ export default function Notifications({ navigation }) {
 
   const openNotification = (n) => {
     if (!n.read) markOneRead(n.id);
+    const absence = n.action === 'justify' || n.type === 'attendance' || n.action === 'absence-warning';
+    if (absence && n.sessionId) {
+      navigation.navigate('JustifyAbsence', {
+        record: {
+          sessionId: n.sessionId,
+          classId: n.classId,
+          subject: n.className || 'Clase',
+          date: '',
+        },
+      });
+      return;
+    }
+    if (n.action === 'absence-warning') {
+      navigation.navigate('StudentAttendanceHistory', { filter: 'absent' });
+      return;
+    }
     if (n.id === 'local-complete-profile' || n.action === 'admin_request' || n.open) {
       navigation.navigate('StudentProfile', {
         forceEdit: (n.open || 'edit') === 'edit',

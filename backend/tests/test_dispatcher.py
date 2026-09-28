@@ -30,6 +30,7 @@ if "botocore" not in sys.modules:
     sys.modules["botocore.exceptions"] = exceptions
 
 from lambda_handler import IMAGE_ROUTES, ROUTE_HANDLERS, ROUTE_SUFFIXES, lambda_handler  # noqa: E402
+from runtime import _absence_warning_action  # noqa: E402
 
 EXPECTED_SUFFIXES = [
     "/register-teacher",
@@ -47,9 +48,14 @@ EXPECTED_SUFFIXES = [
     "/admin-logs",
     "/admin-consents",
     "/admin-create-teacher",
+    "/admin-bulk-import",
     "/admin-dashboard-stats",
     "/admin-request-profile",
     "/login-student",
+    "/change-password",
+    "/forgot-password",
+    "/request-register-code",
+    "/reset-password",
     "/create-class",
     "/update-class",
     "/create-attendance-qr",
@@ -64,6 +70,9 @@ EXPECTED_SUFFIXES = [
     "/student-notifications",
     "/mark-notifications-read",
     "/student-attendance-history",
+    "/submit-justification",
+    "/list-justifications",
+    "/review-justification",
     "/class-details",
     "/regenerate-class-qr",
     "/remove-student-from-class",
@@ -126,6 +135,37 @@ def test_login_teacher_missing_fields():
     assert resp["statusCode"] == 400
 
 
+def test_change_password_unauthorized():
+    resp = lambda_handler(_event("/Prod/change-password", body={"currentPassword": "a", "newPassword": "b"}), None)
+    assert resp["statusCode"] == 401
+
+
+def test_forgot_password_requires_email():
+    resp = lambda_handler(_event("/Prod/forgot-password", body={}), None)
+    assert resp["statusCode"] == 400
+
+
+def test_forgot_password_without_sender():
+    resp = lambda_handler(_event("/Prod/forgot-password", body={"email": "persona@academia.umb.edu.co"}), None)
+    assert resp["statusCode"] == 503
+    assert _body(resp)["error"] == "EmailNotConfigured"
+
+
+def test_justification_deadline_adds_seven_days():
+    import datetime
+    from routes.justifications import justification_deadline_epoch
+    deadline = justification_deadline_epoch('2026-09-01', None)
+    end = datetime.datetime(2026, 9, 1, 23, 59, 59, tzinfo=datetime.timezone(datetime.timedelta(hours=-5)))
+    assert deadline == int(end.timestamp()) + 7 * 24 * 3600
+
+
+def test_absence_warning_fires_once_at_three():
+    assert _absence_warning_action(2, False) == 'clear'
+    assert _absence_warning_action(3, False) == 'send'
+    assert _absence_warning_action(3, True) == 'skip'
+    assert _absence_warning_action(4, True) == 'skip'
+
+
 def test_create_class_unauthorized():
     resp = lambda_handler(_event("/Prod/create-class", body={"className": "x"}), None)
     assert resp["statusCode"] == 401
@@ -149,6 +189,46 @@ def test_admin_request_profile_unauthorized():
     assert _body(resp)["error"] == "Unauthorized"
 
 
+def test_admin_bulk_import_unauthorized():
+    resp = lambda_handler(_event("/Prod/admin-bulk-import", body={"kind": "docentes", "rows": [{"nombre": "Ana"}]}), None)
+    assert resp["statusCode"] == 401
+    assert _body(resp)["error"] == "Unauthorized"
+
+
+def test_bulk_row_helpers():
+    from routes.bulk import _cell, _hhmm, _kind_from_body, _schedule_from_days
+
+    assert _hhmm("7:00") == "07:00"
+    assert _hhmm("24:00") == ""
+    assert _kind_from_body({"kind": "Asignaturas"}) == "asignaturas"
+    assert _cell({"Contraseña": "Abc 123!"}, "password", "contraseña", keep_inner=True) == "Abc 123!"
+    schedule = _schedule_from_days("lunes|miércoles", "07:00", "09:00")
+    assert [block["day"] for block in schedule] == ["MONDAY", "WEDNESDAY"]
+    from routes.bulk import _infer_kind
+    class_row = {"className": "Prueba de asistencia", "startTime": "07:00", "room": "101", "teacherEmail": "docente1@umb.edu.co"}
+    assert _infer_kind("docentes", [class_row]) == "asignaturas"
+
+
+def test_request_register_code_rejects_other_domains():
+    resp = lambda_handler(_event("/Prod/request-register-code", body={"email": "ana@gmail.com"}), None)
+    assert resp["statusCode"] == 400
+    assert _body(resp)["error"] == "InvalidEmailDomain"
+
+
+def test_request_register_code_needs_ses():
+    resp = lambda_handler(_event("/Prod/request-register-code", body={"email": "ana@academia.umb.edu.co"}), None)
+    assert resp["statusCode"] == 503
+    assert _body(resp)["error"] == "EmailNotConfigured"
+
+
+def test_forgot_password_needs_ses():
+    resp = lambda_handler(_event("/Prod/forgot-password", body={"email": "ana@academia.umb.edu.co"}), None)
+    assert resp["statusCode"] == 503
+    body = _body(resp)
+    assert body["error"] == "EmailNotConfigured"
+    assert "SesFromEmail" in body["message"]
+
+
 def test_captcha_challenge_shape():
     resp = lambda_handler(_event("/Prod/captcha-challenge", body={}), None)
     assert resp["statusCode"] == 200
@@ -167,9 +247,14 @@ if __name__ == "__main__":
         test_login_teacher_missing_fields,
         test_create_class_unauthorized,
         test_mark_attendance_unauthorized,
+        test_request_register_code_rejects_other_domains,
+        test_request_register_code_needs_ses,
+        test_forgot_password_needs_ses,
         test_captcha_challenge_shape,
         test_unknown_route_does_not_ask_image,
         test_admin_request_profile_unauthorized,
+        test_admin_bulk_import_unauthorized,
+        test_bulk_row_helpers,
     ]
     for fn in tests:
         fn()

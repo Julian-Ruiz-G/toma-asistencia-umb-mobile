@@ -142,6 +142,7 @@ export default function StudentClassDetails({ navigation, route }) {
             <View style={{ flex: 1 }}>
               <Text style={styles.className}>{title}</Text>
               {group ? <Text style={styles.classMeta}>Grupo {group}</Text> : null}
+              {(c?.room || preview?.room) ? <Text style={styles.classMeta}>Salón {c?.room || preview?.room}</Text> : null}
             </View>
           </View>
 

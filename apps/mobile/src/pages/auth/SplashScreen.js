@@ -8,7 +8,7 @@ import Animated, { PulseGlow, enterDown, enterFade } from '../../ui/motion';
 export default function SplashScreen({ navigation }) {
   const COLORS = useColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
-  const { ready, authToken, role } = useAuth();
+  const { ready, authToken, role, mustChangePassword } = useAuth();
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
@@ -18,7 +18,8 @@ export default function SplashScreen({ navigation }) {
         if (prev >= 100) {
           clearInterval(interval);
           setTimeout(() => {
-            if (authToken && role === 'teacher') navigation.replace('TeacherHome');
+            if (authToken && mustChangePassword) navigation.replace('ChangePassword', { forced: true });
+            else if (authToken && role === 'teacher') navigation.replace('TeacherHome');
             else if (authToken && role === 'admin') navigation.replace('AdminDashboard');
             else if (authToken && role === 'student') navigation.replace('StudentHome');
             else navigation.replace('Welcome');
@@ -30,7 +31,7 @@ export default function SplashScreen({ navigation }) {
     }, 50);
 
     return () => clearInterval(interval);
-  }, [authToken, navigation, ready, role]);
+  }, [authToken, mustChangePassword, navigation, ready, role]);
 
   return (
     <View style={styles.root}>

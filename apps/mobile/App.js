@@ -13,6 +13,8 @@ import { AppNoticeHost } from './src/ui/appNotice';
 import SplashScreen from './src/pages/auth/SplashScreen';
 import WelcomeScreen from './src/pages/auth/WelcomeScreen';
 import LoginScreen from './src/pages/auth/LoginScreen';
+import ForgotPasswordScreen from './src/pages/auth/ForgotPasswordScreen';
+import ChangePasswordScreen from './src/pages/auth/ChangePasswordScreen';
 import RegisterScreen from './src/pages/auth/RegisterScreen';
 import StudentHome from './src/pages/student/StudentHome';
 import StudentQr from './src/pages/student/QRScanner';
@@ -20,6 +22,7 @@ import StudentSchedule from './src/pages/student/ScheduleScreen';
 import StudentNotifications from './src/pages/student/Notifications';
 import StudentProfile from './src/pages/student/StudentProfile';
 import StudentAttendanceHistory from './src/pages/student/AttendanceHistory';
+import JustifyAbsence from './src/pages/student/JustifyAbsence';
 import StudentReminders from './src/pages/student/RemindersScreen';
 import StudentClassDetails from './src/pages/student/StudentClassDetails';
 import TeacherHome from './src/pages/teacher/TeacherDashboard';
@@ -37,6 +40,7 @@ import TeacherProfile from './src/pages/teacher/TeacherProfile';
 import TeacherNotifications from './src/pages/teacher/TeacherNotifications';
 import TeacherAttendanceGuide from './src/pages/teacher/TeacherAttendanceGuide';
 import TeacherManualCorrection from './src/pages/teacher/ManualCorrection';
+import TeacherJustifications from './src/pages/teacher/Justifications';
 import ReportsDashboard from './src/pages/reports/ReportsDashboard';
 import ReportPreview from './src/pages/reports/ReportPreview';
 import ReportActions from './src/pages/reports/ReportActions';
@@ -76,6 +80,8 @@ function AppStack() {
           <Stack.Screen name="Splash" component={SplashScreen} />
           <Stack.Screen name="Welcome" component={WelcomeScreen} />
           <Stack.Screen name="Login" component={LoginScreen} />
+          <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+          <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
           <Stack.Screen name="Register" component={RegisterScreen} />
 
           <Stack.Screen name="StudentHome" component={StudentHome} />
@@ -84,6 +90,7 @@ function AppStack() {
           <Stack.Screen name="StudentNotifications" component={StudentNotifications} />
           <Stack.Screen name="StudentProfile" component={StudentProfile} />
           <Stack.Screen name="StudentAttendanceHistory" component={StudentAttendanceHistory} />
+          <Stack.Screen name="JustifyAbsence" component={JustifyAbsence} />
           <Stack.Screen name="StudentReminders" component={StudentReminders} />
           <Stack.Screen name="StudentClassDetails" component={StudentClassDetails} />
 
@@ -102,6 +109,7 @@ function AppStack() {
           <Stack.Screen name="InformeSessionsList" component={InformeSessionsList} />
           <Stack.Screen name="TeacherFaceRecognitionScreen" component={TeacherFaceRecognitionScreen} />
           <Stack.Screen name="TeacherManualCorrection" component={TeacherManualCorrection} />
+          <Stack.Screen name="TeacherJustifications" component={TeacherJustifications} />
 
           <Stack.Screen name="ReportsDashboard" component={ReportsDashboard} />
           <Stack.Screen name="ReportPreview" component={ReportPreview} />

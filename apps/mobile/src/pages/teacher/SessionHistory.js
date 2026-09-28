@@ -1,6 +1,7 @@
 // Importaciones necesarias para el componente de historial de sesiones
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { appAlert } from '../../ui/appNotice';
 // Importación de íconos desde lucide-react-native
 import {
@@ -73,7 +74,8 @@ function mapClassSession(s, classDetails, extras = {}) {
 // Componente principal del historial de sesiones
 export default function SessionHistory({ navigation, route }) {
   const COLORS = useColors();
-  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
+  const insets = useSafeAreaInsets();
+  const styles = useMemo(() => createStyles(COLORS, insets), [COLORS, insets]);
   // Obtener datos de autenticación y parámetros de navegación
   const { authToken, email } = useAuth();
   const { classId, className, group, room } = route.params || {};
@@ -364,13 +366,13 @@ export default function SessionHistory({ navigation, route }) {
         <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
           <ArrowLeft size={24} color={COLORS.textSecondary} />
         </Pressable>
-        <View style={{ flex: 1, justifyContent: 'center' }}>
-          <Text style={styles.headerTitle}>Historial de Sesiones</Text>
-          {className && (
-            <Text style={styles.headerSubtitle} numberOfLines={1}>
-              {className} {group ? `• ${group}` : ''}
+        <View style={styles.headerText}>
+          <Text style={styles.headerTitle} numberOfLines={2}>Historial de sesiones</Text>
+          {className ? (
+            <Text style={styles.headerSubtitle} numberOfLines={2}>
+              {className}{group ? ` · Grupo ${group}` : ''}
             </Text>
-          )}
+          ) : null}
         </View>
         <Pressable onPress={handleRefresh} style={styles.iconBtn}>
           <RefreshCw size={20} color={COLORS.icon} />
@@ -399,7 +401,7 @@ export default function SessionHistory({ navigation, route }) {
               <View style={styles.sessionHeader}>
                 <View style={styles.sessionInfo}>
                   <Text style={styles.weekday}>{weekday}</Text>
-                  <Text style={styles.sessionDate}>
+                  <Text style={styles.sessionDate} numberOfLines={2}>
                     {formatDate(session.sessionDate)}
                   </Text>
                 </View>
@@ -544,7 +546,7 @@ export default function SessionHistory({ navigation, route }) {
 }
 
 // Estilos del componente
-const createStyles = (COLORS) => StyleSheet.create({
+const createStyles = (COLORS, insets) => StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: COLORS.background,
@@ -553,7 +555,7 @@ const createStyles = (COLORS) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 50, // Aumentar para espacio de status bar
+    paddingTop: Math.max(insets?.top || 0, 12) + 10,
     paddingBottom: 16,
     backgroundColor: COLORS.card,
     borderBottomWidth: 1,
@@ -570,14 +572,20 @@ const createStyles = (COLORS) => StyleSheet.create({
     borderRadius: 8,
     backgroundColor: COLORS.surface,
   },
+  headerText: {
+    flex: 1,
+    minWidth: 0,
+    marginRight: 8,
+  },
   headerTitle: {
-    fontSize: 22, // Aumentar tamaño
-    fontWeight: '700',
+    fontSize: 20,
+    lineHeight: 26,
+    fontWeight: '800',
     color: COLORS.text,
-    flex: 1, // Permitir que ocupe espacio disponible
   },
   headerSubtitle: {
     fontSize: 14,
+    lineHeight: 20,
     color: COLORS.muted,
     marginTop: 2,
   },
@@ -621,6 +629,7 @@ const createStyles = (COLORS) => StyleSheet.create({
   },
   sessionInfo: {
     flex: 1,
+    minWidth: 0,
   },
   weekday: {
     fontSize: 12,
@@ -668,6 +677,7 @@ const createStyles = (COLORS) => StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 999,
+    flexShrink: 0,
   },
   statusText: {
     fontSize: 11,

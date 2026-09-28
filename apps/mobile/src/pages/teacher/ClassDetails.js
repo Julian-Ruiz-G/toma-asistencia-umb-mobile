@@ -89,6 +89,7 @@ export default function ClassDetails({ navigation, route }) {
               <Text style={[styles.pillText, { color: status.pillText }]}>{status.label}</Text>
             </View>
           </View>
+          {c?.room ? <Text style={styles.metaLine}>Salón: {c.room}</Text> : null}
           {c?.subjectCode ? <Text style={styles.metaLine}>Código: {c.subjectCode}</Text> : null}
           {c?.period ? <Text style={styles.metaLine}>Corte: {String(c.period) === '2' ? '2' : '1'}</Text> : <Text style={styles.metaLine}>Corte: 1</Text>}
         </Animated.View>
@@ -152,9 +153,21 @@ export default function ClassDetails({ navigation, route }) {
               classId,
               className: title,
               group: c?.group || '',
+              room: c?.room || '',
             })}
           >
             Ver historial
+          </Button>
+          <View style={{ height: 10 }} />
+          <Button
+            fullWidth
+            variant="outline"
+            onPress={() => navigation.navigate('TeacherJustifications', {
+              classId,
+              className: title,
+            })}
+          >
+            Justificaciones
           </Button>
         </Animated.View>
         <View style={{ height: 28 }} />

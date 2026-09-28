@@ -25,22 +25,12 @@ import { useAuth } from '../../state/auth';
 import { prettyLabel } from '../../utils/adminDashboard';
 import { gapsLabel, requestProfileCompletion, studentGaps } from '../../utils/profileGaps';
 
-const mockStudents = [
-  { id: '1', firstName: 'Juan', lastName: 'Pérez', code: '20231045892', email: 'juan.perez@umb.edu.co', program: 'Ingeniería', semester: '5', status: 'active', biometricRegistered: true },
-  { id: '2', firstName: 'María', lastName: 'López', code: '20231045893', email: 'maria.lopez@umb.edu.co', program: 'Medicina', semester: '3', status: 'active', biometricRegistered: false },
-  { id: '3', firstName: 'Carlos', lastName: 'Rodríguez', code: '20231045894', email: 'carlos.rodriguez@umb.edu.co', program: 'Derecho', semester: '2', status: 'suspended', biometricRegistered: false },
-  { id: '4', firstName: 'Ana', lastName: 'Martínez', code: '20231045895', email: 'ana.martinez@umb.edu.co', program: 'Ingeniería', semester: '6', status: 'inactive', biometricRegistered: true },
-  { id: '5', firstName: 'Laura', lastName: 'Torres', code: '20231045899', email: 'laura.torres@umb.edu.co', program: 'Psicología', semester: '1', status: 'active', biometricRegistered: true },
-  { id: '6', firstName: 'Diego', lastName: 'Ramírez', code: '20231045900', email: 'diego.ramirez@umb.edu.co', program: 'Administración', semester: '4', status: 'active', biometricRegistered: false },
-];
-
 export default function EstudiantesPage({ navigation }) {
   const COLORS = useColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const { authToken } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [showModal, setShowModal] = useState(false);
   const [students, setStudents] = useState([]);
   const [studentsByClass, setStudentsByClass] = useState([]);
   const [showEdit, setShowEdit] = useState(false);
@@ -244,7 +234,13 @@ export default function EstudiantesPage({ navigation }) {
               style={styles.searchInput}
             />
           </View>
-          <Pressable onPress={() => setShowModal(true)} style={styles.addBtn}>
+          <Pressable
+            onPress={() => appAlert(
+              'Registro del estudiante',
+              'El estudiante crea su cuenta desde la app, con foto y consentimiento. Aquí puedes editar o eliminar las cuentas que ya existen.'
+            )}
+            style={styles.addBtn}
+          >
             <Plus size={18} color={COLORS.white} />
           </Pressable>
         </View>
@@ -382,20 +378,6 @@ export default function EstudiantesPage({ navigation }) {
 
         <View style={{ height: 18 }} />
       </ScrollView>
-
-      <Modal visible={showModal} transparent animationType="fade" onRequestClose={() => setShowModal(false)}>
-        <OverlayDismiss style={styles.modalOverlay} onClose={() => setShowModal(false)}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Nuevo Estudiante</Text>
-            <Text style={styles.modalText}>Formulario simplificado (mock)</Text>
-
-            <View style={{ height: 12 }} />
-            <Button fullWidth onPress={() => setShowModal(false)}>Guardar</Button>
-            <View style={{ height: 10 }} />
-            <Button fullWidth variant="outline" onPress={() => setShowModal(false)}>Cancelar</Button>
-          </View>
-        </OverlayDismiss>
-      </Modal>
 
       <Modal visible={showEdit} transparent animationType="fade" onRequestClose={() => setShowEdit(false)}>
         <OverlayDismiss style={styles.modalOverlay} onClose={() => setShowEdit(false)}>

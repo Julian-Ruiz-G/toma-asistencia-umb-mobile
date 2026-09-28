@@ -9,6 +9,7 @@ import {
   ChevronRight,
   FileText,
   Hash,
+  KeyRound,
   LogOut,
   Mail,
   Shield,
@@ -193,6 +194,18 @@ export default function TeacherProfile({ navigation, route }) {
         <View style={{ height: 14 }} />
 
         <AppAboutBlock />
+
+        <View style={{ height: 14 }} />
+
+        <Pressable onPress={() => navigation.navigate('ChangePassword')} style={[styles.card, styles.linkCard]}>
+          <View style={styles.linkLeft}>
+            <View style={[styles.infoIcon, { backgroundColor: COLORS.primarySoft }]}>
+              <KeyRound size={20} color={COLORS.primary} />
+            </View>
+            <Text style={styles.linkText}>Cambiar contraseña</Text>
+          </View>
+          <ChevronRight size={20} color={COLORS.placeholder} />
+        </Pressable>
 
         <View style={{ height: 14 }} />
 

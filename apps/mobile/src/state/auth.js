@@ -17,6 +17,7 @@ export function AuthProvider({ children }) {
   const [photoUri, setPhotoUri] = useState('');
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [acceptPrivacy, setAcceptPrivacy] = useState(false);
+  const [mustChangePassword, setMustChangePassword] = useState(false);
   const [notificationUnread, setNotificationUnread] = useState(0);
   const [classesRevision, setClassesRevision] = useState(0);
   const [ready, setReady] = useState(false);
@@ -36,6 +37,7 @@ export function AuthProvider({ children }) {
         setPhone(String(saved.phone || ''));
         setAcceptTerms(saved.acceptTerms === true);
         setAcceptPrivacy(saved.acceptPrivacy === true);
+        setMustChangePassword(saved.mustChangePassword === true);
         const local = await loadLocalProfile(saved.email);
         setPhotoUri(String(local?.photoUri || ''));
         if (local?.acceptTerms === true) setAcceptTerms(true);
@@ -71,6 +73,8 @@ export function AuthProvider({ children }) {
     setAcceptTerms,
     acceptPrivacy,
     setAcceptPrivacy,
+    mustChangePassword,
+    setMustChangePassword,
     notificationUnread,
     setNotificationUnread,
     classesRevision,
@@ -91,11 +95,12 @@ export function AuthProvider({ children }) {
       setPhotoUri('');
       setAcceptTerms(false);
       setAcceptPrivacy(false);
+      setMustChangePassword(false);
       setNotificationUnread(0);
       setClassesRevision(0);
       clearPersistedSession();
     }
-  }), [ready, authToken, role, email, fullName, studentCode, teacherCode, program, semester, phone, photoUri, acceptTerms, acceptPrivacy, notificationUnread, classesRevision]);
+  }), [ready, authToken, role, email, fullName, studentCode, teacherCode, program, semester, phone, photoUri, acceptTerms, acceptPrivacy, mustChangePassword, notificationUnread, classesRevision]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

@@ -4,12 +4,12 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 export function FilterChips({ options, value, onChange, colors }) {
   return (
     <View style={styles.chipsWrap}>
-      {options.map((opt) => {
+      {options.map((opt, index) => {
         const id = opt.id ?? opt.label;
         const active = String(value) === String(id);
         return (
           <Pressable
-            key={String(id)}
+            key={`${String(id)}-${index}`}
             onPress={() => onChange(active ? '' : id)}
             style={[
               styles.chip,
@@ -35,11 +35,11 @@ export function HBarChart({ items, colors, emptyText = 'Sin datos para graficar.
   }
   return (
     <View style={styles.vGap}>
-      {rows.map((row) => {
+      {rows.map((row, index) => {
         const count = Number(row.count) || 0;
         const pct = Math.max(6, Math.round((count / max) * 100));
         return (
-          <View key={row.label} style={styles.hRow}>
+          <View key={`${row.label || 'fila'}-${index}`} style={styles.hRow}>
             <Text numberOfLines={1} style={[styles.hLabel, { color: colors.textSecondary }]}>{row.label}</Text>
             <View style={[styles.hTrack, { backgroundColor: colors.surface }]}>
               <View style={[styles.hFill, { width: `${pct}%`, backgroundColor: colors.primary }]} />
@@ -60,7 +60,7 @@ export function WeekBars({ days, colors }) {
   }
   return (
     <View style={styles.weekRow}>
-      {rows.map((d) => {
+      {rows.map((d, index) => {
         const total = Number(d.total) || 0;
         const h = Math.max(total ? 10 : 4, Math.round((total / max) * 88));
         const present = Number(d.asistencia) || 0;
@@ -68,7 +68,7 @@ export function WeekBars({ days, colors }) {
         const absent = Number(d.inasistencia) || 0;
         const stack = present + late + absent || 1;
         return (
-          <View key={d.date || d.label} style={styles.weekCol}>
+          <View key={`${d.date || d.label || 'dia'}-${index}`} style={styles.weekCol}>
             <View style={[styles.weekTrack, { backgroundColor: colors.surface }]}>
               <View style={[styles.weekStack, { height: h }]}>
                 {present ? <View style={{ flex: present / stack, backgroundColor: colors.successStrong, borderTopLeftRadius: 7, borderTopRightRadius: 7 }} /> : null}
@@ -99,13 +99,15 @@ export function StatusBreakdown({ present = 0, late = 0, absent = 0, colors }) {
         {total <= 0 ? (
           <View style={[styles.stackSeg, { flex: 1, backgroundColor: colors.border }]} />
         ) : (
-          parts.filter((p) => p.value > 0).map((p, idx, arr) => (
+          parts.filter((p) => p.value > 0).map((p, idx, arr) => {
+            const segmentFlex = p.value;
+            return (
             <View
               key={p.key}
               style={[
                 styles.stackSeg,
                 {
-                  flex: p.value,
+                  flex: segmentFlex,
                   backgroundColor: p.color,
                   borderTopLeftRadius: idx === 0 ? 999 : 0,
                   borderBottomLeftRadius: idx === 0 ? 999 : 0,
@@ -114,7 +116,8 @@ export function StatusBreakdown({ present = 0, late = 0, absent = 0, colors }) {
                 },
               ]}
             />
-          ))
+            );
+          })
         )}
       </View>
       <View style={styles.legendRow}>

@@ -317,7 +317,17 @@ export default function QRScanner({ navigation }) {
     }
   };
 
-  // Función principal para manejar el resultado del escaneo QR
+  const closeSuccess = () => {
+    const joined = scanMode === 'register' || Boolean(joinResult);
+    setScanState(ScanState.scanning);
+    setJoinResult('');
+    setEnabled(true);
+    setTimeout(() => {
+      if (joined) navigation.navigate('StudentHome');
+      else if (navigation.canGoBack()) navigation.goBack();
+      else navigation.navigate('StudentHome');
+    }, 0);
+  };
   const handleScanned = async (res) => {
     // Validar que el escaneo esté habilitado y en estado correcto
     if (!enabled || scanState !== ScanState.scanning) return;
@@ -495,12 +505,8 @@ export default function QRScanner({ navigation }) {
         <OverlayDismiss
           style={styles.overlay}
           onClose={() => {
-            if (scanState === ScanState.success) {
-              if (scanMode === 'register') navigation.navigate('StudentHome');
-              else navigation.goBack();
-              return;
-            }
-            handleRetry();
+            if (scanState === ScanState.success) closeSuccess();
+            else handleRetry();
           }}
         >
           {scanState === ScanState.success ? (
@@ -524,13 +530,7 @@ export default function QRScanner({ navigation }) {
                   <Text style={styles.statusLine2}>{scanTime ? `${scanTime} - ${cfg.message}` : cfg.message}</Text>
                 </View>
               ) : null}
-              <Button fullWidth onPress={() => {
-                if (scanMode === 'register') {
-                  navigation.navigate('StudentHome');
-                  return;
-                }
-                navigation.goBack();
-              }}>
+              <Button fullWidth onPress={closeSuccess}>
                 Continuar
               </Button>
             </View>
@@ -669,7 +669,7 @@ const createStyles = (COLORS) => StyleSheet.create({
   bottomHint: { marginTop: 12, textAlign: 'center', color: COLORS.muted },
 
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.80)', alignItems: 'center', justifyContent: 'center', padding: 24 },
-  resultCard: { backgroundColor: COLORS.card, borderRadius: 18, padding: 18, width: '100%', maxWidth: 360, alignItems: 'center' },
+  resultCard: { backgroundColor: COLORS.card, borderRadius: 18, padding: 18, width: '100%', maxWidth: 360, alignItems: 'center', zIndex: 2 },
   resultIcon: { width: 84, height: 84, borderRadius: 42, alignItems: 'center', justifyContent: 'center', marginTop: 4, marginBottom: 12 },
   resultTitle: { fontSize: 20, fontWeight: '900', color: COLORS.text, textAlign: 'center' },
   resultSub: { marginTop: 6, color: COLORS.icon },

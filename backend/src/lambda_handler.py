@@ -16,11 +16,16 @@ from routes.auth import (
     handle_set_consent,
     handle_update_my_profile,
     handle_login_student,
+    handle_change_password,
+    handle_forgot_password,
+    handle_reset_password,
+    handle_request_register_code,
     handle_captcha_challenge,
     handle_captcha_verify,
     handle_validate_register_photo,
     handle_register,
 )
+from routes.bulk import handle_admin_bulk_import
 from routes.admin import (
     handle_admin_students,
     handle_admin_students_by_class,
@@ -44,6 +49,11 @@ from routes.classes import (
     handle_regenerate_class_qr,
     handle_remove_student_from_class,
     handle_delete_class,
+)
+from routes.justifications import (
+    handle_submit_justification,
+    handle_list_justifications,
+    handle_review_justification,
 )
 from routes.attendance import (
     handle_create_attendance_qr,
@@ -79,9 +89,14 @@ ROUTE_HANDLERS = [
     ("/admin-logs", handle_admin_logs),
     ("/admin-consents", handle_admin_consents),
     ("/admin-create-teacher", handle_admin_create_teacher),
+    ("/admin-bulk-import", handle_admin_bulk_import),
     ("/admin-dashboard-stats", handle_admin_dashboard_stats),
     ("/admin-request-profile", handle_admin_request_profile),
     ("/login-student", handle_login_student),
+    ("/change-password", handle_change_password),
+    ("/forgot-password", handle_forgot_password),
+    ("/request-register-code", handle_request_register_code),
+    ("/reset-password", handle_reset_password),
     ("/create-class", handle_create_class),
     ("/update-class", handle_update_class),
     ("/create-attendance-qr", handle_create_attendance_qr),
@@ -96,6 +111,9 @@ ROUTE_HANDLERS = [
     ("/student-notifications", handle_student_notifications),
     ("/mark-notifications-read", handle_mark_notifications_read),
     ("/student-attendance-history", handle_student_attendance_history),
+    ("/submit-justification", handle_submit_justification),
+    ("/list-justifications", handle_list_justifications),
+    ("/review-justification", handle_review_justification),
     ("/class-details", handle_class_details),
     ("/regenerate-class-qr", handle_regenerate_class_qr),
     ("/remove-student-from-class", handle_remove_student_from_class),

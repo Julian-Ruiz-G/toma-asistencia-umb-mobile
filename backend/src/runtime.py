@@ -72,8 +72,13 @@ def _clock_colombia(epoch) -> str:
     except Exception:
         return ''
 
+SES_FROM_EMAIL = os.getenv('SES_FROM_EMAIL', '').strip()
+JUSTIFICATION_BUCKET = os.getenv('JUSTIFICATION_BUCKET', '').strip()
+
 rekognition = boto3.client('rekognition', region_name=REGION)
 dynamodb = boto3.client('dynamodb', region_name=REGION)
+ses = boto3.client('ses', region_name=REGION)
+s3 = boto3.client('s3', region_name=REGION)
 
 
 def _looks_like_face_id(pk: str) -> bool:
@@ -570,6 +575,68 @@ def _new_salt_hex() -> str:
     return secrets.token_hex(16)
 
 
+def _password_issue(password: str) -> tuple[str, str] | None:
+    if len(password or '') < 8:
+        return ('PasswordTooShort', 'La contraseña debe tener mínimo 8 caracteres')
+    if not any(c.isupper() for c in password):
+        return ('PasswordMissingUppercase', 'La contraseña debe incluir al menos una mayúscula')
+    if not any(c.islower() for c in password):
+        return ('PasswordMissingLowercase', 'La contraseña debe incluir al menos una minúscula')
+    if not any(c.isdigit() for c in password):
+        return ('PasswordMissingNumber', 'La contraseña debe incluir al menos un número')
+    if not any(c in '!@#$%^&*(),.?":{}|<>' for c in password):
+        return ('PasswordMissingSpecial', 'La contraseña debe incluir al menos un carácter especial')
+    return None
+
+
+def _put_private_object(key: str, data: bytes, content_type: str) -> bool:
+    if not JUSTIFICATION_BUCKET or not key or not data:
+        return False
+    try:
+        s3.put_object(
+            Bucket=JUSTIFICATION_BUCKET,
+            Key=key,
+            Body=data,
+            ContentType=content_type or 'application/octet-stream',
+        )
+        return True
+    except Exception:
+        logger.exception('S3 put_object failed')
+        return False
+
+
+def _presign_private_object(key: str, expires: int = 600) -> str:
+    if not JUSTIFICATION_BUCKET or not key:
+        return ''
+    try:
+        return s3.generate_presigned_url(
+            'get_object',
+            Params={'Bucket': JUSTIFICATION_BUCKET, 'Key': key},
+            ExpiresIn=int(expires),
+        )
+    except Exception:
+        logger.exception('S3 presign failed')
+        return ''
+
+
+def _send_text_email(to_email: str, subject: str, text: str) -> bool:
+    if not SES_FROM_EMAIL or not to_email:
+        return False
+    try:
+        ses.send_email(
+            Source=SES_FROM_EMAIL,
+            Destination={'ToAddresses': [to_email]},
+            Message={
+                'Subject': {'Data': subject, 'Charset': 'UTF-8'},
+                'Body': {'Text': {'Data': text, 'Charset': 'UTF-8'}},
+            },
+        )
+        return True
+    except Exception:
+        logger.exception('SES send_email failed')
+        return False
+
+
 def _ddb_s(item: dict, key: str) -> str:
     try:
         return (item.get(key, {}) or {}).get('S') or ''
@@ -611,6 +678,8 @@ def _normalize_attendance_status(raw: str) -> str:
         return 'asistencia'
     if st in ('retardo', 'late', 'tardanza'):
         return 'retardo'
+    if st in ('justificada', 'justified', 'excusa'):
+        return 'justificada'
     return 'inasistencia'
 
 
@@ -690,6 +759,7 @@ def _notification_from_item(item: dict, now: int) -> dict:
         'read': read,
         'classId': _ddb_s(item, 'ClassId') or None,
         'sessionId': _ddb_s(item, 'SessionId') or None,
+        'className': _ddb_s(item, 'ClassName') or None,
         'action': _ddb_s(item, 'Action') or None,
         'open': _ddb_s(item, 'Open') or None,
         'missing': _ddb_s(item, 'Missing') or None,
@@ -767,6 +837,9 @@ def _attendance_notify_copy(status: str, class_name: str, source: str = 'qr'):
 
 def _notify_student_attendance(student_email: str, session_id: str, class_id: str, class_name: str, status: str, now: int, source: str = 'qr'):
     title, msg, ntype = _attendance_notify_copy(status, class_name, source)
+    extra = {'ClassId': class_id, 'SessionId': session_id, 'ClassName': class_name or '', 'Source': source}
+    if _normalize_attendance_status(status) == 'inasistencia':
+        extra['Action'] = 'justify'
     return _upsert_student_notification(
         student_email,
         f'NOTIF#att#{session_id}#{student_email}'.lower(),
@@ -774,9 +847,106 @@ def _notify_student_attendance(student_email: str, session_id: str, class_id: st
         msg,
         ntype,
         now,
-        extra={'ClassId': class_id, 'SessionId': session_id, 'ClassName': class_name or '', 'Source': source},
+        extra=extra,
         keep_created=False,
     )
+
+
+ABSENCE_WARN_AT = 3
+
+
+def _absence_warning_action(count: int, already_sent: bool) -> str:
+    if int(count or 0) < ABSENCE_WARN_AT:
+        return 'clear'
+    if int(count) == ABSENCE_WARN_AT and not already_sent:
+        return 'send'
+    return 'skip'
+
+
+def _absence_alert_pk(class_id: str, student_email: str) -> str:
+    return f'ABSALERT#{class_id}#{student_email}'.lower()
+
+
+def _absence_counts_for_class(class_id: str) -> dict:
+    counts = {}
+    items = _ddb_scan_all(
+        '#T = :t AND #CID = :cid',
+        {'#T': 'Type', '#CID': 'ClassId'},
+        {':t': {'S': 'Attendance'}, ':cid': {'S': class_id}},
+    )
+    for it in items:
+        email = (_ddb_s(it, 'StudentEmail') or '').strip().lower()
+        if not email:
+            continue
+        if _normalize_attendance_status(_ddb_s(it, 'Status')) == 'inasistencia':
+            counts[email] = int(counts.get(email, 0)) + 1
+    return counts
+
+
+def _sync_absence_warning(
+    student_email: str,
+    class_id: str,
+    class_name: str,
+    teacher_email: str,
+    student_name: str = '',
+    now: int | None = None,
+    absence_count: int | None = None,
+) -> None:
+    student_email = (student_email or '').strip().lower()
+    class_id = (class_id or '').strip()
+    if not student_email or not class_id:
+        return
+    now = int(now or time.time())
+    try:
+        count = int(absence_count) if absence_count is not None else int(_absence_counts_for_class(class_id).get(student_email, 0))
+        pk = _absence_alert_pk(class_id, student_email)
+        existing = dynamodb.get_item(TableName=DDB_TABLE, Key={'RekognitionId': {'S': pk}})
+        already = bool((existing or {}).get('Item'))
+        action = _absence_warning_action(count, already)
+        if action == 'clear':
+            if already:
+                dynamodb.delete_item(TableName=DDB_TABLE, Key={'RekognitionId': {'S': pk}})
+            return
+        if action != 'send':
+            return
+
+        subject = class_name or 'la materia'
+        who = _display_person_name(student_name) or student_email
+        _upsert_student_notification(
+            student_email,
+            f'NOTIF#abs3#{class_id}#{student_email}'.lower(),
+            'Tres inasistencias',
+            f'Ya acumulaste 3 inasistencias en {subject}.',
+            'warning',
+            now,
+            extra={'ClassId': class_id, 'ClassName': subject, 'Action': 'absence-warning'},
+            keep_created=False,
+        )
+        teacher_email = (teacher_email or '').strip().lower()
+        if teacher_email:
+            _upsert_student_notification(
+                teacher_email,
+                f'NOTIF#abs3t#{class_id}#{student_email}'.lower(),
+                'Tres inasistencias',
+                f'{who} ya acumula 3 inasistencias en {subject}.',
+                'warning',
+                now,
+                extra={'ClassId': class_id, 'ClassName': subject, 'Action': 'absence-warning'},
+                keep_created=False,
+            )
+        dynamodb.put_item(
+            TableName=DDB_TABLE,
+            Item={
+                'RekognitionId': {'S': pk},
+                'Type': {'S': 'AbsenceAlert'},
+                'ClassId': {'S': class_id},
+                'StudentEmail': {'S': student_email},
+                'TeacherEmail': {'S': teacher_email},
+                'CreatedAt': {'N': str(now)},
+            },
+        )
+    except Exception:
+        logger.exception('absence warning failed')
 
 
 def _ddb_bool(item: dict, *keys):

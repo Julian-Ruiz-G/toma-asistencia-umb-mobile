@@ -74,7 +74,9 @@ export default function MyClasses({ navigation }) {
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.className}>{c?.className || 'Clase'}</Text>
-                  <Text style={styles.classMeta}>{c?.group ? `Grupo ${c.group}` : 'Sin grupo'}</Text>
+                  <Text style={styles.classMeta}>
+                    {[c?.group ? `Grupo ${c.group}` : 'Sin grupo', c?.room ? `Aula ${c.room}` : ''].filter(Boolean).join(' · ')}
+                  </Text>
                   <View style={styles.schedRow}>
                     <Clock size={12} color={COLORS.placeholder} />
                     <Text style={styles.schedText}>{schedule || 'Sin horario'}</Text>

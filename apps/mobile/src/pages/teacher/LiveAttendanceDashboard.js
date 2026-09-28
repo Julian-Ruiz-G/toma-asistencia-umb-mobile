@@ -59,6 +59,18 @@ export default function LiveAttendanceDashboard({ navigation, route }) {
     }
     const key = `${studentEmail}:${newStatus}`;
     setSavingStatus(key);
+    setRemoteDetails((prev) => {
+      if (!prev || !Array.isArray(prev.results)) return prev;
+      return {
+        ...prev,
+        results: prev.results.map((row) => {
+          const email = String(row?.studentEmail || '').trim().toLowerCase();
+          if (email !== String(studentEmail || '').trim().toLowerCase()) return row;
+          return { ...row, status: newStatus, method: 'manual' };
+        }),
+      };
+    });
+    setLastUpdated(new Date());
     try {
       const resp = await fetch(SET_ATTENDANCE_STATUS_URL, {
         method: 'POST',
@@ -81,15 +93,17 @@ export default function LiveAttendanceDashboard({ navigation, route }) {
       }
       if (!resp.ok) {
         if (alertClassHoursError(json, json?.message || 'No se pudo cambiar la asistencia.')) {
+          await loadRemote({ silent: true });
           return;
         }
         appAlert('Error', json?.message || json?.error || text || `HTTP ${resp.status}`);
+        await loadRemote({ silent: true });
         return;
       }
-      setLastUpdated(new Date());
-      await loadRemote();
+      await loadRemote({ silent: true });
     } catch (e) {
       appAlert('Error', e?.message || String(e));
+      await loadRemote({ silent: true });
     } finally {
       setSavingStatus(null);
     }
@@ -159,13 +173,13 @@ export default function LiveAttendanceDashboard({ navigation, route }) {
   };
 
   // Función asíncrona para cargar detalles de asistencia desde el backend
-  const loadRemote = async () => {
+  const loadRemote = async ({ silent } = {}) => {
     // Validaciones previas
     if (!ATTENDANCE_DETAILS_URL) return;
     if (!authToken) return;
     if (!sessionId) return;
 
-    setLoadingRemote(true);
+    if (!silent) setLoadingRemote(true);
     try {
       // Realizar petición POST al endpoint de detalles de asistencia
       const resp = await fetch(ATTENDANCE_DETAILS_URL, {
@@ -198,8 +212,7 @@ export default function LiveAttendanceDashboard({ navigation, route }) {
       // Mostrar alerta en caso de error
       appAlert('Error', e?.message || String(e));
     } finally {
-      // Finalizar estado de carga
-      setLoadingRemote(false);
+      if (!silent) setLoadingRemote(false);
     }
   };
 

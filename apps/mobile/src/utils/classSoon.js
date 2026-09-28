@@ -84,6 +84,7 @@ export function upcomingClassSoonAlerts(classes, daysAhead = 14) {
   for (const c of list) {
     const classId = String(c?.classId || c?.id || '').trim();
     const className = String(c?.className || c?.subject || c?.name || 'la clase');
+    const room = String(c?.room || c?.classroom || c?.aula || '').trim();
     const schedule = Array.isArray(c?.schedule) ? c.schedule : [];
     for (let i = 0; i < daysAhead; i += 1) {
       const day = new Date();
@@ -106,6 +107,7 @@ export function upcomingClassSoonAlerts(classes, daysAhead = 14) {
           id: `classsoon:${classId}:${date}:${time}`,
           classId,
           className,
+          room,
           date,
           time,
           startAt,
@@ -133,7 +135,7 @@ export async function syncClassSoonNotifications(email, classes) {
         id: alert.id,
         type: 'classSoon',
         title: 'Clase por comenzar',
-        description: `${alert.className} empieza a las ${alert.time}. Faltan 5 minutos.`,
+        description: `${alert.className} empieza a las ${alert.time}${alert.room ? ` en el salón ${alert.room}` : ''}. Faltan 5 minutos.`,
         when: new Date(alert.notifyAt),
       });
       if (nid) notificationIds.push(nid);

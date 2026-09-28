@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import {
   ArrowLeft,
@@ -13,15 +13,35 @@ import OverlayDismiss from '../../components/OverlayDismiss';
 import { Button } from '../../components/Button';
 import { COLORS } from '../../ui/theme';
 import { useColors } from '../../ui/ThemeContext';
+import { ADMIN_LOGS_URL } from '../../config';
+import { useAuth } from '../../state/auth';
 
-const mockAudits = [
-  { id: '1', timestamp: '2024-01-15 14:32:15', user: 'Admin UMB', userRole: 'Administrador', action: 'view', resource: 'Lista de estudiantes', resourceType: 'Estudiantes', ipAddress: '192.168.1.100' },
-  { id: '2', timestamp: '2024-01-15 14:30:22', user: 'Dr. Martínez', userRole: 'Docente', action: 'update', resource: 'Notas MAT-101', resourceType: 'Calificaciones', ipAddress: '192.168.1.105', changes: 'Nota anterior: 3.5 → Nueva: 4.0' },
-  { id: '3', timestamp: '2024-01-15 14:25:18', user: 'Admin UMB', userRole: 'Administrador', action: 'delete', resource: 'Estudiante #202301099', resourceType: 'Estudiantes', ipAddress: '192.168.1.100' },
-  { id: '4', timestamp: '2024-01-15 14:20:45', user: 'Dra. López', userRole: 'Docente', action: 'export', resource: 'Reporte de asistencia', resourceType: 'Reportes', ipAddress: '192.168.1.110' },
-  { id: '5', timestamp: '2024-01-15 14:15:30', user: 'Admin UMB', userRole: 'Administrador', action: 'create', resource: 'Nuevo docente #DOC007', resourceType: 'Docentes', ipAddress: '192.168.1.100' },
-  { id: '6', timestamp: '2024-01-15 14:10:12', user: 'Sistema', userRole: 'Automático', action: 'update', resource: 'Sincronización Aulanet', resourceType: 'Sistema', ipAddress: '10.0.0.5' },
-];
+function classifyAction(action) {
+  const value = String(action || '').toLowerCase();
+  if (value.includes('delete') || value.includes('remove')) return 'delete';
+  if (value.includes('export') || value.includes('report')) return 'export';
+  if (value.includes('create') || value.includes('register') || value.includes('submit')) return 'create';
+  if (value.includes('update') || value.includes('set-') || value.includes('change') || value.includes('review') || value.includes('reset')) return 'update';
+  return 'view';
+}
+
+function formatWhen(createdAt) {
+  const n = Number(createdAt || 0);
+  if (!n) return '';
+  const d = new Date(n > 1e12 ? n : n * 1000);
+  const pad = (x) => String(x).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
+function resourceLabel(entry) {
+  const action = String(entry.actionName || 'evento');
+  const details = entry.details;
+  if (details && typeof details === 'object') {
+    const extra = details.teacherEmail || details.studentEmail || details.classId || details.sessionId || '';
+    return extra ? `${action} · ${extra}` : action;
+  }
+  return action;
+}
 
 const actionConfig = {
   view: { Icon: Eye, color: COLORS.infoStrong, bg: COLORS.infoBg, label: 'Visualización' },
@@ -34,28 +54,64 @@ const actionConfig = {
 export default function AuditoriaPage({ navigation }) {
   const COLORS = useColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
+  const { authToken } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [actionFilter, setActionFilter] = useState('all');
   const [selectedEntry, setSelectedEntry] = useState(null);
+  const [audits, setAudits] = useState([]);
+
+  useEffect(() => {
+    (async () => {
+      if (!authToken || !ADMIN_LOGS_URL) return;
+      try {
+        const resp = await fetch(ADMIN_LOGS_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${authToken}`,
+          },
+          body: JSON.stringify({ limit: 300 }),
+        });
+        const text = await resp.text();
+        let json;
+        try { json = JSON.parse(text); } catch { json = null; }
+        if (!resp.ok) return;
+        const arr = Array.isArray(json?.logs) ? json.logs : [];
+        setAudits(arr.map((x, idx) => ({
+          id: String(x?.id || idx),
+          timestamp: formatWhen(x?.createdAt),
+          user: String(x?.actorEmail || 'Sistema'),
+          userRole: String(x?.actorRole || ''),
+          action: classifyAction(x?.action),
+          actionName: String(x?.action || ''),
+          resource: '',
+          details: x?.details,
+          changes: x?.details ? JSON.stringify(x.details) : '',
+        })).map((entry) => ({ ...entry, resource: resourceLabel(entry) })));
+      } catch {
+        setAudits([]);
+      }
+    })();
+  }, [authToken]);
 
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    return mockAudits.filter((a) => {
+    return audits.filter((a) => {
       const matchesSearch =
         !q ||
         a.user.toLowerCase().includes(q) ||
         a.resource.toLowerCase().includes(q) ||
-        a.resourceType.toLowerCase().includes(q);
+        a.userRole.toLowerCase().includes(q);
       const matchesAction = actionFilter === 'all' || a.action === actionFilter;
       return matchesSearch && matchesAction;
     });
-  }, [searchQuery, actionFilter]);
+  }, [searchQuery, actionFilter, audits]);
 
   const stats = useMemo(() => {
     const out = {};
-    Object.keys(actionConfig).forEach((k) => (out[k] = mockAudits.filter((a) => a.action === k).length));
+    Object.keys(actionConfig).forEach((k) => (out[k] = audits.filter((a) => a.action === k).length));
     return out;
-  }, []);
+  }, [audits]);
 
   return (
     <View style={styles.root}>
@@ -142,7 +198,7 @@ export default function AuditoriaPage({ navigation }) {
                   </View>
                   <Text style={styles.userText}>{entry.user}</Text>
                   <Text style={styles.resourceText}>{entry.resource}</Text>
-                  <Text style={styles.ipText}>{entry.ipAddress}</Text>
+                  <Text style={styles.ipText}>{entry.userRole || 'sin rol'}</Text>
                 </View>
               </Pressable>
             );
@@ -180,8 +236,8 @@ export default function AuditoriaPage({ navigation }) {
               <Text style={styles.detailVal}>{selectedEntry?.resource || ''}</Text>
             </View>
             <View style={styles.detailRow}>
-              <Text style={styles.detailKey}>IP</Text>
-              <Text style={styles.detailVal}>{selectedEntry?.ipAddress || ''}</Text>
+              <Text style={styles.detailKey}>Rol</Text>
+              <Text style={styles.detailVal}>{selectedEntry?.userRole || '—'}</Text>
             </View>
             {selectedEntry?.changes ? (
               <View style={styles.detailRow}>

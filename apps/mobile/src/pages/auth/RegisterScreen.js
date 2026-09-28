@@ -17,7 +17,7 @@ import RobotCaptcha from '../../components/RobotCaptcha';
 import { COLORS } from '../../ui/theme';
 import { useColors } from '../../ui/ThemeContext';
 import Animated, { enterDown } from '../../ui/motion';
-import { REGISTER_STUDENT_URL, VALIDATE_REGISTER_PHOTO_URL } from '../../config';
+import { REGISTER_STUDENT_URL, REQUEST_REGISTER_CODE_URL, VALIDATE_REGISTER_PHOTO_URL } from '../../config';
 import TermsAndConditionsModal from '../../components/TermsAndConditions';
 import PrivacyPolicyModal from '../../components/PrivacyPolicy';
 import BiometricConsentModal from '../../components/BiometricConsent';
@@ -93,6 +93,7 @@ export default function RegisterScreen({ navigation }) {
     lastName: '',
     code: '',
     email: '',
+    emailCode: '',
     password: '',
     confirmPassword: '',
     role: 'student',
@@ -110,6 +111,8 @@ export default function RegisterScreen({ navigation }) {
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [showBiometricModal, setShowBiometricModal] = useState(false);
   const [captchaProof, setCaptchaProof] = useState(null);
+  const [sendingCode, setSendingCode] = useState(false);
+  const [codeNotice, setCodeNotice] = useState('');
 
   const pwRules = useMemo(() => passwordChecks(formData.password), [formData.password]);
   const passwordReady = pwRules.every((r) => r.ok);
@@ -140,6 +143,9 @@ export default function RegisterScreen({ navigation }) {
     if (!formData.email.trim()) e.email = 'Escribe tu correo institucional.';
     else if (!formData.email.trim().toLowerCase().endsWith('@academia.umb.edu.co')) {
       e.email = 'Usa tu correo @academia.umb.edu.co.';
+    }
+    if (!/^\d{6}$/.test(formData.emailCode.trim())) {
+      e.emailCode = 'Escribe el código de 6 dígitos enviado a tu correo.';
     }
 
     if (!formData.password) e.password = 'Crea una contraseña.';
@@ -268,6 +274,40 @@ export default function RegisterScreen({ navigation }) {
     }
   };
 
+  const requestEmailCode = async () => {
+    const address = formData.email.trim().toLowerCase();
+    setCodeNotice('');
+    setErrors((p) => ({ ...p, email: undefined, emailCode: undefined }));
+    if (!address.endsWith('@academia.umb.edu.co')) {
+      setErrors((p) => ({ ...p, email: 'Usa tu correo @academia.umb.edu.co.' }));
+      return;
+    }
+    if (!REQUEST_REGISTER_CODE_URL) {
+      setFormAlert('La API no está configurada. Revisa extra.apiUrl en app.json.');
+      return;
+    }
+    setSendingCode(true);
+    setFormAlert('');
+    try {
+      const resp = await fetch(REQUEST_REGISTER_CODE_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: address }),
+      });
+      const text = await resp.text();
+      let json = null;
+      try { json = JSON.parse(text); } catch { json = null; }
+      if (!resp.ok) {
+        throw new Error((json && (json.message || json.error)) || text || `HTTP ${resp.status}`);
+      }
+      setCodeNotice(json?.message || 'Enviamos un código a tu correo.');
+    } catch (e) {
+      setFormAlert(e?.message || 'No se pudo enviar el código.');
+    } finally {
+      setSendingCode(false);
+    }
+  };
+
   const submit = async () => {
     if (!validate()) return;
     if (!REGISTER_STUDENT_URL) {
@@ -288,6 +328,7 @@ export default function RegisterScreen({ navigation }) {
           firstName: formData.firstName.trim(),
           lastName: formData.lastName.trim(),
           email: formData.email.trim().toLowerCase(),
+          emailCode: formData.emailCode.trim(),
           password: formData.password,
           role: 'student',
           imageBase64: photoBase64,
@@ -409,9 +450,35 @@ export default function RegisterScreen({ navigation }) {
             setErrors((p) => ({ ...p, email: undefined }));
           }}
           error={errors.email}
-          helperText="Debe ser tu correo institucional UMB (@academia.umb.edu.co)"
+          helperText="Debe ser tu correo institucional UMB (@academia.umb.edu.co). Te enviaremos un código para comprobar que puedes recibirlo."
           autoCapitalize="none"
           keyboardType="email-address"
+        />
+
+        <View style={{ height: 10 }} />
+        <Button
+          fullWidth
+          variant="outline"
+          isLoading={sendingCode}
+          onPress={requestEmailCode}
+        >
+          Enviar código
+        </Button>
+        {codeNotice ? <Text style={styles.codeNotice}>{codeNotice}</Text> : null}
+
+        <View style={{ height: 14 }} />
+
+        <Input
+          label="Código del correo"
+          placeholder="6 dígitos"
+          value={formData.emailCode}
+          onChangeText={(v) => {
+            setFormData((p) => ({ ...p, emailCode: v.replace(/\D/g, '').slice(0, 6) }));
+            setErrors((p) => ({ ...p, emailCode: undefined }));
+          }}
+          error={errors.emailCode}
+          keyboardType="number-pad"
+          autoCapitalize="none"
         />
 
         <View style={{ height: 14 }} />
@@ -641,6 +708,7 @@ export default function RegisterScreen({ navigation }) {
 }
 
 const createStyles = (COLORS) => StyleSheet.create({
+  codeNotice: { marginTop: 8, color: COLORS.muted, fontSize: 13, lineHeight: 18 },
   root: { flex: 1, backgroundColor: COLORS.background },
   header: {
     backgroundColor: COLORS.card,

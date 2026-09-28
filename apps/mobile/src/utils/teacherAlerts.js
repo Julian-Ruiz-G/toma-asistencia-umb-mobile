@@ -91,6 +91,8 @@ export function teacherAlertCopy(alert) {
   const name = alert?.className || 'la clase';
   const start = alert?.time || hhmm(alert?.startAt);
   const end = alert?.endTime || hhmm(alert?.endAt);
+  const room = String(alert?.room || '').trim();
+  const place = room ? ` en el salón ${room}` : '';
   if (alert?.kind === 'teacherPhoto') {
     return {
       title: 'Toma la foto de asistencia',
@@ -105,7 +107,7 @@ export function teacherAlertCopy(alert) {
   }
   return {
     title: 'Clase por comenzar',
-    message: `${name} empieza a las ${start}. Faltan 5 minutos.`,
+    message: `${name} empieza a las ${start}${place}. Faltan 5 minutos.`,
   };
 }
 

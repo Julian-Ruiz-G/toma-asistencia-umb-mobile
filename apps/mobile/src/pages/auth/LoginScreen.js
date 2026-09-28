@@ -12,6 +12,7 @@ import { COLORS } from '../../ui/theme';
 import { useColors } from '../../ui/ThemeContext';
 import Animated, { PulseGlow, enterDown } from '../../ui/motion';
 import { clearPersistedSession, loadLocalProfile, savePersistedSession } from '../../utils/sessionStore';
+import { homeRouteForRole } from '../../utils/passwordRules';
 
 const CREDENTIALS_ERROR = 'Correo o contraseña incorrectos.';
 
@@ -30,6 +31,7 @@ export default function LoginScreen({ navigation }) {
     setPhone,
     setAcceptTerms,
     setAcceptPrivacy,
+    setMustChangePassword,
   } = useAuth();
   const [formData, setFormData] = useState({
     email: '',
@@ -119,6 +121,7 @@ export default function LoginScreen({ navigation }) {
       const local = await loadLocalProfile(e);
       const acceptTerms = r.json?.acceptTerms === true || local?.acceptTerms === true;
       const acceptPrivacy = r.json?.acceptPrivacy === true || local?.acceptPrivacy === true;
+      const mustChangePassword = r.json?.mustChangePassword === true;
 
       setAuthToken(token);
       setRole(role);
@@ -131,6 +134,7 @@ export default function LoginScreen({ navigation }) {
       setPhone(phone);
       setAcceptTerms(acceptTerms);
       setAcceptPrivacy(acceptPrivacy);
+      setMustChangePassword(mustChangePassword);
 
       if (formData.rememberSession) {
         await savePersistedSession({
@@ -145,6 +149,7 @@ export default function LoginScreen({ navigation }) {
           phone,
           acceptTerms,
           acceptPrivacy,
+          mustChangePassword,
         });
       } else {
         await clearPersistedSession();
@@ -153,7 +158,8 @@ export default function LoginScreen({ navigation }) {
       navigation.reset({
         index: 0,
         routes: [{
-          name: role === 'teacher' ? 'TeacherHome' : role === 'admin' ? 'AdminDashboard' : 'StudentHome'
+          name: mustChangePassword ? 'ChangePassword' : homeRouteForRole(role),
+          params: mustChangePassword ? { forced: true } : undefined,
         }],
       });
     } catch (err) {
@@ -253,7 +259,7 @@ export default function LoginScreen({ navigation }) {
               <Text style={styles.rememberText}>Recordar sesión</Text>
             </View>
 
-            <Pressable onPress={() => appAlert('Recuperación de contraseña', 'Esta función aún no está disponible. Si no puedes entrar, pide ayuda en tu facultad.')}>
+            <Pressable onPress={() => navigation.navigate('ForgotPassword')}>
               <Text style={styles.forgot}>¿Olvidó su contraseña?</Text>
             </Pressable>
           </View>
