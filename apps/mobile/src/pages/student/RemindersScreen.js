@@ -2,7 +2,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { appAlert } from '../../ui/appNotice';
 import { useFocusEffect } from '@react-navigation/native';
-import { ArrowLeft, Bell, Clock, Pencil, Plus, Trash2 } from 'lucide-react-native';
+import { Bell, Clock, Pencil, Plus, Trash2 } from 'lucide-react-native';
 
 import OverlayDismiss from '../../components/OverlayDismiss';
 import { Button } from '../../components/Button';
@@ -27,6 +27,7 @@ import {
   isExpoGo,
   scheduleReminderNotification,
 } from '../../utils/localNotify';
+import { NavButtons, useStudentDrawer } from '../../components/RoleDrawer';
 
 const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
 const MINUTES = Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, '0'));
@@ -120,6 +121,7 @@ function TimePickerModal({ visible, hour, minute, onChange, onClose }) {
 export default function RemindersScreen({ navigation }) {
   const COLORS = useColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
+  const { drawer, openDrawer, goBack } = useStudentDrawer(navigation, 'StudentReminders');
   const { email } = useAuth();
   const [items, setItems] = useState([]);
   const [showForm, setShowForm] = useState(false);
@@ -283,10 +285,9 @@ export default function RemindersScreen({ navigation }) {
 
   return (
     <View style={styles.root}>
+      {drawer}
       <Animated.View entering={enterDown(0, 360)} style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <ArrowLeft size={24} color={COLORS.textSecondary} />
-        </Pressable>
+        <NavButtons onBack={goBack} onMenu={openDrawer} buttonStyle={styles.backBtn} size={24} color={COLORS.textSecondary} />
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Recordatorios</Text>
           <Text style={styles.headerSubtitle}>Actividades y pendientes</Text>

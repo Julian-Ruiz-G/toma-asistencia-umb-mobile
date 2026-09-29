@@ -2,7 +2,6 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { appAlert } from '../../ui/appNotice';
 import {
-  ArrowLeft,
   Calendar,
   Check,
   ChevronDown,
@@ -162,6 +161,7 @@ const makePf = (COLORS) => StyleSheet.create({
 
 // ─── Campo de texto simple ────────────────────────────────────────────────────
 import { TextInput } from 'react-native';
+import { NavButtons, useTeacherDrawer } from '../../components/RoleDrawer';
 
 function TextField({ label, value, onChangeText, placeholder, autoCapitalize = 'sentences' }) {
   const COLORS = useColors();
@@ -294,6 +294,7 @@ const EMPTY_BLOCK = () => ({ day: '', startTime: '', endTime: '' });
 export default function CreateClass({ navigation, route }) {
   const COLORS = useColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
+  const { drawer, openDrawer, goBack } = useTeacherDrawer(navigation, 'TeacherCreateClass');
   const { authToken } = useAuth();
   const editClassId = route?.params?.classId ? String(route.params.classId) : '';
   const isEdit = Boolean(editClassId);
@@ -419,11 +420,10 @@ export default function CreateClass({ navigation, route }) {
 
   return (
     <View style={styles.root}>
+      {drawer}
       {/* Header */}
       <View style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <ArrowLeft size={24} color={COLORS.textSecondary} />
-        </Pressable>
+        <NavButtons onBack={goBack} onMenu={openDrawer} buttonStyle={styles.backBtn} size={24} color={COLORS.textSecondary} />
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>{isEdit ? 'Editar clase' : 'Crear clase'}</Text>
           <Text style={styles.headerSubtitle}>

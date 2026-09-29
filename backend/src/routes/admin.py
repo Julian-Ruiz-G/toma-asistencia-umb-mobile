@@ -693,6 +693,132 @@ def handle_admin_create_teacher(event, body):
         'emailSent': email_sent,
     })
 
+def handle_admin_create_student(event, body, image_bytes_fixed, img=None, width=None, height=None):
+    """El admin crea la cuenta del estudiante y le toma la foto biométrica en persona."""
+    payload = _verify_token(_get_bearer_token(event))
+    if not payload or payload.get('role') != 'admin':
+        return _response(401, {'error': 'Unauthorized'})
+
+    admin_email = str(payload.get('sub') or '').strip().lower()
+
+    full_name = _display_person_name(body.get('fullName') or '')
+    email = (body.get('email') or '').strip().lower()
+    password = (body.get('password') or '').strip()
+    student_code = (body.get('studentCode') or '').strip()
+
+    if not full_name or not email or not password:
+        return _response(400, {'error': 'MissingFields', 'message': 'Faltan nombre, correo o contraseña.'})
+    if not re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]+$', email):
+        return _response(400, {'error': 'InvalidEmail', 'message': 'El correo no es válido.'})
+    issue = _password_issue(password)
+    if issue:
+        return _response(400, {'error': issue[0], 'message': issue[1]})
+    if student_code and not 8 <= len(student_code) <= 10:
+        return _response(400, {'error': 'InvalidStudentCode', 'message': 'El código estudiantil debe tener entre 8 y 10 caracteres.'})
+    if not body.get('consentBiometric'):
+        return _response(400, {
+            'error': 'BiometricConsentNotAccepted',
+            'message': 'Confirma que el estudiante autorizó el tratamiento de sus datos biométricos.',
+        })
+
+    try:
+        existing = _scan_find_student_by_email(email) or (dynamodb.get_item(
+            TableName=DDB_TABLE,
+            Key={'RekognitionId': {'S': f'USER#{email}'}},
+        ) or {}).get('Item')
+    except Exception:
+        logger.exception('DynamoDB get_item failed (admin-create-student email check)')
+        return _response(500, {'error': 'DynamoDBGetFailed'})
+    if existing:
+        return _response(409, {'error': 'EmailAlreadyRegistered', 'message': 'Ese correo ya tiene una cuenta.'})
+
+    if student_code:
+        dup = _ddb_scan(
+            first_only=True,
+            FilterExpression='#SC = :sc AND #R = :r',
+            ExpressionAttributeNames={'#SC': 'StudentCode', '#R': 'Role'},
+            ExpressionAttributeValues={':sc': {'S': student_code}, ':r': {'S': 'student'}},
+        )
+        if (dup or {}).get('Items'):
+            return _response(409, {
+                'error': 'StudentCodeAlreadyRegistered',
+                'message': f'El código estudiantil {student_code} ya está registrado.',
+            })
+
+    try:
+        face_details = rekognition.detect_faces(Image={'Bytes': image_bytes_fixed}, Attributes=['ALL']).get('FaceDetails') or []
+    except Exception:
+        logger.exception('detect_faces failed (admin-create-student)')
+        return _response(400, {'error': 'FaceDetectFailed', 'message': 'No se pudo analizar la foto. Intenta de nuevo.'})
+    photo_issues = _register_photo_issues(face_details)
+    if photo_issues:
+        return _response(400, {'error': 'InvalidFacePhoto', 'message': photo_issues[0], 'issues': photo_issues})
+    if _face_already_registered(image_bytes_fixed):
+        return _response(409, {'error': 'FaceAlreadyRegistered', 'message': FACE_ALREADY_REGISTERED_MESSAGE})
+
+    try:
+        records = rekognition.index_faces(
+            CollectionId=COLLECTION,
+            Image={'Bytes': image_bytes_fixed},
+            MaxFaces=1,
+            QualityFilter='AUTO',
+            DetectionAttributes=['DEFAULT'],
+        ).get('FaceRecords') or []
+    except Exception:
+        logger.exception('index_faces failed (admin-create-student)')
+        return _response(500, {'error': 'IndexFacesFailed'})
+    if not records:
+        return _response(400, {'error': 'FaceNotIndexed', 'message': 'No se pudo registrar el rostro. Toma otra foto.'})
+
+    face_id = records[0]['Face']['FaceId']
+    now = int(time.time())
+    salt_hex = _new_salt_hex()
+    item = {
+        'RekognitionId': {'S': face_id},
+        'FullName': {'S': full_name},
+        'Email': {'S': email},
+        'Role': {'S': 'student'},
+        'PasswordSalt': {'S': salt_hex},
+        'PasswordHash': {'S': _hash_password(password, salt_hex)},
+        'MustChangePassword': {'BOOL': True},
+        # Términos y privacidad los acepta el estudiante al entrar; la biometría la autorizó ante el admin.
+        'AcceptTerms': {'BOOL': False},
+        'AcceptPrivacy': {'BOOL': False},
+        'ConsentBiometric': {'BOOL': True},
+        'BiometricConsent': {'BOOL': True},
+        'BiometricConsentUpdatedAt': {'N': str(now)},
+        'CreatedBy': {'S': admin_email},
+    }
+    if student_code:
+        item['StudentCode'] = {'S': student_code}
+
+    try:
+        dynamodb.put_item(TableName=DDB_TABLE, Item=item, ConditionExpression='attribute_not_exists(RekognitionId)')
+    except Exception:
+        logger.exception('DynamoDB put_item failed (admin-create-student)')
+        _delete_faces_from_collection([face_id])
+        return _response(500, {'error': 'DynamoDBPutFailed'})
+
+    _audit_log(admin_email, 'admin', 'admin-create-student', {'studentEmail': email})
+    _upsert_student_notification(
+        email,
+        f'NOTIF#pwdsetup#{email}'.lower(),
+        'Cambia tu contraseña',
+        'Tu cuenta de estudiante ya está creada. Entra con la contraseña temporal y cámbiala antes de continuar.',
+        'warning',
+        now,
+        extra={'Action': 'change-password'},
+    )
+
+    return _response(200, {
+        'ok': True,
+        'email': email,
+        'fullName': full_name,
+        'studentCode': student_code or None,
+        'role': 'student',
+        'mustChangePassword': True,
+    })
+
 import unicodedata
 
 

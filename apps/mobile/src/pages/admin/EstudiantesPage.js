@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Image, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { appAlert } from '../../ui/appNotice';
 import {
+  Camera,
   CheckCircle,
   ChevronLeft,
   ChevronRight,
@@ -18,11 +20,21 @@ import OverlayDismiss from '../../components/OverlayDismiss';
 import { Button } from '../../components/Button';
 import { COLORS } from '../../ui/theme';
 import { useColors } from '../../ui/ThemeContext';
-import { ADMIN_DELETE_STUDENT_URL, ADMIN_STUDENTS_URL, ADMIN_STUDENTS_BY_CLASS_URL, ADMIN_UPDATE_STUDENT_URL } from '../../config';
+import {
+  ADMIN_CREATE_STUDENT_URL,
+  ADMIN_DELETE_STUDENT_URL,
+  ADMIN_STUDENTS_URL,
+  ADMIN_STUDENTS_BY_CLASS_URL,
+  ADMIN_UPDATE_STUDENT_URL,
+  VALIDATE_REGISTER_PHOTO_URL,
+} from '../../config';
 import { useAuth } from '../../state/auth';
 import { prettyLabel } from '../../utils/adminDashboard';
 import { gapsLabel, requestProfileCompletion, studentGaps } from '../../utils/profileGaps';
+import { passwordIssue } from '../../utils/passwordRules';
 import { AdminNavButtons, useAdminDrawer } from '../../components/AdminDrawer';
+
+const EMPTY_CREATE = { fullName: '', email: '', studentCode: '', password: '', consentBiometric: false };
 
 export default function EstudiantesPage({ navigation }) {
   const COLORS = useColors();
@@ -37,6 +49,11 @@ export default function EstudiantesPage({ navigation }) {
   const [editDraft, setEditDraft] = useState({ email: '', fullName: '', studentCode: '', password: '' });
   const [deletingId, setDeletingId] = useState('');
   const [requestingId, setRequestingId] = useState('');
+  const [showCreate, setShowCreate] = useState(false);
+  const [createDraft, setCreateDraft] = useState(EMPTY_CREATE);
+  const [createPhoto, setCreatePhoto] = useState(null);
+  const [checkingPhoto, setCheckingPhoto] = useState(false);
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -200,6 +217,146 @@ export default function EstudiantesPage({ navigation }) {
     );
   };
 
+  const openCreate = () => {
+    setCreateDraft(EMPTY_CREATE);
+    setCreatePhoto(null);
+    setShowCreate(true);
+  };
+
+  // Foto biométrica tomada por el admin. Se revisa al momento (calidad y rostro ya registrado).
+  const takeStudentPhoto = async () => {
+    try {
+      const perm = await ImagePicker.requestCameraPermissionsAsync();
+      if (perm.status !== 'granted') {
+        appAlert('Cámara', 'Se necesita permiso de cámara para tomar la foto del estudiante.');
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        base64: true,
+        quality: 0.75,
+        allowsEditing: true,
+        aspect: [3, 4],
+      });
+      if (result.canceled) return;
+      const asset = Array.isArray(result.assets) ? result.assets[0] : null;
+      const b64 = asset?.base64 ? String(asset.base64) : '';
+      if (!b64) {
+        appAlert('Foto', 'No se pudo leer la imagen. Intenta otra vez.');
+        return;
+      }
+
+      if (VALIDATE_REGISTER_PHOTO_URL) {
+        setCheckingPhoto(true);
+        try {
+          const resp = await fetch(VALIDATE_REGISTER_PHOTO_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ imageBase64: b64 }),
+          });
+          const text = await resp.text();
+          let json;
+          try { json = JSON.parse(text); } catch { json = null; }
+          if (json?.error === 'FaceAlreadyRegistered') {
+            appAlert('Rostro ya registrado', json.message || 'Este rostro ya está registrado en otra cuenta.');
+            return;
+          }
+          const issues = Array.isArray(json?.issues) ? json.issues.filter(Boolean) : [];
+          if (issues.length || (!resp.ok && resp.status !== 404 && resp.status !== 403)) {
+            appAlert(
+              'Esta foto no sirve',
+              issues.length ? issues.map((item, i) => `${i + 1}. ${item}`).join('\n\n') : (json?.message || `HTTP ${resp.status}`)
+            );
+            return;
+          }
+        } finally {
+          setCheckingPhoto(false);
+        }
+      }
+
+      setCreatePhoto({ base64: b64, uri: asset?.uri || '' });
+    } catch (e) {
+      setCheckingPhoto(false);
+      appAlert('Error al tomar la foto', e?.message || String(e));
+    }
+  };
+
+  const createStudent = async () => {
+    const payload = {
+      fullName: String(createDraft.fullName || '').trim(),
+      email: String(createDraft.email || '').trim().toLowerCase(),
+      studentCode: String(createDraft.studentCode || '').trim(),
+      password: String(createDraft.password || '').trim(),
+      consentBiometric: !!createDraft.consentBiometric,
+    };
+    if (!payload.fullName || !payload.email || !payload.password) {
+      appAlert('Faltan datos', 'Completa nombre, correo y contraseña.');
+      return;
+    }
+    const pwIssue = passwordIssue(payload.password);
+    if (pwIssue) {
+      appAlert('Contraseña', pwIssue);
+      return;
+    }
+    if (!createPhoto?.base64) {
+      appAlert('Foto', 'Toma la foto del rostro del estudiante.');
+      return;
+    }
+    if (!payload.consentBiometric) {
+      appAlert('Autorización', 'Confirma que el estudiante autorizó el tratamiento de sus datos biométricos.');
+      return;
+    }
+
+    setCreating(true);
+    try {
+      if (!authToken) throw new Error('Sesión inválida');
+      if (!ADMIN_CREATE_STUDENT_URL) throw new Error('API no configurada');
+      const resp = await fetch(ADMIN_CREATE_STUDENT_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({ ...payload, imageBase64: createPhoto.base64 }),
+      });
+      const text = await resp.text();
+      let json;
+      try { json = JSON.parse(text); } catch { json = null; }
+      if (!resp.ok) {
+        const msg = (json && (json.message || json.error)) || text || `HTTP ${resp.status}`;
+        throw new Error(msg);
+      }
+
+      const parts = payload.fullName.split(' ');
+      setStudents((prev) => [
+        {
+          id: `${payload.email}-${Date.now()}`,
+          firstName: parts[0] || '',
+          lastName: parts.slice(1).join(' '),
+          code: payload.studentCode,
+          email: payload.email,
+          program: '—',
+          semester: '—',
+          phone: '',
+          status: 'active',
+          biometricRegistered: true,
+          acceptTerms: false,
+          acceptPrivacy: false,
+          biometricConsent: true,
+        },
+        ...prev,
+      ]);
+      setShowCreate(false);
+      appAlert(
+        'Estudiante creado',
+        'Entrégale la contraseña temporal. Al iniciar sesión deberá cambiarla y aceptar los términos y la política de privacidad.'
+      );
+    } catch (e) {
+      appAlert('No se pudo crear', e?.message || String(e));
+    } finally {
+      setCreating(false);
+    }
+  };
+
   const statusBadge = (status) => {
     if (status === 'active') return { bg: COLORS.successBg, text: COLORS.success, label: 'Activo' };
     if (status === 'inactive') return { bg: COLORS.surface, text: COLORS.textSecondary, label: 'Inactivo' };
@@ -233,13 +390,7 @@ export default function EstudiantesPage({ navigation }) {
               style={styles.searchInput}
             />
           </View>
-          <Pressable
-            onPress={() => appAlert(
-              'Registro del estudiante',
-              'El estudiante crea su cuenta desde la app, con foto y consentimiento. Aquí puedes editar o eliminar las cuentas que ya existen.'
-            )}
-            style={styles.addBtn}
-          >
+          <Pressable onPress={openCreate} style={styles.addBtn}>
             <Plus size={18} color={COLORS.white} />
           </Pressable>
         </View>
@@ -378,6 +529,107 @@ export default function EstudiantesPage({ navigation }) {
 
         <View style={{ height: 18 }} />
       </ScrollView>
+
+      <Modal visible={showCreate} transparent animationType="fade" onRequestClose={() => setShowCreate(false)}>
+        <OverlayDismiss style={styles.modalOverlay} onClose={() => setShowCreate(false)}>
+          <View style={[styles.modalCard, styles.modalCardTall]}>
+            <ScrollView keyboardShouldPersistTaps="handled">
+              <Text style={styles.modalTitle}>Nuevo Estudiante</Text>
+              <Text style={styles.modalText}>Crea la cuenta y toma la foto para el reconocimiento facial.</Text>
+
+              <View style={{ height: 12 }} />
+              <Text style={styles.modalLabel}>Nombre completo</Text>
+              <TextInput
+                value={createDraft.fullName}
+                onChangeText={(t) => setCreateDraft((p) => ({ ...p, fullName: t }))}
+                placeholder="Ej: Juan Pérez"
+                placeholderTextColor={COLORS.placeholder}
+                style={styles.modalInput}
+              />
+
+              <View style={{ height: 10 }} />
+              <Text style={styles.modalLabel}>Correo</Text>
+              <TextInput
+                value={createDraft.email}
+                onChangeText={(t) => setCreateDraft((p) => ({ ...p, email: t }))}
+                placeholder="estudiante@academia.umb.edu.co"
+                placeholderTextColor={COLORS.placeholder}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                style={styles.modalInput}
+              />
+
+              <View style={{ height: 10 }} />
+              <Text style={styles.modalLabel}>Código estudiante (opcional)</Text>
+              <TextInput
+                value={createDraft.studentCode}
+                onChangeText={(t) => setCreateDraft((p) => ({ ...p, studentCode: t }))}
+                placeholder="2023..."
+                placeholderTextColor={COLORS.placeholder}
+                autoCapitalize="none"
+                style={styles.modalInput}
+              />
+
+              <View style={{ height: 10 }} />
+              <Text style={styles.modalLabel}>Contraseña temporal</Text>
+              <TextInput
+                value={createDraft.password}
+                onChangeText={(t) => setCreateDraft((p) => ({ ...p, password: t }))}
+                placeholder="Mín. 8, mayúscula, número y símbolo"
+                placeholderTextColor={COLORS.placeholder}
+                secureTextEntry
+                autoCapitalize="none"
+                style={styles.modalInput}
+              />
+              <Text style={styles.modalHint}>El estudiante deberá cambiarla al iniciar sesión.</Text>
+
+              <View style={{ height: 12 }} />
+              <Text style={styles.modalLabel}>Foto del rostro</Text>
+              <View style={styles.photoRow}>
+                {createPhoto?.uri ? (
+                  <Image source={{ uri: createPhoto.uri }} style={styles.photoPreview} />
+                ) : (
+                  <View style={[styles.photoPreview, styles.photoEmpty]}>
+                    <Camera size={22} color={COLORS.placeholder} />
+                  </View>
+                )}
+                <Pressable
+                  onPress={takeStudentPhoto}
+                  disabled={checkingPhoto || creating}
+                  style={[styles.photoBtn, checkingPhoto ? styles.deleteBtnDisabled : null]}
+                >
+                  {checkingPhoto ? (
+                    <ActivityIndicator size="small" color={COLORS.primary} />
+                  ) : (
+                    <Camera size={16} color={COLORS.primary} />
+                  )}
+                  <Text style={styles.photoBtnText}>
+                    {checkingPhoto ? 'Revisando…' : createPhoto ? 'Tomar otra' : 'Tomar foto'}
+                  </Text>
+                </Pressable>
+              </View>
+              <Text style={styles.modalHint}>Un solo rostro, de frente, sin gafas y con buena luz.</Text>
+
+              <View style={styles.consentSwitchRow}>
+                <Text style={styles.consentSwitchText}>
+                  El estudiante autorizó el tratamiento de sus datos biométricos
+                </Text>
+                <Switch
+                  value={!!createDraft.consentBiometric}
+                  onValueChange={(v) => setCreateDraft((p) => ({ ...p, consentBiometric: v }))}
+                />
+              </View>
+
+              <View style={{ height: 14 }} />
+              <Button fullWidth onPress={createStudent} disabled={creating || checkingPhoto}>
+                {creating ? 'Creando…' : 'Crear estudiante'}
+              </Button>
+              <View style={{ height: 10 }} />
+              <Button fullWidth variant="outline" onPress={() => setShowCreate(false)}>Cancelar</Button>
+            </ScrollView>
+          </View>
+        </OverlayDismiss>
+      </Modal>
 
       <Modal visible={showEdit} transparent animationType="fade" onRequestClose={() => setShowEdit(false)}>
         <OverlayDismiss style={styles.modalOverlay} onClose={() => setShowEdit(false)}>
@@ -542,9 +794,27 @@ const createStyles = (COLORS) => StyleSheet.create({
   pageBtnDisabled: { opacity: 0.45 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.50)', alignItems: 'center', justifyContent: 'center', padding: 24 },
   modalCard: { backgroundColor: COLORS.card, borderRadius: 18, padding: 18, width: '100%', maxWidth: 360 },
+  modalCardTall: { maxHeight: '90%' },
   modalTitle: { fontWeight: '900', color: COLORS.text, fontSize: 18 },
   modalText: { marginTop: 6, color: COLORS.muted },
   modalLabel: { marginTop: 8, color: COLORS.textSecondary, fontWeight: '900', fontSize: 12 },
   modalHint: { marginTop: 6, color: COLORS.textSecondary, fontSize: 12 },
+  photoRow: { marginTop: 8, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  photoPreview: { width: 72, height: 96, borderRadius: 12 },
+  photoEmpty: { backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border, alignItems: 'center', justifyContent: 'center' },
+  photoBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: COLORS.primarySoft,
+    borderWidth: 1,
+    borderColor: COLORS.primaryBorder,
+  },
+  photoBtnText: { color: COLORS.primary, fontWeight: '800', fontSize: 13 },
+  consentSwitchRow: { marginTop: 14, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  consentSwitchText: { flex: 1, color: COLORS.textSecondary, fontSize: 13, fontWeight: '700' },
   modalInput: { marginTop: 6, borderWidth: 1, borderColor: COLORS.border, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10, color: COLORS.text },
 });

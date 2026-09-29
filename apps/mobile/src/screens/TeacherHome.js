@@ -11,6 +11,7 @@ import {
   PlusCircle,
   FileSpreadsheet,
   LogOut,
+  Menu,
   QrCode,
   Settings,
   Trash,
@@ -40,6 +41,7 @@ import TermsAndConditionsModal from '../components/TermsAndConditions';
 import PrivacyPolicyModal from '../components/PrivacyPolicy';
 import { loadLocalProfile, loadPersistedSession, saveLocalProfile } from '../utils/sessionStore';
 import { loadTeacherAlerts, syncTeacherAlerts, teacherAlertIsDue } from '../utils/teacherAlerts';
+import { useTeacherDrawer } from '../components/RoleDrawer';
 
 function classCardMeta(c, idx) {
   return {
@@ -86,6 +88,7 @@ const STAT_PANELS = {
 export default function TeacherHome({ navigation }) {
   const COLORS = useColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
+  const { drawer, openDrawer } = useTeacherDrawer(navigation, 'TeacherHome');
   const { inAppNotifications } = useAppTheme();
   const { logout, authToken, fullName, email, photoUri, setPhotoUri, notificationUnread, setNotificationUnread, acceptTerms, setAcceptTerms, acceptPrivacy, setAcceptPrivacy, persistSession } = useAuth();
   const [classes, setClasses] = useState([]);
@@ -420,10 +423,14 @@ export default function TeacherHome({ navigation }) {
 
   return (
     <View style={styles.root}>
+      {drawer}
       <ScrollView contentContainerStyle={styles.scroll}>
         <Animated.View entering={enterDown(0, 400)} style={styles.header}>
           <View style={styles.headerRow}>
             <View style={styles.userRow}>
+              <Pressable onPress={openDrawer} style={styles.logoutBtn} accessibilityRole="button" accessibilityLabel="Abrir menú">
+                <Menu size={18} color={COLORS.white} />
+              </Pressable>
               <Pressable onPress={() => navigation.navigate('TeacherProfile')} style={styles.avatarWrap}>
                 <Image
                   key={photoUri || 'default'}

@@ -35,6 +35,7 @@ from routes.admin import (
     handle_admin_logs,
     handle_admin_consents,
     handle_admin_create_teacher,
+    handle_admin_create_student,
     handle_admin_dashboard_stats,
     handle_admin_request_profile,
 )
@@ -122,6 +123,7 @@ ROUTE_HANDLERS = [
 IMAGE_ROUTES = [
     ("/validate-register-photo", handle_validate_register_photo),
     ("/register", handle_register),
+    ("/admin-create-student", handle_admin_create_student),
 ]
 
 ROUTE_SUFFIXES = [s for s, _ in ROUTE_HANDLERS] + [s for s, _ in IMAGE_ROUTES] + ["/recognize"]

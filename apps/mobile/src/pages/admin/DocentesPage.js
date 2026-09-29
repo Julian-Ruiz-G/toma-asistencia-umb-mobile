@@ -445,12 +445,6 @@ export default function DocentesPage({ navigation }) {
                       ? 'Le enviamos un correo para que cambie la contraseña temporal. Entrégale esa clave por otro medio: el correo no la incluye.'
                       : 'La cuenta quedó creada y verá el aviso al entrar. No se pudo enviar el correo; entrégale la contraseña temporal.'
                   );
-                  appAlert(
-                    'Docente creado',
-                    json?.emailSent
-                      ? 'Le enviamos un correo para que cambie la contraseña temporal. Entrégale esa clave por otro medio: el correo no la incluye.'
-                      : 'La cuenta quedó creada y verá el aviso al entrar. No se pudo enviar el correo; entrégale la contraseña temporal.'
-                  );
                 } catch (e) {
                   appAlert('Error', e?.message || String(e));
                 }

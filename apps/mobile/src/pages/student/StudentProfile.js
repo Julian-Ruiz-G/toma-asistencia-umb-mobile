@@ -3,7 +3,6 @@ import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'rea
 import { appAlert } from '../../ui/appNotice';
 import * as ImagePicker from 'expo-image-picker';
 import {
-  ArrowLeft,
   BookOpen,
   Camera,
   CheckCircle,
@@ -42,10 +41,12 @@ import {
   saveLocalProfile,
   savePersistedSession,
 } from '../../utils/sessionStore';
+import { NavButtons, useStudentDrawer } from '../../components/RoleDrawer';
 
 export default function StudentProfile({ navigation, route }) {
   const COLORS = useColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
+  const { drawer, openDrawer, goBack } = useStudentDrawer(navigation, 'StudentProfile');
   const {
     email,
     logout,
@@ -231,10 +232,9 @@ export default function StudentProfile({ navigation, route }) {
 
   return (
     <View style={styles.root}>
+      {drawer}
       <Animated.View entering={enterDown(0, 360)} style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <ArrowLeft size={24} color={COLORS.textSecondary} />
-        </Pressable>
+        <NavButtons onBack={goBack} onMenu={openDrawer} buttonStyle={styles.backBtn} size={24} color={COLORS.textSecondary} />
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Mi Perfil</Text>
           <Text style={styles.headerSubtitle}>Información personal</Text>

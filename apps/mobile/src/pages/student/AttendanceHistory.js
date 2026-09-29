@@ -4,7 +4,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { appAlert } from '../../ui/appNotice';
 import {
   AlertCircle,
-  ArrowLeft,
   BookOpen,
   Calendar,
   CheckCircle,
@@ -24,11 +23,13 @@ import Animated, { enterDown, listEnter } from '../../ui/motion';
 import { STUDENT_ATTENDANCE_HISTORY_URL } from '../../config';
 import { useAuth } from '../../state/auth';
 import { formatActionDateTime } from '../../utils/formatDateTime';
+import { NavButtons, useStudentDrawer } from '../../components/RoleDrawer';
 
 export default function AttendanceHistory({ navigation, route }) {
   const COLORS = useColors();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(COLORS, insets), [COLORS, insets]);
+  const { drawer, openDrawer, goBack } = useStudentDrawer(navigation, 'StudentAttendanceHistory');
   const { authToken } = useAuth();
   const initialFilter = String(route?.params?.filter || 'all');
   const [filter, setFilter] = useState(initialFilter);
@@ -140,10 +141,9 @@ export default function AttendanceHistory({ navigation, route }) {
 
   return (
     <View style={styles.root}>
+      {drawer}
       <Animated.View entering={enterDown(0, 360)} style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <ArrowLeft size={24} color={COLORS.textSecondary} />
-        </Pressable>
+        <NavButtons onBack={goBack} onMenu={openDrawer} buttonStyle={styles.backBtn} size={24} color={COLORS.textSecondary} />
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Historial</Text>
           <Text style={styles.headerSubtitle}>Registro de asistencias</Text>

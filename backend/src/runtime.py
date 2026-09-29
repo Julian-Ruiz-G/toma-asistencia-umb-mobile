@@ -1176,10 +1176,26 @@ def _captcha_answer_mac(nonce: str, answer) -> str:
     return _b64url_encode(hmac.new(AUTH_SECRET.encode('utf-8'), msg, hashlib.sha256).digest())
 
 
+# Pase que entrega /captcha-verify: cubre el tiempo de tomar y revisar la foto.
+# El reto dura 3 minutos; sin el pase, el registro fallaba y había que repetir el captcha.
+CAPTCHA_PASS_TTL_SECONDS = 30 * 60
+
+
+def _sign_captcha_pass(now: int) -> str:
+    return _sign_token({
+        'role': 'captcha-pass',
+        'iat': now,
+        'exp': now + CAPTCHA_PASS_TTL_SECONDS,
+        'nonce': secrets.token_hex(8),
+    })
+
+
 def _verify_register_captcha(token: str, answer) -> tuple[bool, str]:
     if not AUTH_SECRET:
         return False, 'CaptchaInvalid'
     payload = _verify_token(str(token or ''))
+    if payload and payload.get('role') == 'captcha-pass':
+        return True, ''
     if not payload or payload.get('role') != 'captcha':
         return False, 'CaptchaInvalid'
     now = int(time.time())
@@ -1420,6 +1436,31 @@ def _register_photo_issues(face_details) -> list:
         return [f'Se detectaron {len(faces)} rostros. En la foto debe aparecer solo tu cara.']
     _ok, issues = _validate_student_face(faces[0])
     return issues
+
+
+FACE_ALREADY_REGISTERED_MESSAGE = (
+    'Este rostro ya está registrado en otra cuenta. Si es tuya, inicia sesión o contacta al administrador.'
+)
+
+
+def _face_already_registered(image_bytes: bytes) -> bool:
+    """True si el rostro ya está en la colección (umbral alto para evitar falsos positivos).
+    No revela a quién pertenece: permitiría identificar personas con una foto.
+    Si Rekognition falla, no bloquea el registro."""
+    try:
+        resp = rekognition.search_faces_by_image(
+            CollectionId=COLLECTION,
+            Image={'Bytes': image_bytes},
+            FaceMatchThreshold=95,
+            MaxFaces=1,
+        )
+    except Exception as e:
+        logger.warning(f'Face duplicate check failed: {e}')
+        return False
+    matches = resp.get('FaceMatches') or []
+    if matches:
+        logger.warning(f"Face already registered: similarity={float(matches[0].get('Similarity', 0)):.1f}%")
+    return bool(matches)
 
 
 def _get_header(event: dict, name: str) -> str:

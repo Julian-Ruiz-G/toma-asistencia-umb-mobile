@@ -1,10 +1,8 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { appAlert } from '../../ui/appNotice';
-import { formatActionDateTime } from '../../utils/formatDateTime';
 import {
   ArrowLeft,
-  Clock,
   Maximize2,
   QrCode,
   RefreshCw,
@@ -22,19 +20,6 @@ import { CLASS_DETAILS_URL, CREATE_ATTENDANCE_QR_URL, REGENERATE_CLASS_QR_URL } 
 import { useAuth } from '../../state/auth';
 import { alertAttendanceQrError } from '../../utils/attendanceQr';
 import { isClassInProgressNow as classIsInProgress } from '../../utils/schedule';
-
-// Hora (Colombia) en que vence el QR de clase, leída del token. La firma la valida el backend.
-function tokenExpiryLabel(token) {
-  try {
-    const part = String(token || '').split('.')[1];
-    if (!part || typeof atob !== 'function') return '';
-    const b64 = part.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((part.length + 3) % 4);
-    const exp = Number(JSON.parse(atob(b64))?.exp || 0);
-    return exp ? formatActionDateTime(exp) : '';
-  } catch {
-    return '';
-  }
-}
 
 export default function ClassQRScreen({ navigation, route }) {
   const COLORS = useColors();
@@ -277,7 +262,6 @@ export default function ClassQRScreen({ navigation, route }) {
   }, [derivedRegisteredCount]);
 
   const inProgress = classIsInProgress(c);
-  const validUntil = tokenExpiryLabel(classToken);
 
   return (
     <View style={[styles.root, isFullscreen ? styles.fullscreen : null]}>
@@ -315,14 +299,6 @@ export default function ClassQRScreen({ navigation, route }) {
           </View>
 
           <View style={{ height: 14 }} />
-
-          <View style={styles.timerTop}>
-            <View style={styles.timerLabelRow}>
-              <Clock size={16} color={COLORS.muted} />
-              <Text style={styles.timerLabel}>Válido hasta:</Text>
-            </View>
-            <Text style={styles.timerValue}>{validUntil || '—'}</Text>
-          </View>
 
           <View style={styles.progressRow}>
             <Users size={16} color={COLORS.muted} />
@@ -391,11 +367,7 @@ export default function ClassQRScreen({ navigation, route }) {
   qrLogoOuter: { position: 'absolute', left: '50%', top: '50%', transform: [{ translateX: -24 }, { translateY: -24 }], width: 48, height: 48, borderRadius: 10, backgroundColor: COLORS.card, alignItems: 'center', justifyContent: 'center' },
   qrLogoInner: { width: 40, height: 40, borderRadius: 8, backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center' },
   qrLogoText: { color: COLORS.white, fontWeight: '900', fontSize: 12 },
-  timerTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  timerLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  timerLabel: { color: COLORS.muted },
-  timerValue: { fontSize: 18, fontWeight: '900', color: COLORS.primary },
-  progressRow: { marginTop: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  progressRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   progressText: { color: COLORS.muted, textAlign: 'center' },
   progressPrimary: { color: COLORS.primary, fontWeight: '900' },
   footer: { paddingHorizontal: 24, paddingBottom: 24, paddingTop: 12 },

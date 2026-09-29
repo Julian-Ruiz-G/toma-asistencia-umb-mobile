@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { appAlert } from '../../ui/appNotice';
 import {
-  ArrowLeft,
   Bell,
   CheckCheck,
   Info,
@@ -24,6 +23,7 @@ import {
   saveReminders,
 } from '../../utils/remindersStore';
 import { classSoonIsDue, loadClassSoon, saveClassSoon } from '../../utils/classSoon';
+import { NavButtons, useStudentDrawer } from '../../components/RoleDrawer';
 
 function mapNotification(n, idx) {
   const raw = String(n?.type || 'info');
@@ -57,6 +57,7 @@ function mapNotification(n, idx) {
 export default function Notifications({ navigation }) {
   const COLORS = useColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
+  const { drawer, openDrawer, goBack } = useStudentDrawer(navigation, 'StudentNotifications');
   const { inAppNotifications } = useAppTheme();
   const { authToken, email, fullName, program, semester, phone, setNotificationUnread } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -359,10 +360,9 @@ export default function Notifications({ navigation }) {
 
   return (
     <View style={styles.root}>
+      {drawer}
       <Animated.View entering={enterDown(0, 360)} style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <ArrowLeft size={24} color={COLORS.textSecondary} />
-        </Pressable>
+        <NavButtons onBack={goBack} onMenu={openDrawer} buttonStyle={styles.backBtn} size={24} color={COLORS.textSecondary} />
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Notificaciones</Text>
           <Text style={styles.headerSubtitle}>

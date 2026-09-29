@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { appAlert } from '../../ui/appNotice';
 import {
-  ArrowLeft,
   FileSpreadsheet,
   FileText,
   History,
@@ -16,10 +15,12 @@ import { useColors } from '../../ui/ThemeContext';
 import Animated, { enterDown, listEnter } from '../../ui/motion';
 import { useAuth } from '../../state/auth';
 import { MY_CLASSES_URL } from '../../config';
+import { NavButtons, useTeacherDrawer } from '../../components/RoleDrawer';
 
 export default function ReportsDashboard({ navigation }) {
   const COLORS = useColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
+  const { drawer, openDrawer, goBack } = useTeacherDrawer(navigation, 'ReportsDashboard');
   const { authToken } = useAuth();
   const [reportType, setReportType] = useState('session');
   const [classes, setClasses] = useState([]);
@@ -129,10 +130,9 @@ export default function ReportsDashboard({ navigation }) {
 
   return (
     <View style={styles.root}>
+      {drawer}
       <Animated.View entering={enterDown(0, 360)} style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <ArrowLeft size={24} color={COLORS.textSecondary} />
-        </Pressable>
+        <NavButtons onBack={goBack} onMenu={openDrawer} buttonStyle={styles.backBtn} size={24} color={COLORS.textSecondary} />
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Reportes</Text>
           <Text style={styles.headerSubtitle}>Informes reales de tus clases</Text>

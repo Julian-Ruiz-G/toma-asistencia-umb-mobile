@@ -191,6 +191,7 @@ export default function RobotCaptcha({ checked, onChange, error }) {
       return;
     }
     const knownAnswer = challenge.answer;
+    let proofToken = challenge.token;
     if (knownAnswer != null && Number(n) !== Number(knownAnswer)) {
       failAndRefresh('Respuesta incorrecta. Nueva pregunta.');
       return;
@@ -212,13 +213,15 @@ export default function RobotCaptcha({ checked, onChange, error }) {
           failAndRefresh('Respuesta incorrecta. Nueva pregunta.');
           return;
         }
+        // El pase dura más que el reto: da tiempo de tomar la foto antes de registrarse.
+        if (json?.passToken) proofToken = json.passToken;
       } catch {
         failAndRefresh('No se pudo verificar. Nueva pregunta.');
         return;
       }
     }
     setFeedback('');
-    onChangeRef.current(true, { token: challenge.token, answer: n });
+    onChangeRef.current(true, { token: proofToken, answer: n });
   };
 
   const lockLeft = locked ? Math.max(1, Math.ceil((lockUntil - Date.now()) / 1000)) : 0;

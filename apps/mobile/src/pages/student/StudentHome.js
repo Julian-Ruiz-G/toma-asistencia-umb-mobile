@@ -12,6 +12,7 @@ import {
   ChevronRight,
   History,
   LogOut,
+  Menu,
   ScanLine,
   User,
   X,
@@ -30,11 +31,13 @@ import { syncClassSoonNotifications } from '../../utils/classSoon';
 import OverlayDismiss from '../../components/OverlayDismiss';
 import { classStatusMeta, formatScheduleFriendly } from '../../utils/schedule';
 import { hexToRgba, loadClassColors, resolveClassColor } from '../../utils/classColors';
+import { useStudentDrawer } from '../../components/RoleDrawer';
 
 // Componente principal de la pantalla de inicio del estudiante
 export default function StudentHome({ navigation }) {
   const COLORS = useColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
+  const { drawer, openDrawer } = useStudentDrawer(navigation, 'StudentHome');
   const { inAppNotifications } = useAppTheme();
   // Obtener datos de autenticación desde el contexto
   const { logout, authToken, fullName, email, program, semester, phone, setProgram, setSemester, setPhone, photoUri, setPhotoUri, notificationUnread, setNotificationUnread, classesRevision } = useAuth();
@@ -355,10 +358,14 @@ export default function StudentHome({ navigation }) {
 
   return (
     <View style={styles.root}>
+      {drawer}
       <ScrollView contentContainerStyle={styles.scroll}>
         <Animated.View entering={enterDown(0, 400)} style={styles.header}>
           <View style={styles.headerRow}>
             <View style={styles.userRow}>
+              <Pressable onPress={openDrawer} style={styles.logoutBtn} accessibilityRole="button" accessibilityLabel="Abrir menú">
+                <Menu size={20} color={COLORS.white} />
+              </Pressable>
               <Pressable onPress={() => navigation.navigate('StudentProfile')} style={styles.avatar}>
                 <Image
                   key={photoUri || 'default'}
@@ -548,7 +555,7 @@ const createStyles = (COLORS) => StyleSheet.create({
     backgroundColor: COLORS.primary,
   },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  userRow: { flexDirection: 'row', alignItems: 'center' },
+  userRow: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1, paddingRight: 12 },
   avatar: {
     width: 48,
     height: 48,
@@ -556,7 +563,6 @@ const createStyles = (COLORS) => StyleSheet.create({
     backgroundColor: COLORS.card,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
     overflow: 'hidden',
   },
   avatarImg: { width: 40, height: 40, resizeMode: 'contain' },

@@ -1,15 +1,16 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Animated, Easing, Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { appAlert } from '../../ui/appNotice';
 import * as ImagePicker from 'expo-image-picker';
 import {
   ArrowLeft,
   Camera,
+  CheckCircle2,
+  CloudUpload,
   ImagePlus,
-  Maximize2,
   ScanFace,
-  UserCheck,
-  Zap,
+  UserX,
+  Users,
 } from 'lucide-react-native';
 
 import { Button } from '../../components/Button';
@@ -18,6 +19,43 @@ import { useColors } from '../../ui/ThemeContext';
 import { CONFIRM_ATTENDANCE_PHOTO_URL } from '../../config';
 import { useAuth } from '../../state/auth';
 import { alertClassHoursError } from '../../utils/attendanceQr';
+
+const REQUEST_TIMEOUT_MS = 90 * 1000;
+
+const STATUS_LABEL = {
+  asistencia: 'Asistencia',
+  retardo: 'Retardo',
+  inasistencia: 'Inasistencia',
+  justificada: 'Justificada',
+};
+
+// fetch no informa el avance de la subida; XMLHttpRequest sí (xhr.upload.onprogress).
+function postJsonWithUploadProgress(url, authToken, body, onUploadProgress) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', url);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.setRequestHeader('Authorization', `Bearer ${authToken}`);
+    xhr.timeout = REQUEST_TIMEOUT_MS;
+    if (xhr.upload) {
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable && e.total > 0) onUploadProgress(e.loaded / e.total);
+      };
+      xhr.upload.onload = () => onUploadProgress(1);
+    }
+    xhr.onload = () => resolve({ status: xhr.status, text: xhr.responseText || '' });
+    xhr.onerror = () => reject(new Error('No hay conexión con el servidor. Revisa tu internet e intenta de nuevo.'));
+    xhr.ontimeout = () => reject(new Error(
+      'El servidor tardó demasiado en responder. Revisa la asistencia antes de repetir la foto: puede que sí se haya guardado.'
+    ));
+    xhr.send(JSON.stringify(body));
+  });
+}
+
+function formatElapsed(seconds) {
+  if (seconds < 60) return `${seconds} s`;
+  return `${Math.floor(seconds / 60)} min ${String(seconds % 60).padStart(2, '0')} s`;
+}
 
 export default function FaceRecognitionScreen({ navigation, route }) {
   const COLORS = useColors();
@@ -29,36 +67,64 @@ export default function FaceRecognitionScreen({ navigation, route }) {
   const autoCapture = Boolean(route?.params?.autoCapture);
   const sessionId = attendanceSession?.sessionId || attendanceSession?.session?.sessionId || '';
 
-  const [isCapturing, setIsCapturing] = useState(false);
-  const [detectedFaces, setDetectedFaces] = useState([]);
-  const [showFlash, setShowFlash] = useState(false);
-  const [recognitionProgress, setRecognitionProgress] = useState(0);
-  const [isFullscreen, setIsFullscreen] = useState(false);
+  // idle → uploading → processing → done (o de vuelta a idle si hay error)
+  const [phase, setPhase] = useState('idle');
+  const [photoUri, setPhotoUri] = useState('');
+  const [photoSizeMb, setPhotoSizeMb] = useState(0);
+  const [uploadRatio, setUploadRatio] = useState(0);
+  const [elapsed, setElapsed] = useState(0);
+  const [result, setResult] = useState(null);
   // Al entrar desde "Foto" se pregunta si tomar la foto o elegirla de la galería.
   const [showSourcePicker, setShowSourcePicker] = useState(autoCapture);
 
-  const progressAnim = useRef(new Animated.Value(0)).current;
+  const busy = phase === 'uploading' || phase === 'processing';
+
+  const uploadAnim = useRef(new Animated.Value(0)).current;
+  const sweepAnim = useRef(new Animated.Value(0)).current;
+  const [trackWidth, setTrackWidth] = useState(0);
 
   useEffect(() => {
-    Animated.timing(progressAnim, {
-      toValue: recognitionProgress / 100,
-      duration: 180,
+    Animated.timing(uploadAnim, {
+      toValue: uploadRatio,
+      duration: 160,
       easing: Easing.out(Easing.quad),
       useNativeDriver: false,
     }).start();
-  }, [recognitionProgress, progressAnim]);
+  }, [uploadRatio, uploadAnim]);
+
+  // Barra indeterminada: el servidor no informa avance mientras reconoce los rostros.
+  useEffect(() => {
+    if (phase !== 'processing') return undefined;
+    sweepAnim.setValue(0);
+    const loop = Animated.loop(
+      Animated.timing(sweepAnim, { toValue: 1, duration: 1300, easing: Easing.inOut(Easing.quad), useNativeDriver: true })
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [phase, sweepAnim]);
+
+  // Tiempo real transcurrido desde que se empezó a enviar la foto.
+  useEffect(() => {
+    if (!busy) return undefined;
+    const startedAt = Date.now();
+    setElapsed(0);
+    const id = setInterval(() => setElapsed(Math.floor((Date.now() - startedAt) / 1000)), 1000);
+    return () => clearInterval(id);
+    // Solo se reinicia al empezar el envío, no al pasar de subir a procesar.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [busy]);
 
   const submitAttendancePhoto = async (b64) => {
-    const resp = await fetch(CONFIRM_ATTENDANCE_PHOTO_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${authToken}`,
+    const { status, text } = await postJsonWithUploadProgress(
+      CONFIRM_ATTENDANCE_PHOTO_URL,
+      authToken,
+      { sessionId, imageBase64: b64 },
+      (ratio) => {
+        setUploadRatio(ratio);
+        if (ratio >= 1) setPhase('processing');
       },
-      body: JSON.stringify({ sessionId, imageBase64: b64 }),
-    });
+    );
 
-    const text = await resp.text();
     let json;
     try {
       json = JSON.parse(text);
@@ -66,89 +132,46 @@ export default function FaceRecognitionScreen({ navigation, route }) {
       json = null;
     }
 
-    if (!resp.ok) {
+    if (status < 200 || status >= 300) {
       if (alertClassHoursError(json)) {
         throw new Error('HOURS_NOTICE');
       }
-      const msg = (json && (json.error || json.message || json.details)) || text || `HTTP ${resp.status}`;
+      const msg = (json && (json.message || json.error)) || text || `HTTP ${status}`;
       throw new Error(msg);
     }
 
     return json;
   };
 
-  const processPickedImage = async (pickImage, options = {}) => {
-    if (isCapturing) return;
-    setIsCapturing(true);
-    setDetectedFaces([]);
-
-    let interval = null;
+  const processPickedImage = async (pickImage) => {
+    if (busy) return;
 
     try {
-      if (!CONFIRM_ATTENDANCE_PHOTO_URL) {
-        throw new Error('Endpoint de foto no configurado');
-      }
-      if (!authToken) {
-        throw new Error('Sesión inválida');
-      }
-      if (!sessionId) {
-        throw new Error('sessionId inválido');
-      }
+      if (!CONFIRM_ATTENDANCE_PHOTO_URL) throw new Error('Endpoint de foto no configurado');
+      if (!authToken) throw new Error('Sesión inválida');
+      if (!sessionId) throw new Error('sessionId inválido');
 
       const pickerResult = await pickImage();
-
-      if (pickerResult.canceled) {
-        return;
-      }
+      if (pickerResult.canceled) return;
 
       const asset = pickerResult.assets?.[0];
       const b64 = asset?.base64;
-      if (!b64) {
-        throw new Error('No se pudo leer la foto (base64 vacío).');
-      }
+      if (!b64) throw new Error('No se pudo leer la foto.');
 
-      if (options.flash) {
-        setShowFlash(true);
-        setTimeout(() => setShowFlash(false), 200);
-      }
+      setResult(null);
+      setPhotoUri(asset?.uri || '');
+      setPhotoSizeMb((b64.length * 0.75) / (1024 * 1024));
+      setUploadRatio(0);
+      setPhase('uploading');
 
-      // El progreso arranca cuando ya hay imagen, para no avanzar mientras el docente elige en la galería.
-      setRecognitionProgress(0);
-      let p = 0;
-      interval = setInterval(() => {
-        p += 10;
-        setRecognitionProgress(Math.min(p, 100));
-        if (p >= 100) {
-          clearInterval(interval);
-        }
-      }, 200);
-
-      const result = await submitAttendancePhoto(b64);
-
-      const facesDetected = Number(result?.facesDetected || 0);
-      const presentCount = Number(result?.presentCount || 0);
-
-      appAlert(
-        'Reconocimiento finalizado',
-        `Personas detectadas en la foto: ${facesDetected}\nPersonas identificadas: ${presentCount}`,
-        [
-          {
-            text: 'Ver asistencia',
-            onPress: () => navigation.navigate('TeacherLiveAttendanceDashboard', {
-              classId,
-              attendanceSession,
-              classMeta,
-            }),
-          },
-        ],
-      );
+      const json = await submitAttendancePhoto(b64);
+      setResult(json || {});
+      setPhase('done');
     } catch (e) {
+      setPhase('idle');
       if (String(e?.message || '') !== 'HOURS_NOTICE') {
-        appAlert('Error', e?.message || String(e));
+        appAlert('No se pudo registrar la foto', e?.message || String(e));
       }
-    } finally {
-      if (interval) clearInterval(interval);
-      setIsCapturing(false);
     }
   };
 
@@ -158,14 +181,7 @@ export default function FaceRecognitionScreen({ navigation, route }) {
       appAlert('Permiso de cámara', 'Activa la cámara en Ajustes para tomar la foto de asistencia.');
       return;
     }
-
-    await processPickedImage(
-      () => ImagePicker.launchCameraAsync({
-        base64: true,
-        quality: 0.7,
-      }),
-      { flash: true },
-    );
+    await processPickedImage(() => ImagePicker.launchCameraAsync({ base64: true, quality: 0.7 }));
   };
 
   const handlePickFromGallery = async () => {
@@ -174,7 +190,6 @@ export default function FaceRecognitionScreen({ navigation, route }) {
       appAlert('Permiso de galería', 'Activa el acceso a tus fotos en Ajustes para elegir una imagen.');
       return;
     }
-
     await processPickedImage(() => ImagePicker.launchImageLibraryAsync({
       base64: true,
       quality: 0.7,
@@ -192,179 +207,177 @@ export default function FaceRecognitionScreen({ navigation, route }) {
     }, 350);
   };
 
-  const recognizedCount = useMemo(() => detectedFaces.filter((f) => f.confidence > 80).length, [detectedFaces]);
-  const totalDetected = detectedFaces.length;
+  const goToAttendance = () => navigation.navigate('TeacherLiveAttendanceDashboard', {
+    classId,
+    attendanceSession,
+    classMeta,
+  });
 
-  const borderColorFor = (confidence) => {
-    if (confidence > 80) return COLORS.successStrong;
-    if (confidence > 0) return COLORS.warningStrong;
-    return COLORS.dangerStrong;
-  };
+  const facesDetected = Number(result?.facesDetected || 0);
+  const presentCount = Number(result?.presentCount || 0);
+  const unknownFaces = Math.max(0, facesDetected - presentCount);
+  const students = useMemo(() => {
+    const rows = Array.isArray(result?.results) ? result.results : [];
+    return [...rows].sort((a, b) => Number(!!b.presentInPhoto) - Number(!!a.presentInPhoto)
+      || String(a.studentName || a.studentEmail).localeCompare(String(b.studentName || b.studentEmail)));
+  }, [result]);
 
-  const labelBgFor = (confidence) => {
-    if (confidence > 80) return COLORS.successStrong;
-    if (confidence > 0) return COLORS.warningStrong;
-    return COLORS.dangerStrong;
-  };
+  const uploadPct = Math.round(uploadRatio * 100);
+  const sweepX = sweepAnim.interpolate({ inputRange: [0, 1], outputRange: [-trackWidth * 0.4, trackWidth] });
 
   return (
-    <View style={[styles.root, isFullscreen ? styles.fullscreen : null]}>
+    <View style={styles.root}>
       <View style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()} style={styles.headerBtn}>
-          <ArrowLeft size={24} color={COLORS.white} />
+        <Pressable onPress={() => navigation.goBack()} style={styles.headerBtn} disabled={busy}>
+          <ArrowLeft size={22} color={COLORS.white} />
         </Pressable>
-        <View style={{ alignItems: 'center' }}>
-          <Text style={styles.headerTitle}>Reconocimiento Grupal</Text>
-          <Text style={styles.headerSub}>Captura el aula completa</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.headerTitle}>Foto de asistencia</Text>
+          <Text style={styles.headerSub} numberOfLines={1}>
+            {classMeta?.title ? `${classMeta.title}${classMeta?.group ? ` • ${classMeta.group}` : ''}` : 'Reconocimiento grupal'}
+          </Text>
         </View>
-        <Pressable onPress={() => setIsFullscreen((v) => !v)} style={styles.headerBtn}>
-          <Maximize2 size={20} color={COLORS.white} />
-        </Pressable>
       </View>
 
-      <View style={styles.cameraArea}>
-        <View style={styles.fakeCameraBg}>
-          <View style={styles.gridOverlay} />
-          {detectedFaces.length === 0 && !isCapturing ? (
-            <View style={styles.silhouettesRow}>
-              {[1, 2, 3, 4, 5].map((i) => (
-                <View key={i} style={[styles.silhouette, { height: 110 + (i % 3) * 18, width: 64 + (i % 2) * 10 }]} />
-              ))}
+      <View style={styles.stage}>
+        {photoUri ? (
+          <>
+            <Image source={{ uri: photoUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+            {busy ? <View style={styles.dim} /> : null}
+          </>
+        ) : (
+          <View style={styles.emptyStage}>
+            <View style={styles.emptyIcon}>
+              <Users size={40} color={COLORS.white} />
             </View>
-          ) : null}
-        </View>
+            <Text style={styles.emptyTitle}>Toma una foto del salón</Text>
+            <Text style={styles.emptyText}>
+              Desde el frente, con buena luz y con todos los rostros visibles. Los estudiantes del fondo deben verse de frente.
+            </Text>
+          </View>
+        )}
 
-        {detectedFaces.map((face) => {
-          const bc = borderColorFor(face.confidence);
-          const lb = labelBgFor(face.confidence);
-          return (
-            <View
-              key={face.id}
-              style={[
-                styles.faceBox,
-                {
-                  left: `${face.x}%`,
-                  top: `${face.y}%`,
-                  width: `${face.w}%`,
-                  height: `${face.h * 1.5}%`,
-                  borderColor: bc,
-                },
-              ]}
-            >
-              <View style={[styles.faceLabel, { backgroundColor: lb }]}>
-                <Text style={styles.faceLabelText}>
-                  {face.confidence > 0 ? `${face.name} • ${face.confidence}%` : 'Desconocido'}
-                </Text>
-              </View>
-              <View style={[styles.faceCorner, styles.faceCornerTL, { borderColor: bc }]} />
-              <View style={[styles.faceCorner, styles.faceCornerTR, { borderColor: bc }]} />
-              <View style={[styles.faceCorner, styles.faceCornerBL, { borderColor: bc }]} />
-              <View style={[styles.faceCorner, styles.faceCornerBR, { borderColor: bc }]} />
+        {busy ? (
+          <View style={styles.progressCard}>
+            <View style={styles.stepRow}>
+              {phase === 'uploading' ? (
+                <CloudUpload size={22} color={COLORS.primary} />
+              ) : (
+                <CheckCircle2 size={22} color={COLORS.successStrong} />
+              )}
+              <Text style={styles.stepText}>
+                {phase === 'uploading' ? `Enviando foto (${photoSizeMb.toFixed(1)} MB)` : 'Foto enviada'}
+              </Text>
+              {phase === 'uploading' ? <Text style={styles.stepPct}>{uploadPct}%</Text> : null}
             </View>
-          );
-        })}
-
-        {showFlash ? <View style={styles.flash} /> : null}
-
-        {isCapturing ? (
-          <View style={styles.progressOverlay}>
-            <View style={styles.progressCard}>
-              <ScanFace size={44} color={COLORS.primary} />
-              <Text style={styles.progressTitle}>Analizando rostros...</Text>
-              <View style={styles.progressBarBg}>
+            {phase === 'uploading' ? (
+              <View style={styles.track}>
                 <Animated.View
                   style={[
-                    styles.progressBarFill,
-                    { width: progressAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }) },
+                    styles.fill,
+                    { width: uploadAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }) },
                   ]}
                 />
               </View>
-              <Text style={styles.progressPct}>{recognitionProgress}% completado</Text>
-            </View>
-          </View>
-        ) : null}
+            ) : null}
 
-        {detectedFaces.length === 0 && !isCapturing ? (
-          <View style={styles.instructionWrap}>
-            <Text style={styles.instructionText}>Asegúrate de que todos los estudiantes estén visibles</Text>
+            <View style={[styles.stepRow, { marginTop: 14, opacity: phase === 'processing' ? 1 : 0.45 }]}>
+              <ScanFace size={22} color={phase === 'processing' ? COLORS.primary : COLORS.muted} />
+              <Text style={styles.stepText}>Reconociendo rostros</Text>
+            </View>
+            {phase === 'processing' ? (
+              <View style={styles.track} onLayout={(e) => setTrackWidth(e.nativeEvent.layout.width)}>
+                <Animated.View style={[styles.sweep, { transform: [{ translateX: sweepX }] }]} />
+              </View>
+            ) : null}
+
+            <Text style={styles.elapsed}>Tiempo transcurrido: {formatElapsed(elapsed)}</Text>
+            <Text style={styles.hint}>
+              {phase === 'processing'
+                ? 'Se compara cada rostro con los estudiantes de la clase. En salones grandes puede tardar más.'
+                : 'No cierres esta pantalla mientras se envía la foto.'}
+            </Text>
           </View>
         ) : null}
       </View>
 
-      {detectedFaces.length > 0 ? (
-        <View style={styles.resultsPanel}>
-          <View style={styles.resultsTop}>
-            <View style={styles.resultsTitleRow}>
-              <UserCheck size={18} color={COLORS.successStrong} />
-              <Text style={styles.resultsTitle}>Resultados</Text>
-            </View>
-            <Text style={styles.resultsCount}>{recognizedCount}/{totalDetected} reconocidos</Text>
-          </View>
-
-          <View style={styles.resultsGrid}>
-            <View style={[styles.resultsMini, { backgroundColor: 'rgba(34,197,94,0.10)' }]}>
-              <Text style={[styles.resultsNum, { color: COLORS.successStrong }]}>{detectedFaces.filter((f) => f.confidence > 80).length}</Text>
-              <Text style={[styles.resultsLbl, { color: COLORS.successStrong }]}>Confirmados</Text>
-            </View>
-            <View style={[styles.resultsMini, { backgroundColor: 'rgba(234,179,8,0.10)' }]}>
-              <Text style={[styles.resultsNum, { color: COLORS.warningStrong }]}>{detectedFaces.filter((f) => f.confidence > 0 && f.confidence <= 80).length}</Text>
-              <Text style={[styles.resultsLbl, { color: COLORS.warningStrong }]}>Dudosos</Text>
-            </View>
-            <View style={[styles.resultsMini, { backgroundColor: 'rgba(239,68,68,0.10)' }]}>
-              <Text style={[styles.resultsNum, { color: COLORS.dangerStrong }]}>{detectedFaces.filter((f) => f.confidence === 0).length}</Text>
-              <Text style={[styles.resultsLbl, { color: COLORS.dangerStrong }]}>Desconocidos</Text>
-            </View>
-          </View>
-
-          <ScrollView style={{ maxHeight: 120 }}>
-            <View style={{ gap: 6 }}>
-              {detectedFaces.map((f) => (
-                <View key={f.id} style={styles.faceRow}>
-                  <View style={[styles.dot, { backgroundColor: borderColorFor(f.confidence) }]} />
-                  <Text style={styles.faceRowName}>{f.name}</Text>
-                  <Text style={styles.faceRowCode}>{f.code}</Text>
-                  {f.confidence > 0 ? <Text style={styles.faceRowPct}>{f.confidence}%</Text> : null}
-                </View>
-              ))}
-            </View>
-          </ScrollView>
-        </View>
-      ) : null}
-
-      <View style={styles.bottom}>
-        {detectedFaces.length > 0 ? (
-          <View style={{ gap: 10 }}>
-            <View style={{ flexDirection: 'row', gap: 12 }}>
-              <View style={{ flex: 1 }}>
-                <Button fullWidth variant="outline" onPress={() => setDetectedFaces([])}>
-                  Repetir
-                </Button>
+      <View style={styles.sheet}>
+        {phase === 'done' ? (
+          <>
+            <View style={styles.summaryRow}>
+              <View style={styles.summaryItem}>
+                <Text style={styles.summaryNum}>{facesDetected}</Text>
+                <Text style={styles.summaryLbl}>Rostros en la foto</Text>
               </View>
-              <View style={{ flex: 1 }}>
-                <Button fullWidth onPress={() => navigation.goBack()}>
-                  Guardar Asistencia
-                </Button>
+              <View style={[styles.summaryItem, styles.summaryOk]}>
+                <Text style={[styles.summaryNum, { color: COLORS.successStrong }]}>{presentCount}</Text>
+                <Text style={styles.summaryLbl}>Identificados</Text>
+              </View>
+              <View style={[styles.summaryItem, unknownFaces ? styles.summaryWarn : null]}>
+                <Text style={[styles.summaryNum, unknownFaces ? { color: COLORS.warningStrong } : null]}>{unknownFaces}</Text>
+                <Text style={styles.summaryLbl}>Sin identificar</Text>
               </View>
             </View>
-          </View>
+            <Text style={styles.summaryTime}>Procesado en {formatElapsed(elapsed)}</Text>
+
+            {students.length ? (
+              <ScrollView style={styles.list} contentContainerStyle={{ gap: 6 }}>
+                {students.map((s) => (
+                  <View key={s.studentEmail} style={styles.studentRow}>
+                    {s.presentInPhoto ? (
+                      <CheckCircle2 size={18} color={COLORS.successStrong} />
+                    ) : (
+                      <UserX size={18} color={COLORS.dangerStrong} />
+                    )}
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.studentName} numberOfLines={1}>{s.studentName || s.studentEmail}</Text>
+                      {s.studentCode ? <Text style={styles.studentCode}>{s.studentCode}</Text> : null}
+                    </View>
+                    <Text style={[styles.studentStatus, s.presentInPhoto ? { color: COLORS.successStrong } : null]}>
+                      {STATUS_LABEL[s.status] || s.status || ''}
+                    </Text>
+                  </View>
+                ))}
+              </ScrollView>
+            ) : null}
+
+            <View style={styles.actions}>
+              <View style={{ flex: 1 }}>
+                <Button fullWidth variant="outline" onPress={() => setShowSourcePicker(true)}>Repetir foto</Button>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Button fullWidth onPress={goToAttendance}>Ver asistencia</Button>
+              </View>
+            </View>
+            <Text style={styles.repeatHint}>Repetir la foto reemplaza el resultado anterior.</Text>
+          </>
         ) : (
-          <View style={styles.bottomRow}>
-            <View>
-              <Pressable onPress={handlePickFromGallery} disabled={isCapturing} style={[styles.smallCircleBtn, isCapturing ? { opacity: 0.5 } : null]}>
+          <View style={styles.captureRow}>
+            <View style={styles.sideBtnWrap}>
+              <Pressable
+                onPress={handlePickFromGallery}
+                disabled={busy}
+                style={[styles.sideBtn, busy ? styles.disabled : null]}
+                accessibilityLabel="Elegir de la galería"
+              >
                 <ImagePlus size={20} color={COLORS.white} />
               </Pressable>
-              <Text style={styles.smallBtnLabel}>Galería</Text>
+              <Text style={styles.sideLbl}>Galería</Text>
             </View>
 
-            <Pressable onPress={handleCapture} disabled={isCapturing} style={[styles.captureOuter, isCapturing ? { opacity: 0.5 } : null]}>
+            <Pressable
+              onPress={handleCapture}
+              disabled={busy}
+              style={[styles.captureOuter, busy ? styles.disabled : null]}
+              accessibilityLabel="Tomar foto"
+            >
               <View style={styles.captureInner}>
-                <Camera size={30} color={COLORS.text} />
+                <Camera size={30} color={COLORS.primary} />
               </View>
             </Pressable>
 
-            <Pressable onPress={() => {}} style={styles.smallCircleBtn}>
-              <Zap size={20} color={COLORS.placeholder} />
-            </Pressable>
+            {/* Espaciador para centrar el botón de captura. */}
+            <View style={styles.sideBtnWrap} />
           </View>
         )}
       </View>
@@ -401,76 +414,83 @@ export default function FaceRecognitionScreen({ navigation, route }) {
 
 const createStyles = (COLORS) => StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.black },
-  fullscreen: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 50 },
   header: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 20,
     paddingTop: 54,
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
     paddingBottom: 14,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    gap: 14,
+    backgroundColor: COLORS.black,
   },
-  headerBtn: { width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { color: COLORS.white, fontWeight: '800' },
-  headerSub: { marginTop: 2, color: 'rgba(255,255,255,0.60)', fontSize: 12 },
-  cameraArea: { flex: 1 },
-  fakeCameraBg: { ...StyleSheet.absoluteFillObject, backgroundColor: COLORS.textSecondary },
-  gridOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    opacity: 0.20,
-    backgroundColor: 'transparent',
+  headerBtn: { width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(255,255,255,0.14)', alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { color: COLORS.white, fontWeight: '800', fontSize: 16 },
+  headerSub: { marginTop: 2, color: 'rgba(255,255,255,0.62)', fontSize: 12 },
+
+  stage: { flex: 1, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+  dim: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.62)' },
+  emptyStage: { alignItems: 'center', paddingHorizontal: 36 },
+  emptyIcon: {
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.35)',
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  silhouettesRow: { position: 'absolute', left: 0, right: 0, bottom: 120, flexDirection: 'row', justifyContent: 'center', gap: 18 },
-  silhouette: { backgroundColor: 'rgba(75,85,99,0.55)', borderTopLeftRadius: 999, borderTopRightRadius: 999 },
+  emptyTitle: { marginTop: 18, color: COLORS.white, fontWeight: '800', fontSize: 17, textAlign: 'center' },
+  emptyText: { marginTop: 8, color: 'rgba(255,255,255,0.68)', textAlign: 'center', lineHeight: 20 },
 
-  faceBox: { position: 'absolute', borderWidth: 2 },
-  faceLabel: { position: 'absolute', left: 0, top: -26, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
-  faceLabelText: { color: COLORS.white, fontWeight: '800', fontSize: 12 },
-  faceCorner: { position: 'absolute', width: 10, height: 10 },
-  faceCornerTL: { top: -2, left: -2, borderTopWidth: 2, borderLeftWidth: 2 },
-  faceCornerTR: { top: -2, right: -2, borderTopWidth: 2, borderRightWidth: 2 },
-  faceCornerBL: { bottom: -2, left: -2, borderBottomWidth: 2, borderLeftWidth: 2 },
-  faceCornerBR: { bottom: -2, right: -2, borderBottomWidth: 2, borderRightWidth: 2 },
+  progressCard: { width: '86%', maxWidth: 340, backgroundColor: COLORS.card, borderRadius: 18, padding: 18 },
+  stepRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  stepText: { flex: 1, color: COLORS.text, fontWeight: '800' },
+  stepPct: { color: COLORS.primary, fontWeight: '900' },
+  track: { marginTop: 10, height: 8, width: '100%', borderRadius: 999, backgroundColor: COLORS.border, overflow: 'hidden' },
+  fill: { height: '100%', borderRadius: 999, backgroundColor: COLORS.primary },
+  sweep: { height: '100%', width: '40%', borderRadius: 999, backgroundColor: COLORS.primary },
+  elapsed: { marginTop: 16, color: COLORS.text, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  hint: { marginTop: 6, color: COLORS.muted, fontSize: 12, lineHeight: 17 },
 
-  flash: { ...StyleSheet.absoluteFillObject, backgroundColor: COLORS.card, opacity: 0.35, zIndex: 30 },
+  sheet: {
+    backgroundColor: COLORS.card,
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 26,
+  },
+  summaryRow: { flexDirection: 'row', gap: 10 },
+  summaryItem: { flex: 1, borderRadius: 14, paddingVertical: 10, paddingHorizontal: 6, alignItems: 'center', backgroundColor: COLORS.surface },
+  summaryOk: { backgroundColor: COLORS.successBg },
+  summaryWarn: { backgroundColor: COLORS.warningBg || COLORS.surface },
+  summaryNum: { fontWeight: '900', fontSize: 20, color: COLORS.text },
+  summaryLbl: { marginTop: 2, fontSize: 11, fontWeight: '700', color: COLORS.muted, textAlign: 'center' },
+  summaryTime: { marginTop: 8, color: COLORS.muted, fontSize: 12, textAlign: 'center' },
+  list: { marginTop: 12, maxHeight: 220 },
+  studentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    backgroundColor: COLORS.background,
+  },
+  studentName: { color: COLORS.text, fontWeight: '700' },
+  studentCode: { color: COLORS.muted, fontSize: 12 },
+  studentStatus: { color: COLORS.dangerStrong, fontWeight: '800', fontSize: 12 },
+  actions: { marginTop: 14, flexDirection: 'row', gap: 12 },
+  repeatHint: { marginTop: 8, color: COLORS.muted, fontSize: 11, textAlign: 'center' },
 
-  progressOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.70)', alignItems: 'center', justifyContent: 'center', zIndex: 30, padding: 24 },
-  progressCard: { backgroundColor: COLORS.card, borderRadius: 18, padding: 18, width: '100%', maxWidth: 320, alignItems: 'center' },
-  progressTitle: { marginTop: 10, fontWeight: '900', color: COLORS.text },
-  progressBarBg: { marginTop: 12, height: 8, width: '100%', borderRadius: 999, backgroundColor: COLORS.border, overflow: 'hidden' },
-  progressBarFill: { height: '100%', borderRadius: 999, backgroundColor: COLORS.primary },
-  progressPct: { marginTop: 8, color: COLORS.muted },
-
-  instructionWrap: { position: 'absolute', left: 0, right: 0, bottom: 132, alignItems: 'center', paddingHorizontal: 24 },
-  instructionText: { color: 'rgba(255,255,255,0.82)', backgroundColor: 'rgba(0,0,0,0.45)', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 999, fontWeight: '700' },
-
-  resultsPanel: { backgroundColor: COLORS.scheme === 'dark' ? COLORS.card : COLORS.text, borderTopWidth: 1, borderTopColor: COLORS.scheme === 'dark' ? COLORS.card : COLORS.text, paddingHorizontal: 24, paddingVertical: 14 },
-  resultsTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  resultsTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  resultsTitle: { color: COLORS.white, fontWeight: '900' },
-  resultsCount: { color: 'rgba(255,255,255,0.60)' },
-  resultsGrid: { flexDirection: 'row', gap: 10, marginBottom: 10 },
-  resultsMini: { flex: 1, borderRadius: 12, padding: 10, alignItems: 'center' },
-  resultsNum: { fontWeight: '900', fontSize: 18 },
-  resultsLbl: { marginTop: 2, fontWeight: '800', fontSize: 12 },
-  faceRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6, paddingHorizontal: 10, backgroundColor: 'rgba(31,41,55,0.55)', borderRadius: 10 },
-  dot: { width: 8, height: 8, borderRadius: 4 },
-  faceRowName: { color: COLORS.white, flex: 1 },
-  faceRowCode: { color: COLORS.placeholder, fontSize: 12 },
-  faceRowPct: { color: COLORS.placeholder, fontSize: 12 },
-
-  bottom: { backgroundColor: COLORS.scheme === 'dark' ? COLORS.card : COLORS.text, paddingHorizontal: 24, paddingTop: 16, paddingBottom: 22 },
-  bottomRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 26 },
-  smallCircleBtn: { width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
-  captureOuter: { width: 80, height: 80, borderRadius: 40, borderWidth: 4, borderColor: COLORS.white, alignItems: 'center', justifyContent: 'center' },
-  captureInner: { width: 64, height: 64, borderRadius: 32, backgroundColor: COLORS.card, alignItems: 'center', justifyContent: 'center' },
-  smallBtnLabel: { marginTop: 6, color: 'rgba(255,255,255,0.70)', fontSize: 11, fontWeight: '700', textAlign: 'center' },
+  captureRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12 },
+  sideBtnWrap: { width: 64, alignItems: 'center' },
+  sideBtn: { width: 48, height: 48, borderRadius: 24, backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center' },
+  sideLbl: { marginTop: 6, color: COLORS.muted, fontSize: 11, fontWeight: '700' },
+  captureOuter: { width: 80, height: 80, borderRadius: 40, borderWidth: 4, borderColor: COLORS.primary, alignItems: 'center', justifyContent: 'center' },
+  captureInner: { width: 64, height: 64, borderRadius: 32, backgroundColor: COLORS.primarySoft, alignItems: 'center', justifyContent: 'center' },
+  disabled: { opacity: 0.45 },
 
   sourceBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.60)', justifyContent: 'flex-end' },
   sourceCard: { backgroundColor: COLORS.card, borderTopLeftRadius: 22, borderTopRightRadius: 22, paddingHorizontal: 24, paddingTop: 22, paddingBottom: 30, gap: 10 },

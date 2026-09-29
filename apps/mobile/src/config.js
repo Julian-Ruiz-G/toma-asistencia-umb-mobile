@@ -46,6 +46,7 @@ export const ADMIN_TEACHERS_URL = API_BASE ? `${API_BASE}/admin-teachers` : '';
 export const ADMIN_LOGS_URL = API_BASE ? `${API_BASE}/admin-logs` : '';
 export const ADMIN_CONSENTS_URL = API_BASE ? `${API_BASE}/admin-consents` : '';
 export const ADMIN_CREATE_TEACHER_URL = API_BASE ? `${API_BASE}/admin-create-teacher` : '';
+export const ADMIN_CREATE_STUDENT_URL = API_BASE ? `${API_BASE}/admin-create-student` : '';
 export const ADMIN_BULK_IMPORT_URL = API_BASE ? `${API_BASE}/admin-bulk-import` : '';
 export const ADMIN_DASHBOARD_STATS_URL = API_BASE ? `${API_BASE}/admin-dashboard-stats` : '';
 export const ADMIN_UPDATE_STUDENT_URL = API_BASE ? `${API_BASE}/admin-update-student` : '';

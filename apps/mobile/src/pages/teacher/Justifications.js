@@ -1,7 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { ArrowLeft } from 'lucide-react-native';
 
 import { Button } from '../../components/Button';
 import JustificationAttachment from '../../components/JustificationAttachment';
@@ -10,6 +9,7 @@ import { useAuth } from '../../state/auth';
 import { appAlert } from '../../ui/appNotice';
 import { useColors } from '../../ui/ThemeContext';
 import { personDisplayName } from '../../utils/displayName';
+import { NavButtons, useTeacherDrawer } from '../../components/RoleDrawer';
 
 const STATUS_LABEL = {
   enviada: 'En revisión',
@@ -23,6 +23,7 @@ export default function Justifications({ navigation, route }) {
   const className = String(route?.params?.className || '');
   const COLORS = useColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
+  const { drawer, openDrawer, goBack } = useTeacherDrawer(navigation, 'TeacherJustifications');
   const { authToken } = useAuth();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -103,10 +104,9 @@ export default function Justifications({ navigation, route }) {
 
   return (
     <View style={styles.root}>
+      {drawer}
       <View style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <ArrowLeft size={24} color={COLORS.textSecondary} />
-        </Pressable>
+        <NavButtons onBack={goBack} onMenu={openDrawer} buttonStyle={styles.backBtn} size={24} color={COLORS.textSecondary} />
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Justificaciones</Text>
           <Text style={styles.headerSubtitle} numberOfLines={1}>

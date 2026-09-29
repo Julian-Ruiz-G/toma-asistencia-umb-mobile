@@ -85,6 +85,7 @@ EXPECTED_SUFFIXES = [
     "/captcha-verify",
     "/validate-register-photo",
     "/register",
+    "/admin-create-student",
     "/recognize",
 ]
 
@@ -429,6 +430,131 @@ def test_server_errors_hide_details():
     assert body == {"error": "DynamoDBGetFailed"}
     body = json.loads(_response(400, {"error": "X", "details": "ok"})["body"])
     assert body["details"] == "ok"
+
+
+_FACE_OK = {
+    "Confidence": 99.9,
+    "BoundingBox": {"Left": 0.3, "Top": 0.25, "Width": 0.4, "Height": 0.5},
+    "Pose": {"Yaw": 0, "Pitch": 0, "Roll": 0},
+    "Quality": {"Brightness": 70, "Sharpness": 80},
+}
+
+
+def _fake_rekognition(duplicate=False):
+    from unittest.mock import MagicMock
+
+    fake = MagicMock()
+    fake.detect_faces.return_value = {"FaceDetails": [_FACE_OK]}
+    fake.search_faces_by_image.return_value = {"FaceMatches": [{"Similarity": 99.0}] if duplicate else []}
+    fake.index_faces.return_value = {"FaceRecords": [{"Face": {"FaceId": "face-new"}}]}
+    return fake
+
+
+def _create_student_body(**overrides):
+    body = {
+        "fullName": "Ana Pérez",
+        "email": "ana@academia.umb.edu.co",
+        "password": "Clave#2026",
+        "consentBiometric": True,
+        "imageBase64": "aGVsbG8=",
+    }
+    body.update(overrides)
+    return body
+
+
+def _run_create_student(body, rekognition_fake, table_rows=()):
+    import runtime
+    from routes import admin as admin_routes
+    from unittest.mock import patch
+
+    ddb = _fake_table(list(table_rows))
+    ddb.get_item.return_value = {}
+    with patch.object(runtime, "dynamodb", ddb), patch.object(admin_routes, "dynamodb", ddb), \
+            patch.object(runtime, "rekognition", rekognition_fake), patch.object(admin_routes, "rekognition", rekognition_fake):
+        resp = lambda_handler(_admin_event("/Prod/admin-create-student", body), None)
+    return resp, ddb
+
+
+def test_admin_create_student_requires_admin():
+    resp = lambda_handler(_event("/Prod/admin-create-student", body=_create_student_body()), None)
+    assert resp["statusCode"] == 401
+
+
+def test_admin_create_student_indexes_face_and_forces_password_change():
+    rek = _fake_rekognition()
+    resp, ddb = _run_create_student(_create_student_body(), rek)
+    assert resp["statusCode"] == 200, _body(resp)
+    item = next(c.kwargs["Item"] for c in ddb.put_item.call_args_list if c.kwargs["Item"]["RekognitionId"] == {"S": "face-new"})
+    assert item["Role"] == {"S": "student"}
+    assert item["MustChangePassword"] == {"BOOL": True}
+    assert "StudentCode" not in item
+    rek.index_faces.assert_called_once()
+
+
+def test_admin_create_student_rejects_registered_face():
+    rek = _fake_rekognition(duplicate=True)
+    resp, ddb = _run_create_student(_create_student_body(), rek)
+    assert resp["statusCode"] == 409
+    assert _body(resp)["error"] == "FaceAlreadyRegistered"
+    rek.index_faces.assert_not_called()
+    ddb.put_item.assert_not_called()
+
+
+def test_admin_create_student_rejects_existing_email():
+    rek = _fake_rekognition()
+    rows = [{"RekognitionId": {"S": "face-1"}, "Role": {"S": "student"}, "Email": {"S": "ana@academia.umb.edu.co"}}]
+    resp, ddb = _run_create_student(_create_student_body(), rek, rows)
+    assert resp["statusCode"] == 409
+    assert _body(resp)["error"] == "EmailAlreadyRegistered"
+    rek.index_faces.assert_not_called()
+
+
+def test_validate_register_photo_reports_registered_face():
+    import runtime
+    from routes import auth as auth_routes
+    from unittest.mock import patch
+
+    for duplicate, status in ((True, 409), (False, 200)):
+        rek = _fake_rekognition(duplicate=duplicate)
+        with patch.object(runtime, "rekognition", rek), patch.object(auth_routes, "rekognition", rek):
+            resp = lambda_handler(_event("/Prod/validate-register-photo", body={"imageBase64": "aGVsbG8="}), None)
+        assert resp["statusCode"] == status
+        if duplicate:
+            assert _body(resp)["error"] == "FaceAlreadyRegistered"
+
+
+def test_captcha_pass_outlives_the_challenge():
+    # Regresión: el reto vence a los 3 minutos y el registro fallaba mientras se tomaba la foto.
+    import time as _time
+    import runtime
+    from unittest.mock import patch
+
+    now = int(_time.time())
+    pass_token = runtime._sign_captcha_pass(now)
+    later = now + 10 * 60
+    with patch.object(runtime.time, "time", return_value=later):
+        assert runtime._verify_register_captcha(pass_token, None) == (True, "")
+    with patch.object(runtime.time, "time", return_value=now + runtime.CAPTCHA_PASS_TTL_SECONDS + 5):
+        assert runtime._verify_register_captcha(pass_token, None)[0] is False
+
+    login = runtime._sign_token({"sub": "a@b.co", "role": "student", "iat": now, "exp": now + 60})
+    assert runtime._verify_register_captcha(login, None)[0] is False
+
+
+def test_captcha_verify_returns_pass_token():
+    import runtime
+
+    challenge = _body(lambda_handler(_event("/Prod/captcha-challenge", body={}), None))
+    payload = json.loads(runtime._b64url_decode(challenge["token"].split(".")[1]))
+    answer = next(o for o in challenge["options"] if runtime._captcha_answer_mac(payload["nonce"], o) == payload["ah"])
+    import time as _time
+    from unittest.mock import patch
+
+    with patch.object(runtime.time, "time", return_value=int(_time.time()) + 5):
+        resp = lambda_handler(_event("/Prod/captcha-verify", body={"token": challenge["token"], "answer": answer}), None)
+    assert resp["statusCode"] == 200
+    pass_token = _body(resp)["passToken"]
+    assert runtime._verify_token(pass_token)["role"] == "captcha-pass"
 
 
 if __name__ == "__main__":

@@ -2,7 +2,7 @@ import React, { useCallback, useState, useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { appAlert } from '../../ui/appNotice';
 import { useFocusEffect } from '@react-navigation/native';
-import { ArrowLeft, BookOpen, ChevronRight, Clock, Plus } from 'lucide-react-native';
+import { BookOpen, ChevronRight, Clock, Plus } from 'lucide-react-native';
 
 import { Button } from '../../components/Button';
 import { COLORS } from '../../ui/theme';
@@ -11,10 +11,12 @@ import Animated, { enterDown, listEnter } from '../../ui/motion';
 import { MY_CLASSES_URL } from '../../config';
 import { useAuth } from '../../state/auth';
 import { classStatusMeta, formatScheduleFriendly } from '../../utils/schedule';
+import { NavButtons, useTeacherDrawer } from '../../components/RoleDrawer';
 
 export default function MyClasses({ navigation }) {
   const COLORS = useColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
+  const { drawer, openDrawer, goBack } = useTeacherDrawer(navigation, 'TeacherMyClasses');
   const { authToken } = useAuth();
   const [classes, setClasses] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -49,10 +51,9 @@ export default function MyClasses({ navigation }) {
 
   return (
     <View style={styles.root}>
+      {drawer}
       <Animated.View entering={enterDown(0, 360)} style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <ArrowLeft size={24} color={COLORS.textSecondary} />
-        </Pressable>
+        <NavButtons onBack={goBack} onMenu={openDrawer} buttonStyle={styles.backBtn} size={24} color={COLORS.textSecondary} />
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Mis clases</Text>
           <Text style={styles.headerSubtitle}>{loading ? 'Actualizando…' : `${classes.length} curso${classes.length === 1 ? '' : 's'}`}</Text>

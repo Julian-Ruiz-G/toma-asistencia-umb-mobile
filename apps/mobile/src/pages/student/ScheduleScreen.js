@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { appAlert } from '../../ui/appNotice';
 import { useFocusEffect } from '@react-navigation/native';
-import { ArrowLeft, Bell, Calendar, Clock, MapPin, RefreshCw, Users } from 'lucide-react-native';
+import { Bell, Calendar, Clock, MapPin, RefreshCw, Users } from 'lucide-react-native';
 import { API_BASE, MY_CLASSES_URL } from '../../config';
 import { useAuth } from '../../state/auth';
 import { COLORS } from '../../ui/theme';
@@ -11,6 +11,7 @@ import Animated, { enterDown, listEnter } from '../../ui/motion';
 import { dateToDayKey, loadReminders, reminderDates } from '../../utils/remindersStore';
 import { todayScheduleKey } from '../../utils/schedule';
 import { loadClassColors, resolveClassColor } from '../../utils/classColors';
+import { NavButtons, useStudentDrawer } from '../../components/RoleDrawer';
 
 const DAY_ORDER = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
 const DAY_LABEL = {
@@ -45,6 +46,7 @@ function todayKey() {
 export default function ScheduleScreen({ navigation }) {
   const COLORS = useColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
+  const { drawer, openDrawer, goBack } = useStudentDrawer(navigation, 'StudentSchedule');
   const { authToken, email } = useAuth();
   const [loading, setLoading] = useState(false);
   const [classes, setClasses] = useState([]);
@@ -202,10 +204,9 @@ export default function ScheduleScreen({ navigation }) {
 
   return (
     <View style={styles.root}>
+      {drawer}
       <Animated.View entering={enterDown(0, 360)} style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <ArrowLeft size={24} color={COLORS.textSecondary} />
-        </Pressable>
+        <NavButtons onBack={goBack} onMenu={openDrawer} buttonStyle={styles.backBtn} size={24} color={COLORS.textSecondary} />
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Horario</Text>
           <Text style={styles.headerSubtitle}>

@@ -1,10 +1,11 @@
 import React, { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { ArrowLeft, Camera, Clock, QrCode, ShieldCheck, Users } from 'lucide-react-native';
+import { Camera, Clock, QrCode, ShieldCheck, Users } from 'lucide-react-native';
 
 import { COLORS } from '../../ui/theme';
 import { useColors } from '../../ui/ThemeContext';
 import Animated, { enterDown } from '../../ui/motion';
+import { NavButtons, useTeacherDrawer } from '../../components/RoleDrawer';
 
 const RULES = [
   'La foto y el QR de asistencia no se usan si hoy esa materia no está en el horario.',
@@ -16,6 +17,7 @@ const RULES = [
 export default function TeacherAttendanceGuide({ navigation }) {
   const COLORS = useColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
+  const { drawer, openDrawer, goBack } = useTeacherDrawer(navigation, 'TeacherAttendanceGuide');
   const STEPS = useMemo(() => [
     {
       n: '1',
@@ -44,10 +46,9 @@ export default function TeacherAttendanceGuide({ navigation }) {
   ], [COLORS]);
   return (
     <View style={styles.root}>
+      {drawer}
       <Animated.View entering={enterDown(0, 360)} style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <ArrowLeft size={24} color={COLORS.textSecondary} />
-        </Pressable>
+        <NavButtons onBack={goBack} onMenu={openDrawer} buttonStyle={styles.backBtn} size={24} color={COLORS.textSecondary} />
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Cómo tomar asistencia</Text>
           <Text style={styles.headerSubtitle}>QR, foto y reglas del horario</Text>

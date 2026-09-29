@@ -370,7 +370,12 @@ def handle_captcha_verify(event, body):
     ok, err = _verify_register_captcha(token, answer)
     if not ok:
         return _response(400, {'ok': False, 'error': err or 'CaptchaFailed'})
-    return _response(200, {'ok': True})
+    pass_token = None
+    try:
+        pass_token = _sign_captcha_pass(int(time.time()))
+    except Exception:
+        logger.exception('captcha pass signing failed')
+    return _response(200, {'ok': True, 'passToken': pass_token})
 
 def handle_validate_register_photo(event, body, image_bytes_fixed, img=None, width=None, height=None):
     try:
@@ -394,6 +399,13 @@ def handle_validate_register_photo(event, body, image_bytes_fixed, img=None, wid
             'error': 'InvalidFacePhoto',
             'message': photo_issues[0],
             'issues': photo_issues,
+        })
+    # Se avisa al tomar la foto, no al final del formulario.
+    if _face_already_registered(image_bytes_fixed):
+        return _response(409, {
+            'ok': False,
+            'error': 'FaceAlreadyRegistered',
+            'message': FACE_ALREADY_REGISTERED_MESSAGE,
         })
     return _response(200, {'ok': True, 'issues': []})
 
@@ -524,26 +536,11 @@ def handle_register(event, body, image_bytes_fixed, img=None, width=None, height
             'issues': photo_issues,
         })
 
-    # Verificar si el rostro ya está registrado en la colección
-    try:
-        search_resp = rekognition.search_faces_by_image(
-            CollectionId=COLLECTION,
-            Image={'Bytes': image_bytes_fixed},
-            FaceMatchThreshold=95,  # Umbral alto para evitar falsos positivos
-            MaxFaces=1
-        )
-        matches = search_resp.get('FaceMatches', [])
-        if matches:
-            # No se revela a quién pertenece el rostro: permitiría identificar personas con una foto.
-            similarity = float(matches[0].get('Similarity', 0))
-            logger.warning(f'Face already registered: similarity={similarity:.1f}%')
-            return _response(409, {
-                'error': 'FaceAlreadyRegistered',
-                'message': 'Este rostro ya está registrado en otra cuenta. Si es tuya, inicia sesión o contacta al administrador.',
-            })
-    except Exception as e:
-        logger.warning(f'Face duplicate check failed: {e}')
-        # Continuar con el registro si falla la verificación
+    if _face_already_registered(image_bytes_fixed):
+        return _response(409, {
+            'error': 'FaceAlreadyRegistered',
+            'message': FACE_ALREADY_REGISTERED_MESSAGE,
+        })
 
     try:
         index_resp = rekognition.index_faces(

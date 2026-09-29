@@ -59,7 +59,7 @@ export default function LoginScreen({ navigation }) {
 
   const validateForm = () => {
     const newErrors = {};
-    if (!String(formData.email || '').trim()) newErrors.email = 'El usuario o correo es requerido';
+    if (!String(formData.email || '').trim()) newErrors.email = 'El correo es requerido';
     if (!String(formData.password || '').trim()) newErrors.password = 'La contraseña es requerida';
     setErrors(newErrors);
     setLoginError('');
@@ -219,8 +219,8 @@ export default function LoginScreen({ navigation }) {
           ) : null}
 
           <Input
-            label="Usuario o Correo"
-            placeholder="Ingrese su usuario o correo"
+            label="Correo"
+            placeholder="Ingrese su correo"
             value={formData.email}
             onChangeText={(v) => {
               setFormData((p) => ({ ...p, email: v }));

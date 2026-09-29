@@ -110,6 +110,7 @@ export default function RegisterScreen({ navigation }) {
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [showBiometricModal, setShowBiometricModal] = useState(false);
   const [captchaProof, setCaptchaProof] = useState(null);
+  const [captchaKey, setCaptchaKey] = useState(0);
 
   const pwRules = useMemo(() => passwordChecks(formData.password), [formData.password]);
   const passwordReady = pwRules.every((r) => r.ok);
@@ -240,6 +241,11 @@ export default function RegisterScreen({ navigation }) {
           return;
         }
 
+        if (json?.error === 'FaceAlreadyRegistered') {
+          appAlert('Rostro ya registrado', json.message || 'Este rostro ya está registrado en otra cuenta.');
+          return;
+        }
+
         const issues = Array.isArray(json?.issues) ? json.issues.filter(Boolean) : [];
         if (!resp.ok || json?.ok === false || issues.length) {
           const detail = issues.length
@@ -311,6 +317,13 @@ export default function RegisterScreen({ navigation }) {
         const msg = formatRegisterError(json, text, resp.status);
         setFormAlert(msg);
         const code = String(json?.error || '');
+        if (code.startsWith('Captcha')) {
+          // Prueba vencida o inválida: se muestra un reto nuevo en vez de dejar la casilla marcada.
+          setCaptchaProof(null);
+          setFormData((p) => ({ ...p, isNotRobot: false }));
+          setCaptchaKey((k) => k + 1);
+          return;
+        }
         if (code === 'FaceAlreadyRegistered') {
           appAlert(
             'Rostro ya registrado',
@@ -475,6 +488,7 @@ export default function RegisterScreen({ navigation }) {
         <View style={{ height: 14 }} />
 
         <RobotCaptcha
+          key={captchaKey}
           checked={!!formData.isNotRobot}
           error={!!errors.isNotRobot}
           onChange={(ok, proof) => {
