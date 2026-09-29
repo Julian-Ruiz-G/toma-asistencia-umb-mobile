@@ -27,6 +27,8 @@ import PrivacyPolicyModal from '../../components/PrivacyPolicy';
 import BiometricConsentModal from '../../components/BiometricConsent';
 import { AppSettingsBlocks, AppAboutBlock } from '../../components/AppSettingsPanel';
 import OverlayDismiss from '../../components/OverlayDismiss';
+import ProgramPicker from '../../components/ProgramPicker';
+import { findProgram } from '../../utils/programs';
 import { COLORS } from '../../ui/theme';
 import { useColors } from '../../ui/ThemeContext';
 import Animated, { enterDown } from '../../ui/motion';
@@ -175,6 +177,17 @@ export default function StudentProfile({ navigation, route }) {
         phone: nextPhone,
       });
       appAlert('Datos obligatorios', `Llena estos campos: ${missing.join(', ')}.`);
+      return;
+    }
+
+    const programInfo = findProgram(nextProgram);
+    if (!programInfo) {
+      appAlert('Carrera', 'Elige tu carrera en el listado.');
+      return;
+    }
+    const semesterNum = Number(nextSemester);
+    if (!Number.isInteger(semesterNum) || semesterNum < 1 || semesterNum > programInfo.semesters) {
+      appAlert('Semestre', `Para ${programInfo.name} el semestre debe estar entre 1 y ${programInfo.semesters}.`);
       return;
     }
 
@@ -410,7 +423,7 @@ export default function StudentProfile({ navigation, route }) {
               <View style={{ height: 14 }} />
               <Input label="Nombre completo *" value={draftName} onChangeText={setDraftName} />
               <View style={{ height: 12 }} />
-              <Input label="Carrera / Programa *" value={draftProgram} onChangeText={setDraftProgram} />
+              <ProgramPicker label="Carrera / Programa *" value={draftProgram} onChange={(name) => setDraftProgram(name)} />
               <View style={{ height: 12 }} />
               <Input
                 label="Semestre *"

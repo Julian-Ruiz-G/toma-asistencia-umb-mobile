@@ -1062,6 +1062,18 @@ def handle_admin_dashboard_stats(event, body):
     recent = sorted(recent, key=lambda x: int(x.get('markedAt') or 0), reverse=True)
     today_list = [r for r in recent if r.get('date') == today]
 
+    # Estado de hoy por carrera, con todos los registros (todayList llega recortado).
+    status_by_program_today = {}
+    for r in today_list:
+        status = r.get('status')
+        if status not in status_today:
+            continue
+        program = _pretty_label(r.get('program'), 'Sin carrera')
+        bucket = status_by_program_today.setdefault(
+            program, {'program': program, 'asistencia': 0, 'retardo': 0, 'inasistencia': 0}
+        )
+        bucket[status] += 1
+
     for it in session_items:
         ymd = _ddb_s(it, 'SessionDate')
         bucket = by_date.get(ymd)
@@ -1173,6 +1185,7 @@ def handle_admin_dashboard_stats(event, body):
             ],
             'last7Days': last7,
             'byProgramToday': _count_by(r.get('program') for r in today_list),
+            'statusByProgramToday': sorted(status_by_program_today.values(), key=lambda x: x['program']),
             'byClassToday': _count_by(r.get('className') for r in today_list),
             'todayList': today_list[:200],
             'recentList': recent[:400],

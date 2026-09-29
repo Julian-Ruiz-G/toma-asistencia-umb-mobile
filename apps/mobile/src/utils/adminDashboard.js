@@ -99,6 +99,19 @@ export function lastNDayBuckets(rows, today, days = 7) {
   return out;
 }
 
+// Respaldo si el servidor no envía statusByProgramToday: se calcula con los registros recibidos.
+function statusByProgram(rows) {
+  const byProgram = {};
+  for (const r of rows || []) {
+    const status = String(r?.status || '');
+    if (status !== 'asistencia' && status !== 'retardo' && status !== 'inasistencia') continue;
+    const program = prettyLabel(r?.program, 'Sin carrera');
+    if (!byProgram[program]) byProgram[program] = { program, asistencia: 0, retardo: 0, inasistencia: 0 };
+    byProgram[program][status] += 1;
+  }
+  return Object.values(byProgram).sort((a, b) => a.program.localeCompare(b.program, 'es'));
+}
+
 export function statusLabel(status) {
   const s = String(status || '').toLowerCase();
   if (s === 'asistencia' || s === 'presente') return 'Asistencia';
@@ -129,6 +142,7 @@ export function emptyDashboard() {
       byStatusToday: [],
       last7Days: [],
       byProgramToday: [],
+      statusByProgramToday: [],
       byClassToday: [],
       todayList: [],
       recentList: [],
@@ -276,6 +290,14 @@ function normalize(json, extras = {}) {
   const presentToday = num(json?.attendance?.presentToday);
   const lateToday = num(json?.attendance?.lateToday);
   const absentToday = num(json?.attendance?.absentToday);
+  const statusByProgramToday = asList(json?.attendance?.statusByProgramToday).length
+    ? asList(json.attendance.statusByProgramToday).map((r) => ({
+        program: prettyLabel(r?.program, 'Sin carrera'),
+        asistencia: num(r?.asistencia),
+        retardo: num(r?.retardo),
+        inasistencia: num(r?.inasistencia),
+      }))
+    : statusByProgram(todayList);
 
   return {
     date: String(json?.date || ''),
@@ -311,6 +333,7 @@ function normalize(json, extras = {}) {
           ],
       last7Days: last7,
       byProgramToday: countBy(todayList, 'program'),
+      statusByProgramToday,
       byClassToday: asList(json?.attendance?.byClassToday),
       todayList,
       recentList,

@@ -523,6 +523,38 @@ def test_validate_register_photo_reports_registered_face():
             assert _body(resp)["error"] == "FaceAlreadyRegistered"
 
 
+def test_admin_dashboard_splits_today_attendance_by_program():
+    import time as _time
+    import runtime
+    from unittest.mock import patch
+
+    now = int(_time.time())
+    rows = [
+        {"RekognitionId": {"S": "face-1"}, "Role": {"S": "student"}, "Email": {"S": "ana@academia.umb.edu.co"},
+         "FullName": {"S": "Ana"}, "Program": {"S": "Ingeniería de Software"}},
+        {"RekognitionId": {"S": "face-2"}, "Role": {"S": "student"}, "Email": {"S": "luis@academia.umb.edu.co"},
+         "FullName": {"S": "Luis"}, "Program": {"S": "Derecho"}},
+        {"RekognitionId": {"S": "face-3"}, "Role": {"S": "student"}, "Email": {"S": "eva@academia.umb.edu.co"},
+         "FullName": {"S": "Eva"}},
+    ]
+    for i, (email, status) in enumerate([
+        ("ana@academia.umb.edu.co", "asistencia"),
+        ("luis@academia.umb.edu.co", "retardo"),
+        ("eva@academia.umb.edu.co", "inasistencia"),
+    ]):
+        rows.append({"RekognitionId": {"S": f"ATTEND#s1#{email}"}, "Type": {"S": "Attendance"},
+                     "StudentEmail": {"S": email}, "Status": {"S": status}, "MarkedAt": {"N": str(now - i)},
+                     "SessionId": {"S": "s1"}, "ClassId": {"S": "c1"}})
+
+    with patch.object(runtime, "dynamodb", _fake_table(rows)):
+        resp = lambda_handler(_admin_event("/Prod/admin-dashboard-stats", {}), None)
+    assert resp["statusCode"] == 200
+    by_program = {r["program"]: r for r in _body(resp)["attendance"]["statusByProgramToday"]}
+    assert by_program["Ingeniería de Software"]["asistencia"] == 1
+    assert by_program["Derecho"]["retardo"] == 1
+    assert by_program["Sin carrera"]["inasistencia"] == 1
+
+
 def test_captcha_pass_outlives_the_challenge():
     # Regresión: el reto vence a los 3 minutos y el registro fallaba mientras se tomaba la foto.
     import time as _time

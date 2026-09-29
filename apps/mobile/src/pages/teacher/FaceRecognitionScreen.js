@@ -41,7 +41,6 @@ function postJsonWithUploadProgress(url, authToken, body, onUploadProgress) {
       xhr.upload.onprogress = (e) => {
         if (e.lengthComputable && e.total > 0) onUploadProgress(e.loaded / e.total);
       };
-      xhr.upload.onload = () => onUploadProgress(1);
     }
     xhr.onload = () => resolve({ status: xhr.status, text: xhr.responseText || '' });
     xhr.onerror = () => reject(new Error('No hay conexión con el servidor. Revisa tu internet e intenta de nuevo.'));
@@ -72,47 +71,61 @@ export default function FaceRecognitionScreen({ navigation, route }) {
   const [photoUri, setPhotoUri] = useState('');
   const [photoSizeMb, setPhotoSizeMb] = useState(0);
   const [uploadRatio, setUploadRatio] = useState(0);
-  const [elapsed, setElapsed] = useState(0);
+  const [now, setNow] = useState(0);
+  const [elapsedFinal, setElapsedFinal] = useState(0);
   const [result, setResult] = useState(null);
   // Al entrar desde "Foto" se pregunta si tomar la foto o elegirla de la galería.
   const [showSourcePicker, setShowSourcePicker] = useState(autoCapture);
 
-  const busy = phase === 'uploading' || phase === 'processing';
+  const busy = phase === 'uploading' || phase === 'processing' || phase === 'finishing';
 
-  const uploadAnim = useRef(new Animated.Value(0)).current;
-  const sweepAnim = useRef(new Animated.Value(0)).current;
-  const [trackWidth, setTrackWidth] = useState(0);
+  const startedAtRef = useRef(0);
+  const processingAtRef = useRef(0);
+  const progressAnim = useRef(new Animated.Value(0)).current;
 
-  useEffect(() => {
-    Animated.timing(uploadAnim, {
-      toValue: uploadRatio,
-      duration: 160,
-      easing: Easing.out(Easing.quad),
-      useNativeDriver: false,
-    }).start();
-  }, [uploadRatio, uploadAnim]);
+  const startProcessing = () => {
+    if (!processingAtRef.current) processingAtRef.current = Date.now();
+    setPhase((p) => (p === 'uploading' ? 'processing' : p));
+  };
 
-  // Barra indeterminada: el servidor no informa avance mientras reconoce los rostros.
-  useEffect(() => {
-    if (phase !== 'processing') return undefined;
-    sweepAnim.setValue(0);
-    const loop = Animated.loop(
-      Animated.timing(sweepAnim, { toValue: 1, duration: 1300, easing: Easing.inOut(Easing.quad), useNativeDriver: true })
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [phase, sweepAnim]);
-
-  // Tiempo real transcurrido desde que se empezó a enviar la foto.
+  // Reloj de la pantalla mientras se envía y procesa la foto (5 veces por segundo).
   useEffect(() => {
     if (!busy) return undefined;
-    const startedAt = Date.now();
-    setElapsed(0);
-    const id = setInterval(() => setElapsed(Math.floor((Date.now() - startedAt) / 1000)), 1000);
+    setNow(Date.now());
+    const id = setInterval(() => setNow(Date.now()), 200);
     return () => clearInterval(id);
-    // Solo se reinicia al empezar el envío, no al pasar de subir a procesar.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busy]);
+
+  // Si el teléfono no informa el avance de la subida, se pasa a la etapa del servidor
+  // en vez de dejar la barra quieta en 0 %.
+  useEffect(() => {
+    if (phase === 'uploading' && uploadRatio === 0 && now - startedAtRef.current > 2500) startProcessing();
+  }, [phase, uploadRatio, now]);
+
+  const elapsedSeconds = busy
+    ? Math.max(0, Math.floor((now - startedAtRef.current) / 1000))
+    : elapsedFinal;
+
+  // Una sola barra: 0-40 % es la subida real; 40-95 % avanza con el tiempo real que lleva
+  // el servidor (se acerca a 95 % sin llegar, porque no sabemos cuánto falta); 100 % al responder.
+  let overall = 0;
+  if (phase === 'uploading') {
+    overall = 0.04 + 0.36 * uploadRatio;
+  } else if (phase === 'processing') {
+    const t = Math.max(0, now - processingAtRef.current);
+    overall = 0.4 + 0.55 * (1 - Math.exp(-t / 9000));
+  } else if (phase === 'finishing' || phase === 'done') {
+    overall = 1;
+  }
+
+  useEffect(() => {
+    Animated.timing(progressAnim, {
+      toValue: overall,
+      duration: 220,
+      easing: Easing.linear,
+      useNativeDriver: false,
+    }).start();
+  }, [overall, progressAnim]);
 
   const submitAttendancePhoto = async (b64) => {
     const { status, text } = await postJsonWithUploadProgress(
@@ -121,7 +134,7 @@ export default function FaceRecognitionScreen({ navigation, route }) {
       { sessionId, imageBase64: b64 },
       (ratio) => {
         setUploadRatio(ratio);
-        if (ratio >= 1) setPhase('processing');
+        if (ratio >= 1) startProcessing();
       },
     );
 
@@ -162,12 +175,21 @@ export default function FaceRecognitionScreen({ navigation, route }) {
       setPhotoUri(asset?.uri || '');
       setPhotoSizeMb((b64.length * 0.75) / (1024 * 1024));
       setUploadRatio(0);
+      startedAtRef.current = Date.now();
+      processingAtRef.current = 0;
+      progressAnim.setValue(0);
+      setNow(Date.now());
       setPhase('uploading');
 
       const json = await submitAttendancePhoto(b64);
+      setElapsedFinal(Math.floor((Date.now() - startedAtRef.current) / 1000));
+      // Se deja ver la barra completa un instante antes de mostrar los resultados.
+      setPhase('finishing');
+      await new Promise((r) => setTimeout(r, 450));
       setResult(json || {});
       setPhase('done');
     } catch (e) {
+      setElapsedFinal(Math.floor((Date.now() - startedAtRef.current) / 1000));
       setPhase('idle');
       if (String(e?.message || '') !== 'HOURS_NOTICE') {
         appAlert('No se pudo registrar la foto', e?.message || String(e));
@@ -223,7 +245,13 @@ export default function FaceRecognitionScreen({ navigation, route }) {
   }, [result]);
 
   const uploadPct = Math.round(uploadRatio * 100);
-  const sweepX = sweepAnim.interpolate({ inputRange: [0, 1], outputRange: [-trackWidth * 0.4, trackWidth] });
+  const overallPct = Math.round(overall * 100);
+  const uploadDone = phase !== 'uploading';
+  const stepTitle = phase === 'uploading'
+    ? 'Enviando foto…'
+    : phase === 'processing'
+      ? 'Reconociendo rostros…'
+      : 'Listo';
 
   return (
     <View style={styles.root}>
@@ -259,43 +287,42 @@ export default function FaceRecognitionScreen({ navigation, route }) {
 
         {busy ? (
           <View style={styles.progressCard}>
-            <View style={styles.stepRow}>
-              {phase === 'uploading' ? (
-                <CloudUpload size={22} color={COLORS.primary} />
+            <View style={styles.cardTop}>
+              <Text style={styles.cardTitle}>{stepTitle}</Text>
+              <Text style={styles.cardPct}>{overallPct}%</Text>
+            </View>
+            <View style={styles.track}>
+              <Animated.View
+                style={[
+                  styles.fill,
+                  { width: progressAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }) },
+                ]}
+              />
+            </View>
+
+            <View style={[styles.stepRow, { marginTop: 14 }]}>
+              {uploadDone ? (
+                <CheckCircle2 size={20} color={COLORS.successStrong} />
               ) : (
-                <CheckCircle2 size={22} color={COLORS.successStrong} />
+                <CloudUpload size={20} color={COLORS.primary} />
               )}
-              <Text style={styles.stepText}>
-                {phase === 'uploading' ? `Enviando foto (${photoSizeMb.toFixed(1)} MB)` : 'Foto enviada'}
-              </Text>
-              {phase === 'uploading' ? <Text style={styles.stepPct}>{uploadPct}%</Text> : null}
+              <Text style={styles.stepText}>Enviar foto ({photoSizeMb.toFixed(1)} MB)</Text>
+              <Text style={styles.stepMeta}>{uploadDone ? 'Enviada' : `${uploadPct}%`}</Text>
             </View>
-            {phase === 'uploading' ? (
-              <View style={styles.track}>
-                <Animated.View
-                  style={[
-                    styles.fill,
-                    { width: uploadAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }) },
-                  ]}
-                />
-              </View>
-            ) : null}
-
-            <View style={[styles.stepRow, { marginTop: 14, opacity: phase === 'processing' ? 1 : 0.45 }]}>
-              <ScanFace size={22} color={phase === 'processing' ? COLORS.primary : COLORS.muted} />
-              <Text style={styles.stepText}>Reconociendo rostros</Text>
+            <View style={[styles.stepRow, { marginTop: 10, opacity: uploadDone ? 1 : 0.45 }]}>
+              {phase === 'finishing' ? (
+                <CheckCircle2 size={20} color={COLORS.successStrong} />
+              ) : (
+                <ScanFace size={20} color={uploadDone ? COLORS.primary : COLORS.muted} />
+              )}
+              <Text style={styles.stepText}>Reconocer rostros de la clase</Text>
             </View>
-            {phase === 'processing' ? (
-              <View style={styles.track} onLayout={(e) => setTrackWidth(e.nativeEvent.layout.width)}>
-                <Animated.View style={[styles.sweep, { transform: [{ translateX: sweepX }] }]} />
-              </View>
-            ) : null}
 
-            <Text style={styles.elapsed}>Tiempo transcurrido: {formatElapsed(elapsed)}</Text>
+            <Text style={styles.elapsed}>Tiempo transcurrido: {formatElapsed(elapsedSeconds)}</Text>
             <Text style={styles.hint}>
-              {phase === 'processing'
-                ? 'Se compara cada rostro con los estudiantes de la clase. En salones grandes puede tardar más.'
-                : 'No cierres esta pantalla mientras se envía la foto.'}
+              {phase === 'uploading'
+                ? 'No cierres esta pantalla mientras se envía la foto.'
+                : 'Se compara cada rostro con los estudiantes de la clase. En salones grandes puede tardar más.'}
             </Text>
           </View>
         ) : null}
@@ -318,7 +345,7 @@ export default function FaceRecognitionScreen({ navigation, route }) {
                 <Text style={styles.summaryLbl}>Sin identificar</Text>
               </View>
             </View>
-            <Text style={styles.summaryTime}>Procesado en {formatElapsed(elapsed)}</Text>
+            <Text style={styles.summaryTime}>Procesado en {formatElapsed(elapsedSeconds)}</Text>
 
             {students.length ? (
               <ScrollView style={styles.list} contentContainerStyle={{ gap: 6 }}>
@@ -444,12 +471,14 @@ const createStyles = (COLORS) => StyleSheet.create({
   emptyText: { marginTop: 8, color: 'rgba(255,255,255,0.68)', textAlign: 'center', lineHeight: 20 },
 
   progressCard: { width: '86%', maxWidth: 340, backgroundColor: COLORS.card, borderRadius: 18, padding: 18 },
+  cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  cardTitle: { color: COLORS.text, fontWeight: '900', fontSize: 16 },
+  cardPct: { color: COLORS.primary, fontWeight: '900', fontSize: 16, fontVariant: ['tabular-nums'] },
   stepRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  stepText: { flex: 1, color: COLORS.text, fontWeight: '800' },
-  stepPct: { color: COLORS.primary, fontWeight: '900' },
-  track: { marginTop: 10, height: 8, width: '100%', borderRadius: 999, backgroundColor: COLORS.border, overflow: 'hidden' },
+  stepText: { flex: 1, color: COLORS.text, fontWeight: '700' },
+  stepMeta: { color: COLORS.muted, fontWeight: '800', fontSize: 12, fontVariant: ['tabular-nums'] },
+  track: { marginTop: 10, height: 10, width: '100%', borderRadius: 999, backgroundColor: COLORS.border, overflow: 'hidden' },
   fill: { height: '100%', borderRadius: 999, backgroundColor: COLORS.primary },
-  sweep: { height: '100%', width: '40%', borderRadius: 999, backgroundColor: COLORS.primary },
   elapsed: { marginTop: 16, color: COLORS.text, fontWeight: '700', fontVariant: ['tabular-nums'] },
   hint: { marginTop: 6, color: COLORS.muted, fontSize: 12, lineHeight: 17 },
 

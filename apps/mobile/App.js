@@ -49,6 +49,7 @@ import AdminDashboard from './src/pages/admin/AdminDashboard';
 import AdminInsight from './src/pages/admin/AdminInsight';
 import AdminProfile from './src/pages/admin/AdminProfile';
 import AdminStudents from './src/pages/admin/EstudiantesPage';
+import AdminCreateStudent from './src/pages/admin/CrearEstudiantePage';
 import AdminTeachers from './src/pages/admin/DocentesPage';
 import AdminBulkUpload from './src/pages/admin/CargaMasivaPage';
 import AdminQrInstitutional from './src/pages/admin/QRInstitucionalPage';
@@ -122,6 +123,7 @@ function AppStack() {
           <Stack.Screen name="AdminInsight" component={AdminInsight} />
           <Stack.Screen name="AdminProfile" component={AdminProfile} />
           <Stack.Screen name="AdminStudents" component={AdminStudents} />
+          <Stack.Screen name="AdminCreateStudent" component={AdminCreateStudent} />
           <Stack.Screen name="AdminTeachers" component={AdminTeachers} />
           <Stack.Screen name="AdminBulkUpload" component={AdminBulkUpload} />
           <Stack.Screen name="AdminQrInstitutional" component={AdminQrInstitutional} />

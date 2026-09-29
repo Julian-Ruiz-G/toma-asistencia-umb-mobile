@@ -1,14 +1,13 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
 import { Search } from 'lucide-react-native';
+import { useFocusEffect } from '@react-navigation/native';
 
 import { FilterChips, HBarChart, StatusBreakdown, WeekBars } from '../../components/MiniCharts';
 import { useColors } from '../../ui/ThemeContext';
 import { useAuth } from '../../state/auth';
 import { personDisplayName } from '../../utils/displayName';
-import { formatActionDateTime } from '../../utils/formatDateTime';
-import { fetchAdminDashboard, filterAttendanceRows, labelKey, lastNDayBuckets, prettyLabel, statusLabel, weekdayShort } from '../../utils/adminDashboard';
+import { fetchAdminDashboard, filterAttendanceRows, labelKey, lastNDayBuckets, prettyLabel, weekdayShort } from '../../utils/adminDashboard';
 import { AdminNavButtons, useAdminDrawer } from '../../components/AdminDrawer';
 
 const SECTIONS = {
@@ -90,33 +89,26 @@ export default function AdminInsight({ navigation, route }) {
     [attendance, attRange, attCorte, data]
   );
 
-  const filteredStudents = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return students.filter((s) => {
-      if (program && labelKey(s.program) !== program) return false;
-      if (semester && labelKey(s.semester) !== semester) return false;
-      if (!q) return true;
-      return [s.fullName, s.email, s.studentCode, s.program, s.semester].join(' ').toLowerCase().includes(q);
-    });
-  }, [students, query, program, semester]);
+  const filteredStudents = useMemo(() => students.filter((s) => {
+    if (program && labelKey(s.program) !== program) return false;
+    if (semester && labelKey(s.semester) !== semester) return false;
+    return true;
+  }), [students, program, semester]);
 
-  const filteredTeachers = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return teachers.filter((t) => {
-      if (load === 'with' && t.subjectsCount <= 0) return false;
-      if (load === 'without' && t.subjectsCount > 0) return false;
-      if (period && !(t.periods || []).some((p) => labelKey(p) === period)) return false;
-      if (!q) return true;
-      return [t.fullName, t.email, t.teacherCode].join(' ').toLowerCase().includes(q);
-    });
-  }, [teachers, query, load, period]);
+  const filteredTeachers = useMemo(() => teachers.filter((t) => {
+    if (load === 'with' && t.subjectsCount <= 0) return false;
+    if (load === 'without' && t.subjectsCount > 0) return false;
+    if (period && !(t.periods || []).some((p) => labelKey(p) === period)) return false;
+    return true;
+  }), [teachers, load, period]);
 
+  // El buscador filtra los indicadores y gráficos de asistencia por estudiante o clase.
   const filteredAttendance = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return rangedAttendance.filter((r) => {
-      if (!q) return true;
-      return [r.studentName, r.studentEmail, r.className, r.program, r.semester].join(' ').toLowerCase().includes(q);
-    });
+    if (!q) return rangedAttendance;
+    return rangedAttendance.filter((r) =>
+      [r.studentName, r.studentEmail, r.className, r.program, r.semester].join(' ').toLowerCase().includes(q)
+    );
   }, [rangedAttendance, query]);
 
   const studentCharts = useMemo(() => ({
@@ -295,22 +287,6 @@ export default function AdminInsight({ navigation, route }) {
               <Card colors={COLORS} title="Por clase">
                 <HBarChart items={attStats.byClass} colors={COLORS} emptyText="Cuando haya registros, aquí aparecerán las clases." />
               </Card>
-              {filteredAttendance.slice(0, 80).map((r, idx) => (
-                <View key={`${r.studentEmail}-${r.classId}-${r.markedAt}-${idx}`} style={styles.itemCard}>
-                  <View style={styles.itemTop}>
-                    <Text style={styles.itemTitle}>{personDisplayName(r.studentName, r.studentEmail)}</Text>
-                    <View style={[styles.badge, badgeStyle(r.status, COLORS)]}>
-                      <Text style={[styles.badgeText, { color: badgeStyle(r.status, COLORS).color }]}>{statusLabel(r.status)}</Text>
-                    </View>
-                  </View>
-                  <Text style={styles.itemMeta}>
-                    {r.className || 'Clase'}{r.group ? ` · Grupo ${r.group}` : ''}
-                  </Text>
-                  <Text style={styles.profileLine}>Carrera: {prettyLabel(r.program, 'Pendiente en perfil')}</Text>
-                  <Text style={styles.profileLine}>Semestre: {prettyLabel(r.semester, 'Pendiente en perfil')}</Text>
-                  <Text style={styles.itemMeta}>{formatActionDateTime(r.markedAt, r.date || '')}</Text>
-                </View>
-              ))}
               {!filteredAttendance.length ? <Text style={styles.muted}>No hay registros con ese filtro.</Text> : null}
             </>
           ) : null}
@@ -396,11 +372,6 @@ function countLocal(list, getter) {
   return Object.values(acc).sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, 'es'));
 }
 
-function badgeStyle(status, COLORS) {
-  if (status === 'asistencia') return { backgroundColor: COLORS.successBg, color: COLORS.success };
-  if (status === 'retardo') return { backgroundColor: COLORS.warningBg, color: COLORS.warning };
-  return { backgroundColor: COLORS.dangerBg, color: COLORS.dangerStrong };
-}
 
 function Kpi({ colors, label, value }) {
   return (
@@ -435,6 +406,10 @@ const createStyles = (COLORS) => StyleSheet.create({
   backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
   headerTitle: { color: COLORS.white, fontSize: 18, fontWeight: '900' },
   headerSubtitle: { marginTop: 2, color: 'rgba(255,255,255,0.72)', fontSize: 12, fontWeight: '700' },
+  body: { padding: 16, paddingBottom: 32, gap: 12 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 },
+  muted: { color: COLORS.muted, fontWeight: '700', textAlign: 'center' },
+  kpiRow: { flexDirection: 'row', gap: 10 },
   searchWrap: {
     marginTop: 14,
     flexDirection: 'row',
@@ -446,17 +421,10 @@ const createStyles = (COLORS) => StyleSheet.create({
     paddingVertical: 8,
   },
   searchInput: { flex: 1, color: COLORS.white, paddingVertical: 4, fontWeight: '700' },
-  body: { padding: 16, paddingBottom: 32, gap: 12 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 },
-  muted: { color: COLORS.muted, fontWeight: '700', textAlign: 'center' },
-  kpiRow: { flexDirection: 'row', gap: 10 },
   itemCard: { backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border, borderRadius: 14, padding: 14 },
-  itemTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   itemTitle: { fontWeight: '900', color: COLORS.text, flex: 1 },
   itemMeta: { marginTop: 4, color: COLORS.muted, fontSize: 12, fontWeight: '700' },
   profileLine: { marginTop: 4, color: COLORS.textSecondary, fontSize: 13, fontWeight: '800' },
-  badge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999 },
-  badgeText: { fontSize: 11, fontWeight: '900' },
   manageBtn: { marginTop: 4, backgroundColor: COLORS.primary, borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
   manageText: { color: COLORS.white, fontWeight: '900' },
 });

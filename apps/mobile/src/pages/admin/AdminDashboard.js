@@ -21,6 +21,7 @@ import {
 } from 'lucide-react-native';
 
 import { useAdminDrawer } from '../../components/AdminDrawer';
+import { FilterChips } from '../../components/MiniCharts';
 import RequestConsentsModal from '../../components/RequestConsentsModal';
 import { useColors } from '../../ui/ThemeContext';
 import { useAuth } from '../../state/auth';
@@ -34,6 +35,8 @@ export default function AdminDashboard({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
   const [showConsents, setShowConsents] = useState(false);
+  // '' = general; si no, el nombre de la carrera.
+  const [todayProgram, setTodayProgram] = useState('');
 
   const load = useCallback(async () => {
     if (!authToken) {
@@ -167,8 +170,28 @@ export default function AdminDashboard({ navigation }) {
     [navigation]
   );
 
-  const today = data?.attendance;
+  const programsToday = data?.attendance?.statusByProgramToday || [];
+  const programRow = todayProgram ? programsToday.find((r) => r.program === todayProgram) : null;
+  const today = data?.attendance
+    ? (todayProgram
+      ? {
+          presentToday: programRow?.asistencia || 0,
+          lateToday: programRow?.retardo || 0,
+          absentToday: programRow?.inasistencia || 0,
+        }
+      : data.attendance)
+    : null;
   const todayTotal = today ? today.presentToday + today.lateToday + today.absentToday : 0;
+  const programOptions = useMemo(
+    () => [
+      { id: '', label: 'General' },
+      ...programsToday.map((r) => ({
+        id: r.program,
+        label: `${r.program} (${r.asistencia + r.retardo + r.inasistencia})`,
+      })),
+    ],
+    [programsToday]
+  );
   const todaySessions = data?.sessions?.todayList || [];
 
   return (
@@ -263,7 +286,17 @@ export default function AdminDashboard({ navigation }) {
               <Text style={[styles.sectionTitle, styles.sectionGap]}>Hoy</Text>
               <View style={styles.listCard}>
                 <View style={styles.todayBlock}>
-                  <Text style={styles.todayLabel}>Asistencia registrada</Text>
+                  <Text style={styles.todayLabel}>
+                    Asistencia registrada{todayProgram ? ` · ${todayProgram}` : ' · General'}
+                  </Text>
+                  {programsToday.length ? (
+                    <FilterChips
+                      colors={COLORS}
+                      options={programOptions}
+                      value={todayProgram}
+                      onChange={(id) => setTodayProgram(id || '')}
+                    />
+                  ) : null}
                   {todayTotal > 0 ? (
                     <>
                       <View style={styles.bar}>
@@ -278,7 +311,9 @@ export default function AdminDashboard({ navigation }) {
                       </View>
                     </>
                   ) : (
-                    <Text style={styles.muted}>Aún no hay asistencia registrada hoy.</Text>
+                    <Text style={styles.muted}>
+                      {todayProgram ? `Aún no hay asistencia de ${todayProgram} hoy.` : 'Aún no hay asistencia registrada hoy.'}
+                    </Text>
                   )}
                 </View>
 
