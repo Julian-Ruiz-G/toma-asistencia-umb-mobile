@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { appAlert } from '../../ui/appNotice';
 import {
   CheckCircle,
@@ -14,11 +15,14 @@ import {
 } from 'lucide-react-native';
 
 import OverlayDismiss from '../../components/OverlayDismiss';
+import FilterActiveBanner from '../../components/FilterActiveBanner';
 import { Button } from '../../components/Button';
 import { COLORS } from '../../ui/theme';
 import { useColors } from '../../ui/ThemeContext';
 import { ADMIN_CREATE_TEACHER_URL, ADMIN_DELETE_TEACHER_URL, ADMIN_TEACHERS_URL, ADMIN_UPDATE_TEACHER_URL } from '../../config';
 import { useAuth } from '../../state/auth';
+import { prettyLabel } from '../../utils/adminDashboard';
+import { semesterTitle } from '../../components/AdminInsightDrill';
 import { gapsLabel, requestProfileCompletion, teacherGaps } from '../../utils/profileGaps';
 import { AdminNavButtons, useAdminDrawer } from '../../components/AdminDrawer';
 
@@ -31,12 +35,21 @@ const mockTeachers = [
   { id: '6', code: 'DOC006', firstName: 'Dra. Isabel', lastName: 'Ramírez Flores', email: 'isabel.ramirez@umb.edu.co', department: 'Enfermería', specialization: 'Crítica', status: 'active', subjectsCount: 3, biometricRegistered: true, lastAccess: '2024-01-13' },
 ];
 
-export default function DocentesPage({ navigation }) {
+function normalizeEmails(raw) {
+  if (raw == null) return [];
+  const list = Array.isArray(raw) ? raw : String(raw).split(',');
+  return [...new Set(list.map((e) => String(e || '').trim().toLowerCase()).filter(Boolean))];
+}
+
+export default function DocentesPage({ navigation, route }) {
   const COLORS = useColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const { drawer, openDrawer, goBack } = useAdminDrawer(navigation, 'AdminTeachers');
   const { authToken } = useAuth();
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(String(route?.params?.query || ''));
+  const [emailFilter, setEmailFilter] = useState(normalizeEmails(route?.params?.emails));
+  const [programFilter, setProgramFilter] = useState(String(route?.params?.program || ''));
+  const [semesterFilter, setSemesterFilter] = useState(String(route?.params?.semester || ''));
   const [currentPage, setCurrentPage] = useState(1);
   const [showModal, setShowModal] = useState(false);
   const [teachers, setTeachers] = useState([]);
@@ -45,7 +58,7 @@ export default function DocentesPage({ navigation }) {
   const [editDraft, setEditDraft] = useState({ email: '', fullName: '', teacherCode: '', password: '' });
   const [requestingId, setRequestingId] = useState('');
 
-  const loadTeachers = async () => {
+  const loadTeachers = useCallback(async () => {
     try {
       if (!authToken) return;
       if (!ADMIN_TEACHERS_URL) return;
@@ -88,24 +101,31 @@ export default function DocentesPage({ navigation }) {
     } catch {
       // ignore
     }
-  };
-
-  useEffect(() => {
-    loadTeachers();
   }, [authToken]);
+
+  useFocusEffect(useCallback(() => {
+    if (route?.params?.query != null) setSearchQuery(String(route.params.query || ''));
+    if (route?.params?.emails != null) setEmailFilter(normalizeEmails(route.params.emails));
+    if (route?.params?.program != null) setProgramFilter(String(route.params.program || ''));
+    if (route?.params?.semester != null) setSemesterFilter(String(route.params.semester || ''));
+    loadTeachers();
+  }, [loadTeachers, route?.params?.query, route?.params?.emails, route?.params?.program, route?.params?.semester]));
 
   const itemsPerPage = 5;
 
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    if (!q) return teachers;
-    return teachers.filter((t) =>
-      t.firstName.toLowerCase().includes(q) ||
-      t.lastName.toLowerCase().includes(q) ||
-      t.code.includes(q) ||
-      String(t.email || '').toLowerCase().includes(q)
-    );
-  }, [searchQuery, teachers]);
+    return teachers.filter((t) => {
+      if (emailFilter.length && !emailFilter.includes(String(t.email || '').toLowerCase())) return false;
+      if (!q) return true;
+      return (
+        t.firstName.toLowerCase().includes(q) ||
+        t.lastName.toLowerCase().includes(q) ||
+        t.code.includes(q) ||
+        String(t.email || '').toLowerCase().includes(q)
+      );
+    });
+  }, [searchQuery, teachers, emailFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / itemsPerPage));
   const page = Math.min(currentPage, totalPages);
@@ -187,6 +207,24 @@ export default function DocentesPage({ navigation }) {
       </View>
 
       <ScrollView contentContainerStyle={styles.body}>
+        {emailFilter.length || programFilter || semesterFilter ? (
+          <View style={{ marginBottom: 12 }}>
+            <FilterActiveBanner
+              label={[
+                programFilter ? prettyLabel(programFilter) : null,
+                semesterFilter ? semesterTitle(semesterFilter) : null,
+                !programFilter && !semesterFilter ? 'Docentes de esta consulta' : null,
+                `${filtered.length} ${filtered.length === 1 ? 'docente' : 'docentes'}`,
+              ].filter(Boolean).join(' · ')}
+              onClear={() => {
+                setEmailFilter([]);
+                setProgramFilter('');
+                setSemesterFilter('');
+                setCurrentPage(1);
+              }}
+            />
+          </View>
+        ) : null}
         <View style={styles.statsRow}>
           <View style={styles.statsCard}>
             <View style={[styles.statsIcon, { backgroundColor: COLORS.surface }]}>

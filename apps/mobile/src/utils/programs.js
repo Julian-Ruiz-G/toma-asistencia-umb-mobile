@@ -59,6 +59,36 @@ export function findProgram(name) {
   return PROGRAMS.find((p) => fold(p.name) === key) || null;
 }
 
+export function sameProgram(a, b) {
+  const ka = fold(a);
+  const kb = fold(b);
+  if (!ka || !kb) return false;
+  if (ka === kb) return true;
+  const pa = findProgram(a);
+  const pb = findProgram(b);
+  return !!(pa && pb && fold(pa.name) === fold(pb.name));
+}
+
+/** Una clase puede tener estudiantes de varias carreras: coincide si al menos uno es de esa carrera. */
+export function classTouchesProgram(cls, programName) {
+  if (!programName) return true;
+  const students = cls?.students || [];
+  if (students.some((s) => sameProgram(s.program, programName))) return true;
+  const programs = cls?.programs || [];
+  return programs.some((p) => sameProgram(p.label || p.program, programName));
+}
+
+export function classProgramLabels(cls) {
+  const fromList = (cls?.programs || [])
+    .map((p) => String(p.label || p.program || '').trim())
+    .filter(Boolean);
+  if (fromList.length) return [...new Set(fromList)];
+  const fromStudents = [...new Set(
+    (cls?.students || []).map((s) => String(s.program || '').trim()).filter(Boolean)
+  )];
+  return fromStudents;
+}
+
 export function semestersLabel(program) {
   return program?.semestersLabel || `${program?.semesters} semestres`;
 }

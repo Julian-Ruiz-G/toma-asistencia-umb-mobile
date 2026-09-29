@@ -1,0 +1,575 @@
+Carreras presenciales — Universidad Manuela Beltrán (Bogotá)
+Consulta: 29 de septiembre de 2026
+
+Fuentes oficiales:
+- https://umb.edu.co/pregrados/
+- https://umb.edu.co/programas-academicos/
+- https://umb.edu.co/documentos-institucionales/  (PEP-Pregrados presenciales Bogotá)
+- Planes de estudio 2025-2: https://umb.edu.co/docs/plan-de-estudios/2025-2/pregrados/
+- Fichas de cada programa en https://umb.edu.co/programa/...
+
+Sede de referencia: Bogotá (Avenida Circunvalar # 60-00).
+La oferta puede cambiar. Confirmar vigencia en umb.edu.co o SNIES.
+
+================================================================
+RESUMEN (duración total)
+================================================================
+
+Facultad de Salud
+  1. Enfermería                         9 semestres   SNIES 51583
+  2. Fisioterapia                       9 semestres   SNIES 21365
+  3. Fonoaudiología                     9 semestres   SNIES 21371
+  4. Terapia Ocupacional                9 semestres   SNIES 21372
+  5. Terapia Respiratoria               8 semestres   SNIES 111607
+
+
+Facultad de Ingeniería
+  6. Ingeniería de Software             8 semestres   SNIES 103897
+  7. Ingeniería Biomédica               8 semestres   SNIES 21390
+  8. Ingeniería Mecatrónica             8 semestres   SNIES 109664
+  9. Ingeniería Industrial              8 semestres   SNIES 21366
+ 10. Ingeniería Ambiental               8 a 10 semestres  SNIES 21389
+
+
+Facultad de Psicología, Educación, Ciencias Humanas y Sociales
+ 11. Psicología                        10 semestres   SNIES 21368
+ 12. Profesional en Ciencias del Deporte 8 semestres  SNIES 106870
+
+Facultad de Derecho
+ 13. Derecho                            8 semestres   SNIES 21405
+ 14. Tecnología en Investigación Criminal 6 semestres SNIES 52592
+
+Facultad de Artes
+ 15. Dirección y Producción de Cine y Televisión
+                                        8 semestres   SNIES 21399
+
+================================================================
+DETALLE POR CARRERA (semestres 1 a N)
+================================================================
+
+Los bloques con asignaturas salen de los planes de estudio 2025-2
+o de las fichas oficiales. Donde no se encontró el PDF completo,
+se indica solo el número de semestres.
+
+----------------------------------------------------------------
+1. ENFERMERÍA — 9 semestres — Presencial — Bogotá
+Título: Enfermero(a)  |  170 créditos  |  SNIES 51583
+Fuente: pre-enfermeria.pdf (2025-2)
+
+Semestre 1
+  Orientación a la Enfermería
+  Introducción a Cuidados Básicos de Enfermería
+  Lógica Matemática
+  Fundamentos Filosóficos de Terapias Alternativas
+  Biología
+  Química
+  Cátedra Manuela Beltrán
+  Anatomía y Fisiología Humana I
+  Inglés Inicial
+
+Semestre 2
+  Cuidados Básicos de Enfermería
+  Salud Pública
+  Filosofía
+  Anatomía y Fisiología Humana II
+  Comunicación Oral y Escrita
+  Psicología General
+  Química Orgánica
+  Fundamentos Científicos de Terapias Alternativas
+  Fundamentos de Investigación
+  Inglés Básico I
+
+Semestre 3
+  Inglés Básico II
+  Antropología Cultural
+  Estadística
+  Estrategias de Pensamiento
+  Semiología
+  Psicología Social en Enfermería
+  Enfermería Social y Comunitaria
+  Bioquímica
+  Teorías de la Medicina Tradicional China
+  Electiva
+
+Semestre 4
+  Ética
+  Inglés Pre-intermedio
+  Microbiología y Parasitología
+  Epidemiología
+  Comunicación y Educación en Salud
+  Investigación Cuantitativa
+  Propedéutica en Terapias Alternativas
+  Farmacología
+  Cuidado de Enfermería a la Mujer y al Recién Nacido
+  Terapia Transfusional y Pruebas de Laboratorio
+
+Semestre 5
+  Inglés Intermedio
+  Farmacología Específica
+  Investigación Cualitativa
+  Herbología, Salud y Nutrición
+  Práctica Mujer y Recién Nacido
+  Cuidado de Enfermería al Niño y al Adolescente
+  Psicología del Comportamiento Humano
+  Ética Profesional en Enfermería
+  Proyecto de Investigación I
+
+Semestre 6
+  Inglés Intermedio Alto
+  Educación Ambiental
+  Terapias Manuales General (Masaje Terapéutico)
+  Constitución Política
+  Modelos y Teorías en Enfermería
+  Práctica Enfermería al Niño y al Adolescente
+  Cuidado de Enfermería al Adulto
+  Proyecto de Investigación II
+
+Semestre 7
+  Cuidado de Enfermería al Adulto Mayor y Salud Mental
+  Legislación y Salud Ocupacional
+  Terapias Manuales específica (Reflexología)
+  Práctica Enfermería al Adulto
+  Inglés Avanzado
+  Proyecto de Investigación II
+  Cuidado de Enfermería al Adulto Crítico
+  Proyecto de Investigación III
+
+Semestre 8
+  Equipos de Diagnóstico en Terapias Alternativas
+  Práctica Enfermería al Adulto Mayor y Salud Mental
+  Administración y Gestión del Cuidado
+  Cuidado de Enfermería al Adulto Crítico
+  Proyecto de Investigación III
+  Desarrollo del Espíritu Emprendedor
+
+Semestre 9
+  Tratamiento Integral con Terapias Alternativas
+  Práctica Administración y Gestión del Cuidado
+  Proyecto de Investigación IV
+  Práctica Enfermería al Adulto Crítico
+  Electiva
+
+----------------------------------------------------------------
+2. FISIOTERAPIA — 9 semestres — Presencial — Bogotá
+Título: Profesional en Fisioterapia  |  182 créditos  |  SNIES 21365
+Fuente: pre-fisioterapia.pdf (2025-2)
+
+Semestres 1 a 9 (el plan oficial llega hasta 9.º).
+Asignaturas de apertura (1.º y 2.º):
+  Semestre 1: Orientación a la Fisioterapia, Inglés Inicial, Filosofía,
+    Biología, Química, Lógica Matemática, Anatomía y Fisiología Humana,
+    Fundamentos Filosóficos de las Terapias Alternativas,
+    Comunicación Oral y Escrita, Cátedra Manuela Beltrán
+  Semestre 2: Fundamentos Científicos de las Terapias Alternativas,
+    Química Orgánica, Estadística, Anatomía Osteomuscular, Física,
+    Neurofisiología Humana, Inglés Básico I, Antropología Cultural,
+    Fundamentos de Investigación
+  Semestres 3 a 8: prácticas, fisioterapia laboral, salud pública,
+    nutrición, actividad física y salud, administración y legislación.
+  Semestre 9: práctica final / cierre del plan (9 semestres).
+
+----------------------------------------------------------------
+3. FONOAUDIOLOGÍA — 9 semestres — Presencial — Bogotá
+Título: Fonoaudiólogo(a)  |  SNIES 21371
+Fuente: ficha umb.edu.co/programa/fonoaudiologia/ y pre-fonoaudiologia.pdf
+
+Semestres: 1, 2, 3, 4, 5, 6, 7, 8 y 9.
+
+----------------------------------------------------------------
+4. TERAPIA OCUPACIONAL — 9 semestres — Presencial — Bogotá
+Título: Terapeuta Ocupacional  |  162 créditos  |  SNIES 21372
+Fuente: pre-terapia-ocupacional.pdf (2025-2)
+
+Semestre 1
+  Biología, Orientación a la Terapia Ocupacional,
+  Fundamentos Conceptuales de Terapia Ocupacional,
+  Cátedra Manuela Beltrán, Química, Comunicación Oral y Escrita,
+  Lógica Matemática, Fundamentos Filosóficos de las Terapias Alternativas,
+  Anatomía y Fisiología Humana, Inglés Inicial
+
+Semestre 2
+  Física, Ocupación Humana, Dominios y Procesos de T.O., Ética, Filosofía,
+  Fundamentos Científicos de Terapias Alternativas, Fundamentos de Investigación,
+  Anatomía Osteomuscular, Inglés Básico I
+
+Semestre 3
+  Ciencia de la Ocupación, Neurodesarrollo y Neurorehabilitación,
+  Biomecánica de Movimiento y las Mediciones, Psicología General y del Desarrollo,
+  Antropología Cultural, Estadística, Teoría de la Medicina Tradicional Asiática,
+  Estrategias del Pensamiento, Neurofisiología Humana (Cerebro), Inglés Básico II
+
+Semestre 4
+  Análisis y Desempeño Ocupacional, Rehabilitación Clínica Integral,
+  Introducción a la Tecnología de Asistencia, Ética Profesional y Bioética Asiática,
+  T.O. en función y disfunción en el desarrollo y el aprendizaje, Psicopatología,
+  Rehabilitación de Miembro Superior, Propedéutica y Etiopatogenia de la MTA,
+  Investigación Cualitativa, Inglés Pre-intermedio
+
+Semestre 5
+  T.O. en función y disfunción física, T.O. en Sector Trabajo I,
+  Salud Mental y Disfunciones Psicosociales, Tecnología en Rehabilitación,
+  Práctica Educación, Terapias Manuales General, Investigación Cuantitativa,
+  Inglés Intermedio
+
+Semestre 6
+  T.O. en salud mental y bienestar psicosocial, T.O. en Sector Trabajo II,
+  Práctica Disfunción Física, Terapias Manuales Específica,
+  Proyecto de Investigación I, Salud Pública, Inglés Intermedio Alto
+
+Semestre 7
+  Ergonomía y Ocupación, Ocupación Humana, Diversidad y Desarrollo Social,
+  Práctica Salud Mental, Profundización en T.O., Desarrollo Proyectos en Salud,
+  Herbología, Salud y Nutrición, Proyecto de Investigación II, Inglés Avanzado,
+  Electiva, Administración y Legislación en Salud
+
+Semestre 8
+  Terapia Ocupacional en Comunidad, Tecnología, Ocupación e Interdisciplinariedad,
+  Práctica Empresarial, Equipos, diagnósticos y tratamiento en terapias alternativas,
+  Proyecto de Investigación III
+
+Semestre 9
+  Práctica en Comunidad, Envejecimiento y Ocupación, Constitución Política,
+  Educación Ambiental, Desarrollo del Espíritu Emprendedor,
+  Tratamiento Integral con Terapias Alternativas, Proyecto de Investigación IV
+
+----------------------------------------------------------------
+5. TERAPIA RESPIRATORIA — 8 semestres — Presencial — Bogotá
+Título: Terapeuta Respiratorio(a)  |  157 créditos  |  SNIES 111607
+Fuente: pre-terapia-respiratoria.pdf (2025-2)
+
+Semestre 1
+  Orientación a la Terapia Respiratoria, Cátedra Manuela Beltrán,
+  Comunicación Oral y Escrita, Biología, Lógica Matemática, Química,
+  Fundamentos de Terapias Alternativas, Anatomía y Fisiología Humana,
+  Taller Investigación I, Inglés Inicial
+
+Semestre 2
+  Antropología, Filosofía, Bioquímica, Física, Estadística,
+  Teoría de la Medicina Tradicional Asiática, Taller de Investigación II,
+  Anatomía Osteomuscular, Infectología e Inmunología, Inglés Básico I
+
+Semestre 3
+  Fisiología Cardiorrespiratoria, Psicología General y del Desarrollo,
+  Semiología General, Ética, Propedéutica y Etiopatogenia de la Medicina Tradicional,
+  Microbiología y Pruebas de Laboratorio, Taller de Investigación III,
+  Neurofisiología Humana (Cerebro), Inglés Básico II
+
+Semestre 4
+  Cardiología, Fisiología del Ejercicio, Neumología Neonatal y Pediatría,
+  Cuidado Cardio-Respiratorio Básico, Terapias Manuales General,
+  Taller de Investigación IV, Salud Comunitaria, Ética Profesional,
+  Geriatría, Constitución Política, Inglés Pre-intermedio
+
+Semestre 5
+  Bioingeniería del Cuidado Cardiorrespiratorio, Farmacología en T.R.,
+  Neumología, Cardiología II, Terapias Manuales Específica,
+  Proyecto de Investigación I, Práctica I (Comunitaria), Inglés Intermedio
+
+Semestre 6
+  Rehabilitación Cardiopulmonar y Laboratorio, Herbología, Salud y Nutrición,
+  Otorrinolaringología, Proyecto de Investigación II, Salud Respiratoria Ocupacional,
+  Inglés Intermedio Alto, Nefrología, Práctica II (Urgencias y Consulta Externa)
+
+Semestre 7
+  Cuidado Avanzado Cardiorrespiratorio, Práctica III (Rehabilitación y Laboratorio),
+  Seminario Cuidado Cardiorrespiratorio, Equipos de Diagnóstico y Tratamiento
+  de Terapias Alternativas, Proyecto de Investigación III, Salud Pública,
+  Electiva, Inglés Avanzado
+
+Semestre 8
+  Cuidado Cardiovascular, Práctica IV (UCI), Desarrollo del Espíritu Emprendedor,
+  Electiva, Tratamiento Integral con Terapias Alternativas, Educación Ambiental,
+  Administración y Legislación en Salud, Proyecto de Investigación IV
+
+----------------------------------------------------------------
+6. INGENIERÍA DE SOFTWARE — 8 semestres — Presencial — Bogotá
+Título: Ingeniero(a) de Software  |  156 créditos  |  SNIES 103897
+Fuente: pre-ingenieria-de-software.pdf (2025-2)
+
+Semestre 1
+  Orientación a la Ingeniería, Lógica de Programación, Procesos de Software,
+  Taller de Estrategias del Pensamiento, Matemáticas Básicas, Álgebra Lineal,
+  Física Mecánica y Lab, Inglés Inicial, Cátedra Manuela Beltrán,
+  Comunicación Oral y Escrita
+
+Semestre 2
+  Programación Orientada a Objetos, Ingeniería de Requisitos de Software,
+  Arquitectura de Hardware, Taller de Fundamentos de Investigación,
+  Cálculo Diferencial, Matemáticas Discretas, Física Electromagnética y Lab,
+  Inglés Básico I, Electiva I
+
+Semestre 3
+  Estructuras de datos / programación, Probabilidad, Inglés Básico II
+  (detalle completo en el PDF oficial)
+
+Semestre 4
+  Taller de Programación, Patrones y Metodologías de la Construcción del Software,
+  Interfaces, Costos y Presupuesto, Bases de Datos, Cloud Infrastructure,
+  Taller de Investigación Cuantitativa, Ecuaciones Diferenciales, Inglés Preintermedio
+
+Semestre 5
+  Proyecto de Investigación, Métodos Numéricos, materias de profundización
+
+Semestre 6
+  Estándares y Métricas de Calidad del Software, Legislación Informática,
+  Inteligencia de Negocios, Ciencia de Datos, Sistemas Operativos,
+  Proyecto de Investigación, Inglés Intermedio Alto, Educación Ambiental
+
+Semestre 7
+  Computación Móvil, Pruebas de Software, Datos, Sistemas Transaccionales,
+  Distribuidos, Proyecto de Investigación III, Inglés Avanzado
+
+Semestre 8
+  Desarrollo de Software Seguro, Gerencia de Proyectos de Software,
+  Práctica Empresarial, Inteligencia Artificial, Nuevas Tecnologías de Desarrollo,
+  Proyecto IV, Ética
+
+----------------------------------------------------------------
+7. INGENIERÍA BIOMÉDICA — 8 semestres — Presencial — Bogotá
+Título: Ingeniero(a) Biomédico  |  SNIES 21390
+Fuente: umb.edu.co/programa/ingenieria-biomedica/
+
+Semestres: 1, 2, 3, 4, 5, 6, 7 y 8.
+Incluye proyectos de investigación aplicada desde 5.º hasta 8.º
+y práctica empresarial en 8.º semestre.
+
+----------------------------------------------------------------
+8. INGENIERÍA MECATRÓNICA — 8 semestres — Presencial — Bogotá
+Título: Ingeniero(a) Mecatrónico(a)  |  146 créditos  |  SNIES 109664
+Fuente: pre-ingenieria-mecatronica.pdf (2025-2)
+
+Semestres: 1, 2, 3, 4, 5, 6, 7 y 8.
+
+----------------------------------------------------------------
+9. INGENIERÍA INDUSTRIAL — 8 semestres — Presencial — Bogotá
+Título: Ingeniero(a) Industrial  |  147 créditos  |  SNIES 21366
+Fuente: PEF Facultad de Ingeniería 2022 (umb.edu.co/pdf/pef/Ingenieria.pdf)
+        Resolución MEN 011576 del 23 de junio de 2022 (de 10 a 8 semestres)
+
+Semestres: 1, 2, 3, 4, 5, 6, 7 y 8.
+También aparece en PEP-Pregrados presenciales Bogotá.
+El sitio de pregrados 2026 enfatiza otras ingenierías; confirmar cupos
+de admisión presencial en Bogotá con Admisiones UMB.
+
+----------------------------------------------------------------
+10. INGENIERÍA AMBIENTAL — verificar modalidad
+Título: Ingeniero(a) Ambiental  |  SNIES 21389
+Fuentes mixtas:
+  - PEP-Pregrados presenciales Bogotá / Cajicá
+  - Ficha actual umb.edu.co/programa/ingenieria-ambiental/ : Virtual, 8 semestres, 148 créditos
+  - Listados antiguos: Presencial, 10 semestres
+
+Semestres según ficha vigente en web (virtual): 1 a 8.
+Si se ofrece aún presencial en Bogotá, confirmar duración (8 o 10) en Admisiones.
+
+----------------------------------------------------------------
+11. PSICOLOGÍA — 10 semestres — Presencial — Bogotá
+Título: Psicólogo(a)  |  177 créditos  |  SNIES 21368
+Fuente: pre-psicologia.pdf (2025-2) y umb.edu.co/programa/psicologia/
+
+Semestre 1
+  Orientación a la Psicología, Historial del Pensamiento de la Psicología,
+  Comunicación Oral y Escrita, Sensación y Percepción, Biología,
+  Lógica Matemática, Inglés Inicial, Filosofía, Ética, Cátedra Manuela Beltrán
+
+Semestre 2
+  Epistemología, Genética, Atención y Memoria, Motivación y Emoción,
+  Neuroanatomía, Estadística, Fundamentos de Investigación, Inglés Básico I,
+  Antropología Cultural, Educación Ambiental
+
+Semestre 3
+  Conductual-Cognitiva, Pensamiento y Lenguaje, Neurofisiología de la Psicología,
+  Psicometría, Psicología del Niño, Estrategias de Pensamiento, Inglés Básico II,
+  Electiva I, Constitución Política
+
+Semestre 4
+  Psicoanálisis, Psicología de la Personalidad, Neurociencias,
+  Inteligencia y Creatividad, Investigación Cuantitativa, Inglés Pre-intermedio,
+  Psicología del Aprendizaje, Psicología de la Adolescencia,
+  Desarrollo del Espíritu Emprendedor
+
+Semestre 5
+  Psicología Humanista, Psicopatología del Niño y el Adolescente, Entrevista,
+  Pruebas Psicológicas, Psicología del Adulto y del Anciano,
+  Investigación Cualitativa, Inglés Intermedio, Psicología Social
+
+Semestre 6
+  Sistémico, Psicopatología Adulto y Anciano, Psicología Educativa,
+  Psicología y Mundo Contemporáneo, Psicología del Deporte,
+  Proyecto de Investigación I, Inglés Intermedio Alto, Electiva II
+
+Semestre 7
+  Neuropsicología, Ética en Psicología, Proyecto de Investigación II,
+  Psicología Clínica, Psicología Comunitaria, Psicofarmacología, Inglés Avanzado
+
+Semestre 8
+  Psicología Transpersonal, Psicología de la Salud, Psicología Jurídica,
+  Psicología Organizacional, Proyecto de Investigación III
+
+Semestre 9
+  Práctica Profesional I (14 créditos)
+  Seminario de Profundización I
+  Proyecto de Investigación IV
+
+Semestre 10
+  Práctica Profesional II (14 créditos)
+  Seminario de Profundización II
+
+----------------------------------------------------------------
+12. PROFESIONAL EN CIENCIAS DEL DEPORTE — 8 semestres — Presencial — Bogotá
+Título: Profesional en Ciencias del Deporte  |  140 créditos  |  SNIES 106870
+Fuente: pre-profesional-en-ciencias-del-deporte.pdf (2025-2)
+
+Semestre 1
+  Inglés Inicial, Biología, Orientación a las Ciencias del Deporte,
+  Lógica Matemática, Cátedra Manuela Beltrán, Comunicación Oral y Escrita,
+  Fundamentos Gimnasia Básica, Educación Ambiental, Fundamentos de Investigación,
+  Juego, Lúdica y Recreación
+
+Semestre 2
+  Química, Teoría y Práctica del Atletismo, Deporte y Sociedad, Inglés Básico I,
+  Estadística, Teoría y Práctica de Taekwondo, Estrategias del Pensamiento,
+  Antropología Cultural, Constitución Política
+
+Semestre 3
+  Anatomía y Fisiología Humana, Bioquímica del Deporte, Inglés Básico II,
+  Investigación Cualitativa, Teoría y Práctica de la Natación,
+  Teoría y Práctica del Tenis de Campo, Pedagogía del Deporte
+
+Semestre 4
+  Teoría y Metodología del Entrenamiento Deportivo, Fisiología del Deporte,
+  Inglés Pre intermedio, Física Aplicada, Teoría y Práctica del Golf,
+  Visión Administrativa y Empresarial, Investigación Cuantitativa, Ética,
+  Cátedra Olímpica
+
+Semestre 5
+  Selección de Talentos Deportivos, Inglés Intermedio, Psicología del Aprendizaje Motor,
+  Electiva I, Cerebro, Biomecánica del Deporte, Marketing Deportivo,
+  Teoría y Práctica del Fútbol, Proyecto de Investigación I
+
+Semestre 6
+  Sistemas de Planificación del Entrenamiento, Psicología del Deporte,
+  Inglés Intermedio Alto, Actividad Física y Fitness, Teoría y Práctica del Baloncesto,
+  Liderazgo y Creación de Equipos de Alto Desempeño, Proyecto de Investigación II,
+  Práctica Profesional I
+
+Semestre 7
+  Inglés Avanzado I, Proyecto de Investigación III, Nutrición y Deporte,
+  Actividad Física y Deporte para personas con Discapacidad,
+  Teoría y Práctica del Voleibol, Seguimiento y Control del Entrenamiento,
+  Desarrollo de la Industria Deportiva, Práctica Profesional II
+
+Semestre 8
+  Práctica Profesional III, Proyecto de Investigación IV, Nuevas Tendencias Deportivas,
+  Medicina del Deporte, Derecho Deportivo,
+  Tecnologías Aplicadas a la Actividad Física y el Deporte, Electiva II
+
+----------------------------------------------------------------
+13. DERECHO — 8 semestres — Presencial — Bogotá
+Título: Abogado(a)  |  156 créditos  |  SNIES 21405
+Fuente: pre-derecho.pdf (2025-2) y umb.edu.co/programa/derecho/
+
+Semestre 1
+  Inglés inicial, Constitucional general, Filosofía del derecho,
+  Derecho civil personas, Derecho Romano, Oralidad y argumentación,
+  Introducción al derecho, Taller de fundamentos de investigación,
+  Cátedra Manuela Beltrán
+
+Semestre 2
+  Derecho bienes civiles y mercantiles, Taller estrategias de pensamiento,
+  Constitucional General II, Inglés básico I, Sociología Jurídica,
+  Derecho penal general I, Derecho laboral individual, Electiva
+
+Semestre 3
+  Inglés básico II, Constitucionalismo colombiano I, Derecho Comercial general,
+  Derecho Obligaciones, Taller investigación cualitativa, Derecho laboral colectivo,
+  Derecho Penal general II, Instituciones procesales I, Electiva
+
+Semestre 4
+  Seguridad Social, Instituciones procesales II, Derecho Civil Contratos,
+  Taller investigación cuantitativa, Constitucionalismo colombiano II,
+  Derecho Penal especial, Inglés Pre intermedio, Contratos comerciales,
+  Ética y valores profesionales I
+
+Semestre 5
+  Proyectos de investigación I, Derecho comercial sociedades, Inglés intermedio,
+  Derecho Procesal Civil Especial, Derecho Ambiental, Derecho administrativo General,
+  Derecho penal especial II, Derecho Procesal laboral, Derecho Familia y del menor
+
+Semestre 6
+  Inglés Intermedio Alto, Derecho procesal Penal, Derecho Administrativo Colombiano,
+  Proyecto de investigación II, Derecho Procesal Constitucional,
+  Derecho Civil Sucesiones, Títulos Valores, Consultorio Jurídico Clínicas, Probatorio
+
+Semestre 7
+  Mecanismos Alternativos para la solución de conflictos, Inglés avanzado,
+  Derecho Contencioso administrativo, Ética y valores profesionales II,
+  Responsabilidad Civil, Derecho Internacional Privado, Derecho Internacional Público,
+  Consultorio Jurídico Prácticas, Consultorio Jurídico A, Proyecto de Investigación III
+
+Semestre 8
+  Contratos Estatales, Derecho Propiedad Intelectual, Derechos Humanos y DIH,
+  Derecho Hacienda Pública, Derecho Tributario, Consultorio Jurídico B,
+  Derecho Constitucional Comparado, Derecho Comercial comparado,
+  Proyecto de Investigación IV
+
+----------------------------------------------------------------
+14. TECNOLOGÍA EN INVESTIGACIÓN CRIMINAL — 6 semestres — Presencial — Bogotá
+Título: Tecnólogo(a) en Investigación Criminal  |  108 créditos  |  SNIES 52592
+Fuente: pre-tecnologia-en-investigacion-criminal.pdf (2025-2)
+
+Semestre 1
+  Introducción al Derecho, Informática Aplicada a la Investigación Criminal,
+  Lofoscopia, Topografía y Dibujo, Actuaciones Policía Judicial, Inglés Inicial,
+  Taller Fundamento de Investigación, Cátedra Manuela Beltrán
+
+Semestre 2
+  Derecho Penal General, Constitución Política, Taller Estrategias del Pensamiento,
+  Antropología Cultural, Filosofía, Caracterización y Disfraz,
+  Grafología y Documentología, Inglés Básico I, Fotografía y Vídeo Forense
+
+Semestre 3
+  Taller Investigación Cualitativa, Administración Lugar de los Hechos,
+  Química Forense, Medicina Legal, Inglés Básico II, Psicología Forense,
+  Derecho Penal Especial, Antropología Forense, Procedimientos Investigativos Básicos
+
+Semestre 4
+  Balística Forense, Probatorio, Inglés Pre-Intermedio, Taller Investigación Cuantitativa,
+  Biología y Genética Forense, Técnicas de Entrevista e Interrogatorio,
+  Física Forense, Automotores
+
+Semestre 5
+  Profundización I, Derecho Procesal Penal, Criminología, Victimología y Penología,
+  Emprendimiento y Creación de Empresa, Procedimientos Investigativos Especiales,
+  Proyecto de Aplicación I
+
+Semestre 6
+  Ética Profesional del Derecho, Política Criminal, Aspectos Civiles,
+  Proyecto de Aplicación II, Profundización II
+
+----------------------------------------------------------------
+15. DIRECCIÓN Y PRODUCCIÓN DE CINE Y TELEVISIÓN — 8 semestres — Presencial — Bogotá
+Título: Profesional en Dirección y Producción Cine y TV  |  158 créditos  |  SNIES 21399
+Fuente: umb.edu.co/programa/direccion-y-produccion-de-cine-y-television/
+
+Semestres: 1, 2, 3, 4, 5, 6, 7 y 8.
+El programa declara formación en posproducción y animación a lo largo
+de los 8 semestres, más práctica empresarial.
+
+Áreas del plan: guion y dirección, producción y gestión, fotografía y arte,
+diseño sonoro, posproducción y animación.
+
+================================================================
+NO INCLUIDAS (no son pregrado presencial Bogotá)
+================================================================
+- Técnicos y tecnologías virtuales (operación gastronómica, gestión administrativa, etc.)
+- Posgrados, especializaciones, maestrías y doctorado
+- Programas de Bucaramanga (Diseño de Moda, Administración de Empresas, etc.)
+- Ingeniería Ambiental virtual (misma denominación SNIES 21389; modalidad distinta)
+
+================================================================
+NOTA PARA EL SISTEMA DE ASISTENCIA
+================================================================
+Para el campo "semestre" del perfil de estudiante, los valores posibles
+según esta oferta presencial Bogotá son: 1 a 10.
+(Máximo: Psicología, 10 semestres. Tecnología criminal: hasta 6.)

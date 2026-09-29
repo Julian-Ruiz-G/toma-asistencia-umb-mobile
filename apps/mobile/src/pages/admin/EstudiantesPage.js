@@ -16,21 +16,33 @@ import {
 } from 'lucide-react-native';
 
 import OverlayDismiss from '../../components/OverlayDismiss';
+import FilterActiveBanner from '../../components/FilterActiveBanner';
 import { Button } from '../../components/Button';
 import { COLORS } from '../../ui/theme';
 import { useColors } from '../../ui/ThemeContext';
 import { ADMIN_DELETE_STUDENT_URL, ADMIN_STUDENTS_URL, ADMIN_STUDENTS_BY_CLASS_URL, ADMIN_UPDATE_STUDENT_URL } from '../../config';
 import { useAuth } from '../../state/auth';
 import { prettyLabel } from '../../utils/adminDashboard';
+import { sameProgram } from '../../utils/programs';
+import { sameSemester, semesterTitle } from '../../components/AdminInsightDrill';
 import { gapsLabel, requestProfileCompletion, studentGaps } from '../../utils/profileGaps';
 import { AdminNavButtons, useAdminDrawer } from '../../components/AdminDrawer';
 
-export default function EstudiantesPage({ navigation }) {
+function normalizeEmails(raw) {
+  if (raw == null) return [];
+  const list = Array.isArray(raw) ? raw : String(raw).split(',');
+  return [...new Set(list.map((e) => String(e || '').trim().toLowerCase()).filter(Boolean))];
+}
+
+export default function EstudiantesPage({ navigation, route }) {
   const COLORS = useColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const { drawer, openDrawer, goBack } = useAdminDrawer(navigation, 'AdminStudents');
   const { authToken } = useAuth();
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(String(route?.params?.query || ''));
+  const [programFilter, setProgramFilter] = useState(String(route?.params?.program || ''));
+  const [semesterFilter, setSemesterFilter] = useState(String(route?.params?.semester || ''));
+  const [emailFilter, setEmailFilter] = useState(normalizeEmails(route?.params?.emails));
   const [currentPage, setCurrentPage] = useState(1);
   const [students, setStudents] = useState([]);
   const [studentsByClass, setStudentsByClass] = useState([]);
@@ -41,6 +53,10 @@ export default function EstudiantesPage({ navigation }) {
 
   // Se recarga al volver a la pantalla (p. ej. después de crear un estudiante).
   useFocusEffect(useCallback(() => {
+    if (route?.params?.query != null) setSearchQuery(String(route.params.query || ''));
+    if (route?.params?.program != null) setProgramFilter(String(route.params.program || ''));
+    if (route?.params?.semester != null) setSemesterFilter(String(route.params.semester || ''));
+    if (route?.params?.emails != null) setEmailFilter(normalizeEmails(route.params.emails));
     (async () => {
       try {
         if (!authToken) return;
@@ -98,22 +114,27 @@ export default function EstudiantesPage({ navigation }) {
         // ignore
       }
     })();
-  }, [authToken]));
+  }, [authToken, route?.params?.query, route?.params?.program, route?.params?.semester, route?.params?.emails]));
 
   const itemsPerPage = 5;
 
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    if (!q) return students;
-    return students.filter((s) =>
-      s.firstName.toLowerCase().includes(q) ||
-      s.lastName.toLowerCase().includes(q) ||
-      s.code.includes(q) ||
-      s.email.toLowerCase().includes(q) ||
-      String(s.program || '').toLowerCase().includes(q) ||
-      String(s.semester || '').toLowerCase().includes(q)
-    );
-  }, [searchQuery, students]);
+    return students.filter((s) => {
+      if (emailFilter.length && !emailFilter.includes(String(s.email || '').toLowerCase())) return false;
+      if (programFilter && !sameProgram(s.program, programFilter) && !String(s.program || '').toLowerCase().includes(String(programFilter).toLowerCase())) return false;
+      if (semesterFilter && !sameSemester(s.semester, semesterFilter)) return false;
+      if (!q) return true;
+      return (
+        s.firstName.toLowerCase().includes(q) ||
+        s.lastName.toLowerCase().includes(q) ||
+        s.code.includes(q) ||
+        s.email.toLowerCase().includes(q) ||
+        String(s.program || '').toLowerCase().includes(q) ||
+        String(s.semester || '').toLowerCase().includes(q)
+      );
+    });
+  }, [searchQuery, students, programFilter, semesterFilter, emailFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / itemsPerPage));
   const page = Math.min(currentPage, totalPages);
@@ -242,6 +263,24 @@ export default function EstudiantesPage({ navigation }) {
       </View>
 
       <ScrollView contentContainerStyle={styles.body}>
+        {programFilter || semesterFilter || emailFilter.length ? (
+          <View style={{ marginBottom: 12 }}>
+            <FilterActiveBanner
+              label={[
+                programFilter ? prettyLabel(programFilter) : null,
+                semesterFilter ? semesterTitle(semesterFilter) : null,
+                !programFilter && !semesterFilter && emailFilter.length ? 'Estudiantes de este docente' : null,
+                `${filtered.length} ${filtered.length === 1 ? 'estudiante' : 'estudiantes'}`,
+              ].filter(Boolean).join(' · ')}
+              onClear={() => {
+                setProgramFilter('');
+                setSemesterFilter('');
+                setEmailFilter([]);
+                setCurrentPage(1);
+              }}
+            />
+          </View>
+        ) : null}
         <View style={styles.statsRow}>
           <View style={styles.statsCard}>
             <View style={[styles.statsIcon, { backgroundColor: COLORS.surface }]}>

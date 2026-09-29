@@ -123,6 +123,11 @@ def handle_admin_classes(event, body):
         session_items = _ddb_scan_all('#T = :t', {'#T': 'Type'}, {':t': {'S': 'AttendanceSession'}})
         attendance_items = _ddb_scan_all('#T = :t', {'#T': 'Type'}, {':t': {'S': 'Attendance'}})
         teacher_items = _ddb_scan_all('#R = :r', {'#R': 'Role'}, {':r': {'S': 'teacher'}})
+        student_items = _ddb_scan_all(
+            '(#R = :r) OR (#T = :t)',
+            {'#R': 'Role', '#T': 'Type'},
+            {':r': {'S': 'student'}, ':t': {'S': 'Student'}},
+        )
     except Exception as e:
         logger.exception('DynamoDB scan failed (admin-classes)')
         return _response(500, {'error': 'DynamoDBScanFailed', 'details': str(e)})
@@ -133,15 +138,31 @@ def handle_admin_classes(event, body):
         if te:
             teacher_names[te] = _ddb_s(t, 'FullName') or None
 
+    student_by_email = {}
+    for it in student_items:
+        email = (_ddb_s(it, 'Email') or '').strip().lower()
+        if not email:
+            continue
+        student_by_email[email] = {
+            'name': _display_person_name(_ddb_s(it, 'FullName')) or None,
+            'code': _ddb_s(it, 'StudentCode') or None,
+            'program': _first_s(it, 'Program', 'Carrera', 'Career') or None,
+            'semester': _first_s(it, 'Semester', 'Semestre') or None,
+        }
+
     students_by_class = {}
     for en in enroll_items:
         cid = (_ddb_s(en, 'ClassId') or '').strip()
         if not cid:
             continue
+        email = (_ddb_s(en, 'StudentEmail') or '').strip().lower() or None
+        extra = student_by_email.get(email) or {}
         students_by_class.setdefault(cid, []).append({
-            'email': (_ddb_s(en, 'StudentEmail') or '').strip().lower() or None,
-            'name': _display_person_name(_ddb_s(en, 'StudentName')) or None,
-            'code': _ddb_s(en, 'StudentCode') or None,
+            'email': email,
+            'name': _display_person_name(_ddb_s(en, 'StudentName')) or extra.get('name') or None,
+            'code': _ddb_s(en, 'StudentCode') or extra.get('code') or None,
+            'program': extra.get('program'),
+            'semester': extra.get('semester'),
         })
 
     sessions_by_class = {}
@@ -189,6 +210,7 @@ def handle_admin_classes(event, body):
             'teacherName': teacher_names.get(te),
             'studentsCount': len(roster),
             'students': roster,
+            'programs': _count_by(s.get('program') for s in roster),
             'sessionsCount': len(dates),
             'lastSessionDate': dates[-1] if dates else None,
             'attendance': {

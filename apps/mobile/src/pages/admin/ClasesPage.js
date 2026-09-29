@@ -14,11 +14,16 @@ import { useFocusEffect } from '@react-navigation/native';
 import { BookOpen, Calendar, MapPin, Search, Users, X } from 'lucide-react-native';
 
 import { AdminNavButtons, useAdminDrawer } from '../../components/AdminDrawer';
+import FilterActiveBanner from '../../components/FilterActiveBanner';
+import SelectMenu from '../../components/SelectMenu';
 import { ADMIN_CLASSES_URL } from '../../config';
 import { useAuth } from '../../state/auth';
 import { useColors } from '../../ui/ThemeContext';
 import { personDisplayName } from '../../utils/displayName';
 import { colombiaDateLongFromYmd } from '../../utils/formatDateTime';
+import { prettyLabel } from '../../utils/adminDashboard';
+import { FACULTIES, classProgramLabels, classTouchesProgram } from '../../utils/programs';
+import { sameSemester, semesterTitle } from '../../components/AdminInsightDrill';
 import { formatScheduleFriendly, formatScheduleLines } from '../../utils/schedule';
 
 const FILTERS = [
@@ -30,11 +35,11 @@ const FILTERS = [
 
 function matches(cls, q) {
   if (!q) return true;
-  return [cls.className, cls.group, cls.subjectCode, cls.teacherName, cls.teacherEmail, cls.room]
+  return [cls.className, cls.group, cls.subjectCode, cls.teacherName, cls.teacherEmail, cls.room, classProgramLabels(cls).join(' ')]
     .some((v) => String(v || '').toLowerCase().includes(q));
 }
 
-export default function ClasesPage({ navigation }) {
+export default function ClasesPage({ navigation, route }) {
   const COLORS = useColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const { drawer, openDrawer, goBack } = useAdminDrawer(navigation, 'AdminClasses');
@@ -42,8 +47,11 @@ export default function ClasesPage({ navigation }) {
   const [classes, setClasses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(String(route?.params?.query || ''));
   const [filter, setFilter] = useState('all');
+  const [program, setProgram] = useState(String(route?.params?.program || ''));
+  const [teacherEmail, setTeacherEmail] = useState(String(route?.params?.teacherEmail || ''));
+  const [semester, setSemester] = useState(String(route?.params?.semester || ''));
   const [selected, setSelected] = useState(null);
 
   const load = useCallback(async () => {
@@ -76,18 +84,53 @@ export default function ClasesPage({ navigation }) {
     }
   }, [authToken]);
 
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  useFocusEffect(useCallback(() => {
+    if (route?.params?.program != null) setProgram(String(route.params.program || ''));
+    if (route?.params?.teacherEmail != null) setTeacherEmail(String(route.params.teacherEmail || ''));
+    if (route?.params?.semester != null) setSemester(String(route.params.semester || ''));
+    if (route?.params?.query != null) setQuery(String(route.params.query || ''));
+    load();
+  }, [load, route?.params?.program, route?.params?.teacherEmail, route?.params?.semester, route?.params?.query]));
+
+  const programOptions = useMemo(() => {
+    const countOf = (name) => classes.filter((c) => classTouchesProgram(c, name)).length;
+    const known = new Set();
+    const options = [{ id: '', label: 'Todas las carreras', meta: String(classes.length) }];
+    for (const faculty of FACULTIES) {
+      for (const p of faculty.programs) {
+        known.add(p.name);
+        options.push({ id: p.name, label: p.name, meta: String(countOf(p.name)), group: faculty.name });
+      }
+    }
+    for (const c of classes) {
+      for (const name of classProgramLabels(c)) {
+        if (!known.has(name)) {
+          known.add(name);
+          options.push({ id: name, label: prettyLabel(name), meta: String(countOf(name)), group: 'Otros' });
+        }
+      }
+    }
+    return options;
+  }, [classes]);
+
+  const hasProgramData = useMemo(
+    () => classes.some((c) => classProgramLabels(c).length > 0),
+    [classes]
+  );
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return classes.filter((c) => {
       if (!matches(c, q)) return false;
+      if (program && hasProgramData && !classTouchesProgram(c, program)) return false;
+      if (teacherEmail && String(c.teacherEmail || '').toLowerCase() !== String(teacherEmail).toLowerCase()) return false;
+      if (semester && !(c.students || []).some((s) => sameSemester(s.semester, semester))) return false;
       if (filter === 'withStudents') return c.studentsCount > 0;
       if (filter === 'empty') return !c.studentsCount;
       if (filter === 'lowAttendance') return c.attendance?.rate != null && c.attendance.rate < 70;
       return true;
     });
-  }, [classes, query, filter]);
+  }, [classes, query, filter, program, hasProgramData, teacherEmail, semester]);
 
   const totals = useMemo(() => ({
     classes: classes.length,
@@ -133,15 +176,40 @@ export default function ClasesPage({ navigation }) {
             );
           })}
         </ScrollView>
+        <SelectMenu
+          options={programOptions}
+          value={program}
+          onChange={(id) => setProgram(id || '')}
+          placeholder="Filtrar por carrera"
+        />
+        {program || teacherEmail || semester ? (
+          <FilterActiveBanner
+            label={[
+              program ? prettyLabel(program) : null,
+              semester ? semesterTitle(semester) : null,
+              teacherEmail ? 'Este docente' : null,
+              `${filtered.length} ${filtered.length === 1 ? 'clase' : 'clases'}`,
+            ].filter(Boolean).join(' · ')}
+            onClear={() => {
+              setProgram('');
+              setTeacherEmail('');
+              setSemester('');
+            }}
+          />
+        ) : (
+          <Text style={styles.filterHint}>Elige una carrera para ver solo sus clases. Una misma clase puede tener estudiantes de varias carreras.</Text>
+        )}
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
         {loading && classes.length === 0 ? <ActivityIndicator style={{ marginTop: 24 }} color={COLORS.primary} /> : null}
         {!loading && !error && filtered.length === 0 ? (
-          <Text style={styles.empty}>{classes.length ? 'Ninguna clase coincide con la búsqueda.' : 'Aún no hay clases creadas.'}</Text>
+          <Text style={styles.empty}>{classes.length ? (program ? `Ninguna clase tiene estudiantes de ${prettyLabel(program)}.` : 'Ninguna clase coincide con la búsqueda.') : 'Aún no hay clases creadas.'}</Text>
         ) : null}
 
         {filtered.map((c) => {
           const schedule = formatScheduleFriendly(c);
+          const programs = classProgramLabels(c);
+          const mixed = programs.length > 1;
           return (
             <Pressable key={c.classId} onPress={() => setSelected(c)} style={styles.card}>
               <View style={styles.cardTop}>
@@ -158,6 +226,11 @@ export default function ClasesPage({ navigation }) {
                 </View>
                 {c.subjectCode ? <Text style={styles.code}>{c.subjectCode}</Text> : null}
               </View>
+              {programs.length ? (
+                <Text style={styles.programLine} numberOfLines={2}>
+                  {mixed ? `Varias carreras · ${programs.join(', ')}` : programs[0]}
+                </Text>
+              ) : null}
               {schedule || c.room ? (
                 <Text style={styles.schedule} numberOfLines={2}>
                   {[schedule, c.room ? `Salón ${c.room}` : ''].filter(Boolean).join(' · ')}
@@ -255,13 +328,20 @@ function ClassDetailModal({ cls, onClose, styles, COLORS }) {
                 <Users size={16} color={COLORS.icon} />
                 <Text style={styles.detailLabel}>Estudiantes inscritos ({cls.studentsCount})</Text>
               </View>
+              {classProgramLabels(cls).length > 1 ? (
+                <Text style={[styles.meta, { marginBottom: 8 }]}>
+                  Esta clase reúne {classProgramLabels(cls).length} carreras: {classProgramLabels(cls).join(', ')}.
+                </Text>
+              ) : null}
               {(cls.students || []).length === 0 ? (
                 <Text style={styles.detailText}>Nadie se ha unido a esta clase.</Text>
               ) : (
                 cls.students.map((s, i) => (
                   <View key={s.email || i} style={[styles.studentRow, i > 0 ? styles.studentDivider : null]}>
                     <Text style={styles.studentName}>{personDisplayName(s.name, s.email || 'Estudiante')}</Text>
-                    <Text style={styles.meta}>{[s.code, s.email].filter(Boolean).join(' · ')}</Text>
+                    <Text style={styles.meta}>
+                      {[s.code, prettyLabel(s.program, ''), s.semester ? `Semestre ${String(s.semester).match(/\d+/)?.[0] || s.semester}` : '', s.email].filter(Boolean).join(' · ')}
+                    </Text>
                   </View>
                 ))
               )}
@@ -283,6 +363,8 @@ const createStyles = (COLORS) => StyleSheet.create({
   searchWrap: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10 },
   searchInput: { flex: 1, color: COLORS.text },
   pillsRow: { gap: 8 },
+  filterHint: { color: COLORS.muted, fontSize: 12, fontWeight: '700', lineHeight: 18 },
+  programLine: { marginTop: 8, color: COLORS.textSecondary, fontSize: 12, fontWeight: '700' },
   pill: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border },
   pillActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
   pillText: { color: COLORS.muted, fontWeight: '900', fontSize: 12 },
