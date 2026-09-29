@@ -625,6 +625,9 @@ def handle_confirm_attendance_photo(event, body):
         return _response(500, {'error': 'DetectFacesFailed', 'details': str(e)})
 
     face_count = len(face_details)
+    unavailable = _group_photo_unavailable(face_count, img)
+    if unavailable:
+        return unavailable
     present_set = set()
 
     def _search_best_email(img_bytes: bytes) -> str | None:

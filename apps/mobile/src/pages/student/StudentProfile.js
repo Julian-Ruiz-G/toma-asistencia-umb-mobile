@@ -187,7 +187,7 @@ export default function StudentProfile({ navigation, route }) {
     }
     const semesterNum = Number(nextSemester);
     if (!Number.isInteger(semesterNum) || semesterNum < 1 || semesterNum > programInfo.semesters) {
-      appAlert('Semestre', `Para ${programInfo.name} el semestre debe estar entre 1 y ${programInfo.semesters}.`);
+      appAlert('Semestre en curso', `Para ${programInfo.name} el semestre en curso debe estar entre 1 y ${programInfo.semesters}.`);
       return;
     }
 
@@ -330,7 +330,7 @@ export default function StudentProfile({ navigation, route }) {
               <BookOpen size={20} color={COLORS.icon} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.infoLabel}>Semestre</Text>
+              <Text style={styles.infoLabel}>Semestre en curso</Text>
               <Text style={styles.infoValue}>{semester || '—'}</Text>
             </View>
           </View>
@@ -418,7 +418,7 @@ export default function StudentProfile({ navigation, route }) {
               <Text style={styles.modalText}>
                 {profileIncomplete
                   ? studentProfileIncompleteMessage(profileSnapshot)
-                  : 'Puedes actualizar nombre, carrera, semestre y teléfono. El correo y el código estudiantil no se modifican.'}
+                  : 'Puedes actualizar nombre, carrera, semestre en curso y teléfono. El correo y el código estudiantil no se modifican.'}
               </Text>
               <View style={{ height: 14 }} />
               <Input label="Nombre completo *" value={draftName} onChangeText={setDraftName} />
@@ -426,7 +426,7 @@ export default function StudentProfile({ navigation, route }) {
               <ProgramPicker label="Carrera / Programa *" value={draftProgram} onChange={(name) => setDraftProgram(name)} />
               <View style={{ height: 12 }} />
               <Input
-                label="Semestre *"
+                label="Semestre en curso *"
                 value={draftSemester}
                 onChangeText={setDraftSemester}
                 keyboardType="number-pad"

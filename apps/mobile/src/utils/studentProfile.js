@@ -2,7 +2,7 @@ export function missingStudentProfileFields({ fullName, program, semester, phone
   const missing = [];
   if (!String(fullName || '').trim()) missing.push('nombre completo');
   if (!String(program || '').trim()) missing.push('carrera / programa');
-  if (!String(semester || '').trim()) missing.push('semestre');
+  if (!String(semester || '').trim()) missing.push('semestre en curso');
   if (!String(phone || '').trim()) missing.push('teléfono');
   return missing;
 }

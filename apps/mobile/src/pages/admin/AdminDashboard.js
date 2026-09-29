@@ -21,7 +21,8 @@ import {
 } from 'lucide-react-native';
 
 import { useAdminDrawer } from '../../components/AdminDrawer';
-import { FilterChips } from '../../components/MiniCharts';
+import SelectMenu from '../../components/SelectMenu';
+import { FACULTIES, findProgram } from '../../utils/programs';
 import RequestConsentsModal from '../../components/RequestConsentsModal';
 import { useColors } from '../../ui/ThemeContext';
 import { useAuth } from '../../state/auth';
@@ -170,28 +171,46 @@ export default function AdminDashboard({ navigation }) {
     [navigation]
   );
 
-  const programsToday = data?.attendance?.statusByProgramToday || [];
-  const programRow = todayProgram ? programsToday.find((r) => r.program === todayProgram) : null;
+  // Asistencia de hoy por carrera, agrupando variantes del nombre ("ing. software") en la carrera oficial.
+  const todayByProgram = useMemo(() => {
+    const out = {};
+    for (const r of data?.attendance?.statusByProgramToday || []) {
+      const key = findProgram(r.program)?.name || r.program;
+      if (!out[key]) out[key] = { presentToday: 0, lateToday: 0, absentToday: 0 };
+      out[key].presentToday += r.asistencia;
+      out[key].lateToday += r.retardo;
+      out[key].absentToday += r.inasistencia;
+    }
+    return out;
+  }, [data]);
   const today = data?.attendance
     ? (todayProgram
-      ? {
-          presentToday: programRow?.asistencia || 0,
-          lateToday: programRow?.retardo || 0,
-          absentToday: programRow?.inasistencia || 0,
-        }
+      ? (todayByProgram[todayProgram] || { presentToday: 0, lateToday: 0, absentToday: 0 })
       : data.attendance)
     : null;
   const todayTotal = today ? today.presentToday + today.lateToday + today.absentToday : 0;
-  const programOptions = useMemo(
-    () => [
-      { id: '', label: 'General' },
-      ...programsToday.map((r) => ({
-        id: r.program,
-        label: `${r.program} (${r.asistencia + r.retardo + r.inasistencia})`,
-      })),
-    ],
-    [programsToday]
-  );
+  const programOptions = useMemo(() => {
+    const countOf = (key) => {
+      const r = todayByProgram[key];
+      return r ? r.presentToday + r.lateToday + r.absentToday : 0;
+    };
+    const general = data?.attendance
+      ? data.attendance.presentToday + data.attendance.lateToday + data.attendance.absentToday
+      : 0;
+    const known = new Set();
+    const options = [{ id: '', label: 'General (todas las carreras)', meta: String(general) }];
+    for (const faculty of FACULTIES) {
+      for (const p of faculty.programs) {
+        known.add(p.name);
+        options.push({ id: p.name, label: p.name, meta: String(countOf(p.name)), group: faculty.name });
+      }
+    }
+    // "Sin carrera" y nombres que no están en el listado.
+    for (const key of Object.keys(todayByProgram)) {
+      if (!known.has(key)) options.push({ id: key, label: key, meta: String(countOf(key)), group: 'Otros' });
+    }
+    return options;
+  }, [data, todayByProgram]);
   const todaySessions = data?.sessions?.todayList || [];
 
   return (
@@ -286,17 +305,9 @@ export default function AdminDashboard({ navigation }) {
               <Text style={[styles.sectionTitle, styles.sectionGap]}>Hoy</Text>
               <View style={styles.listCard}>
                 <View style={styles.todayBlock}>
-                  <Text style={styles.todayLabel}>
-                    Asistencia registrada{todayProgram ? ` · ${todayProgram}` : ' · General'}
-                  </Text>
-                  {programsToday.length ? (
-                    <FilterChips
-                      colors={COLORS}
-                      options={programOptions}
-                      value={todayProgram}
-                      onChange={(id) => setTodayProgram(id || '')}
-                    />
-                  ) : null}
+                  <Text style={styles.todayLabel}>Asistencia registrada</Text>
+                  <SelectMenu options={programOptions} value={todayProgram} onChange={(id) => setTodayProgram(id || '')} />
+                  <View style={{ height: 10 }} />
                   {todayTotal > 0 ? (
                     <>
                       <View style={styles.bar}>

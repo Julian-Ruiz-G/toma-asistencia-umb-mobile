@@ -1438,6 +1438,19 @@ def _register_photo_issues(face_details) -> list:
     return issues
 
 
+def _group_photo_unavailable(face_count: int, img) -> dict | None:
+    """Con varios rostros hay que recortar cada uno (Pillow). Si no se puede, se responde error
+    en vez de buscar solo un rostro y marcar inasistencias falsas."""
+    if face_count > 1 and (not PIL_AVAILABLE or img is None):
+        logger.error(f'group photo unavailable: PIL={PIL_AVAILABLE} image_loaded={img is not None} faces={face_count}')
+        return _response(503, {
+            'error': 'GroupRecognitionUnavailable',
+            'message': 'El servidor no pudo separar los rostros de la foto. No se modificó la asistencia: '
+                       'intenta de nuevo y, si se repite, avisa al administrador.',
+        })
+    return None
+
+
 FACE_ALREADY_REGISTERED_MESSAGE = (
     'Este rostro ya está registrado en otra cuenta. Si es tuya, inicia sesión o contacta al administrador.'
 )

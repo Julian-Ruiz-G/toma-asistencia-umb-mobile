@@ -30,9 +30,18 @@ API serverless (API Gateway + una Lambda en Python 3.12) para la app de asistenc
 
 ## Despliegue
 
+Desde cualquier carpeta:
+
 ```powershell
-sam build --use-container
-sam deploy
+powershell -ExecutionPolicy Bypass -File backend\deploy.ps1
+```
+
+El script compila con `sam build --use-container`, comprueba que Pillow para Linux quedó en el build y despliega con `sam deploy --template-file .aws-sam\build\template.yaml`.
+
+Si despliegas a mano, `sam deploy` debe usar **el template del build**, no `backend\template.yaml`. Con este último se sube `src\` sin dependencias: la Lambda queda sin Pillow y el reconocimiento de la foto de grupo no funciona (el backend responde `GroupRecognitionUnavailable` y no modifica la asistencia).
+
+```powershell
+sam deploy --template-file backend\.aws-sam\build\template.yaml --config-file backend\samconfig.toml
 ```
 
 La primera vez puedes usar `sam deploy --guided`. Al terminar, copia el output `ApiUrl` en `apps/mobile/app.json` (`expo.extra.apiUrl`).

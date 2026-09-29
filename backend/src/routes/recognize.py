@@ -112,6 +112,9 @@ def handle_recognize_class(event, body):
         return _response(500, {'error': 'DetectFacesFailed', 'details': str(e)})
 
     face_count = len(face_details or [])
+    unavailable = _group_photo_unavailable(face_count, img)
+    if unavailable:
+        return unavailable
     per_face = []
     recognized_best_by_email = {}
 

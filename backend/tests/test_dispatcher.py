@@ -555,6 +555,21 @@ def test_admin_dashboard_splits_today_attendance_by_program():
     assert by_program["Sin carrera"]["inasistencia"] == 1
 
 
+def test_group_photo_without_pillow_is_rejected_not_degraded():
+    # Regresión: un despliegue sin Pillow buscaba un solo rostro y marcaba inasistencias falsas.
+    import runtime
+    from unittest.mock import patch
+
+    with patch.object(runtime, "PIL_AVAILABLE", False):
+        resp = runtime._group_photo_unavailable(8, None)
+        assert resp["statusCode"] == 503
+        assert _body(resp)["error"] == "GroupRecognitionUnavailable"
+        assert runtime._group_photo_unavailable(1, None) is None
+    with patch.object(runtime, "PIL_AVAILABLE", True):
+        assert runtime._group_photo_unavailable(8, object()) is None
+        assert runtime._group_photo_unavailable(8, None)["statusCode"] == 503
+
+
 def test_captcha_pass_outlives_the_challenge():
     # Regresión: el reto vence a los 3 minutos y el registro fallaba mientras se tomaba la foto.
     import time as _time

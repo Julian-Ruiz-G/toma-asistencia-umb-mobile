@@ -11,7 +11,7 @@ export function studentGaps(person = {}) {
     gaps.push({ id: 'name', label: 'nombre completo' });
   }
   if (blank(person.program)) gaps.push({ id: 'program', label: 'carrera' });
-  if (blank(person.semester)) gaps.push({ id: 'semester', label: 'semestre' });
+  if (blank(person.semester)) gaps.push({ id: 'semester', label: 'semestre en curso' });
   if (blank(person.phone)) gaps.push({ id: 'phone', label: 'teléfono' });
   if (!person.acceptTerms) gaps.push({ id: 'terms', label: 'términos y condiciones' });
   if (!person.acceptPrivacy) gaps.push({ id: 'privacy', label: 'política de privacidad' });

@@ -200,7 +200,7 @@ export default function AdminInsight({ navigation, route }) {
                 <FilterChips colors={COLORS} options={programOptions} value={program} onChange={setProgram} />
                 <HBarChart items={studentCharts.byProgram} colors={COLORS} />
               </Card>
-              <Card colors={COLORS} title="Por semestre">
+              <Card colors={COLORS} title="Por semestre en curso">
                 <FilterChips colors={COLORS} options={semesterOptions} value={semester} onChange={setSemester} />
                 <HBarChart items={studentCharts.bySemester} colors={COLORS} />
               </Card>
@@ -281,7 +281,7 @@ export default function AdminInsight({ navigation, route }) {
               <Card colors={COLORS} title="Por carrera">
                 <HBarChart items={attStats.byProgram} colors={COLORS} emptyText="Cuando haya registros, aquí aparecerán las carreras." />
               </Card>
-              <Card colors={COLORS} title="Por semestre">
+              <Card colors={COLORS} title="Por semestre en curso">
                 <HBarChart items={attStats.bySemester} colors={COLORS} emptyText="Cuando haya registros, aquí aparecerán los semestres." />
               </Card>
               <Card colors={COLORS} title="Por clase">

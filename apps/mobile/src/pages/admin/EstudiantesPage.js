@@ -280,7 +280,7 @@ export default function EstudiantesPage({ navigation }) {
                   </View>
                   <Text style={styles.metaText}>{s.code}</Text>
                   <Text style={styles.profileLine}>Carrera: {prettyLabel(s.program, 'Pendiente en perfil')}</Text>
-                  <Text style={styles.profileLine}>Semestre: {prettyLabel(s.semester, 'Pendiente en perfil')}</Text>
+                  <Text style={styles.profileLine}>Semestre en curso: {prettyLabel(s.semester, 'Pendiente en perfil')}</Text>
                   <View style={styles.metaRow}>
                     <Text style={styles.metaSmall}>{s.email}</Text>
                   </View>
