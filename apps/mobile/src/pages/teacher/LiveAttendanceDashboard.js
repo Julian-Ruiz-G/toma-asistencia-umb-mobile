@@ -173,7 +173,8 @@ export default function LiveAttendanceDashboard({ navigation, route }) {
   };
 
   // Función asíncrona para cargar detalles de asistencia desde el backend
-  const loadRemote = async ({ silent } = {}) => {
+  // background: consulta automática del polling; si falla (p. ej. corte de red) no se muestra alerta y se reintenta en el siguiente ciclo.
+  const loadRemote = async ({ silent, background } = {}) => {
     // Validaciones previas
     if (!ATTENDANCE_DETAILS_URL) return;
     if (!authToken) return;
@@ -209,8 +210,12 @@ export default function LiveAttendanceDashboard({ navigation, route }) {
       // Actualizar estado con los datos recibidos
       setRemoteDetails(json);
     } catch (e) {
-      // Mostrar alerta en caso de error
-      appAlert('Error', e?.message || String(e));
+      // Mostrar alerta en caso de error (solo si el usuario pidió la carga)
+      if (background) {
+        console.warn('attendance-details (polling) falló:', e?.message || e);
+      } else {
+        appAlert('Error', e?.message || String(e));
+      }
     } finally {
       if (!silent) setLoadingRemote(false);
     }
@@ -227,7 +232,7 @@ export default function LiveAttendanceDashboard({ navigation, route }) {
   useEffect(() => {
     if (!sessionId) return;
     const id = setInterval(() => {
-      loadRemote();
+      loadRemote({ silent: true, background: true });
     }, 5000); // Intervalo de 5 segundos para actualización en tiempo real
     return () => clearInterval(id); // Limpieza del intervalo al desmontar
     // eslint-disable-next-line react-hooks/exhaustive-deps

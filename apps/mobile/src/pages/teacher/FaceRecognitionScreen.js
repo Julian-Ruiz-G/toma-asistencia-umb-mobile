@@ -34,9 +34,10 @@ export default function FaceRecognitionScreen({ navigation, route }) {
   const [showFlash, setShowFlash] = useState(false);
   const [recognitionProgress, setRecognitionProgress] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  // Al entrar desde "Foto" se pregunta si tomar la foto o elegirla de la galería.
+  const [showSourcePicker, setShowSourcePicker] = useState(autoCapture);
 
   const progressAnim = useRef(new Animated.Value(0)).current;
-  const didAutoCapture = useRef(false);
 
   useEffect(() => {
     Animated.timing(progressAnim, {
@@ -81,20 +82,7 @@ export default function FaceRecognitionScreen({ navigation, route }) {
     setIsCapturing(true);
     setDetectedFaces([]);
 
-    if (options.flash) {
-      setShowFlash(true);
-      setTimeout(() => setShowFlash(false), 200);
-    }
-
-    setRecognitionProgress(0);
-    let p = 0;
-    const interval = setInterval(() => {
-      p += 10;
-      setRecognitionProgress(p);
-      if (p >= 100) {
-        clearInterval(interval);
-      }
-    }, 200);
+    let interval = null;
 
     try {
       if (!CONFIRM_ATTENDANCE_PHOTO_URL) {
@@ -118,6 +106,22 @@ export default function FaceRecognitionScreen({ navigation, route }) {
       if (!b64) {
         throw new Error('No se pudo leer la foto (base64 vacío).');
       }
+
+      if (options.flash) {
+        setShowFlash(true);
+        setTimeout(() => setShowFlash(false), 200);
+      }
+
+      // El progreso arranca cuando ya hay imagen, para no avanzar mientras el docente elige en la galería.
+      setRecognitionProgress(0);
+      let p = 0;
+      interval = setInterval(() => {
+        p += 10;
+        setRecognitionProgress(Math.min(p, 100));
+        if (p >= 100) {
+          clearInterval(interval);
+        }
+      }, 200);
 
       const result = await submitAttendancePhoto(b64);
 
@@ -143,7 +147,7 @@ export default function FaceRecognitionScreen({ navigation, route }) {
         appAlert('Error', e?.message || String(e));
       }
     } finally {
-      clearInterval(interval);
+      if (interval) clearInterval(interval);
       setIsCapturing(false);
     }
   };
@@ -175,17 +179,18 @@ export default function FaceRecognitionScreen({ navigation, route }) {
       base64: true,
       quality: 0.7,
       allowsEditing: false,
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
     }));
   };
 
-  useEffect(() => {
-    if (!autoCapture) return;
-    if (didAutoCapture.current) return;
-    didAutoCapture.current = true;
-    handleCapture();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoCapture]);
+  // Cierra el selector y abre la cámara o la galería cuando el modal ya se ocultó (iOS no abre el picker encima de un Modal).
+  const chooseSource = (source) => {
+    setShowSourcePicker(false);
+    setTimeout(() => {
+      if (source === 'camera') handleCapture();
+      else handlePickFromGallery();
+    }, 350);
+  };
 
   const recognizedCount = useMemo(() => detectedFaces.filter((f) => f.confidence > 80).length, [detectedFaces]);
   const totalDetected = detectedFaces.length;
@@ -344,9 +349,12 @@ export default function FaceRecognitionScreen({ navigation, route }) {
           </View>
         ) : (
           <View style={styles.bottomRow}>
-            <Pressable onPress={handlePickFromGallery} disabled={isCapturing} style={[styles.smallCircleBtn, isCapturing ? { opacity: 0.5 } : null]}>
-              <ImagePlus size={20} color={COLORS.placeholder} />
-            </Pressable>
+            <View>
+              <Pressable onPress={handlePickFromGallery} disabled={isCapturing} style={[styles.smallCircleBtn, isCapturing ? { opacity: 0.5 } : null]}>
+                <ImagePlus size={20} color={COLORS.white} />
+              </Pressable>
+              <Text style={styles.smallBtnLabel}>Galería</Text>
+            </View>
 
             <Pressable onPress={handleCapture} disabled={isCapturing} style={[styles.captureOuter, isCapturing ? { opacity: 0.5 } : null]}>
               <View style={styles.captureInner}>
@@ -361,7 +369,32 @@ export default function FaceRecognitionScreen({ navigation, route }) {
         )}
       </View>
 
-      <Modal visible={false} transparent />
+      <Modal
+        visible={showSourcePicker}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowSourcePicker(false)}
+      >
+        <Pressable style={styles.sourceBackdrop} onPress={() => setShowSourcePicker(false)}>
+          <Pressable style={styles.sourceCard} onPress={() => {}}>
+            <Text style={styles.sourceTitle}>Foto de asistencia</Text>
+            <Text style={styles.sourceSub}>Toma una foto del aula o elige una desde la galería.</Text>
+
+            <Pressable onPress={() => chooseSource('camera')} style={styles.sourceOption}>
+              <Camera size={22} color={COLORS.primary} />
+              <Text style={styles.sourceOptionText}>Tomar foto</Text>
+            </Pressable>
+            <Pressable onPress={() => chooseSource('gallery')} style={styles.sourceOption}>
+              <ImagePlus size={22} color={COLORS.primary} />
+              <Text style={styles.sourceOptionText}>Elegir de la galería</Text>
+            </Pressable>
+
+            <Pressable onPress={() => setShowSourcePicker(false)} style={styles.sourceCancel}>
+              <Text style={styles.sourceCancelText}>Cancelar</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -437,4 +470,14 @@ const createStyles = (COLORS) => StyleSheet.create({
   smallCircleBtn: { width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
   captureOuter: { width: 80, height: 80, borderRadius: 40, borderWidth: 4, borderColor: COLORS.white, alignItems: 'center', justifyContent: 'center' },
   captureInner: { width: 64, height: 64, borderRadius: 32, backgroundColor: COLORS.card, alignItems: 'center', justifyContent: 'center' },
+  smallBtnLabel: { marginTop: 6, color: 'rgba(255,255,255,0.70)', fontSize: 11, fontWeight: '700', textAlign: 'center' },
+
+  sourceBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.60)', justifyContent: 'flex-end' },
+  sourceCard: { backgroundColor: COLORS.card, borderTopLeftRadius: 22, borderTopRightRadius: 22, paddingHorizontal: 24, paddingTop: 22, paddingBottom: 30, gap: 10 },
+  sourceTitle: { fontWeight: '900', fontSize: 18, color: COLORS.text },
+  sourceSub: { color: COLORS.muted, marginBottom: 6 },
+  sourceOption: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingHorizontal: 14, borderRadius: 14, borderWidth: 1, borderColor: COLORS.border },
+  sourceOptionText: { fontWeight: '800', color: COLORS.text, fontSize: 15 },
+  sourceCancel: { alignItems: 'center', paddingVertical: 12, marginTop: 4 },
+  sourceCancelText: { color: COLORS.muted, fontWeight: '800' },
 });
