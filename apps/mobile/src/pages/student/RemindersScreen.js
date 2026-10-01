@@ -1,4 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { appAlert } from '../../ui/appNotice';
 import { useFocusEffect } from '@react-navigation/native';
@@ -27,7 +28,8 @@ import {
   isExpoGo,
   scheduleReminderNotification,
 } from '../../utils/localNotify';
-import { NavButtons, useStudentDrawer } from '../../components/RoleDrawer';
+import { NavButtons, useStudentDrawer, MenuButton } from '../../components/RoleDrawer';
+import { headerTop } from '../../ui/safeArea';
 
 const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
 const MINUTES = Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, '0'));
@@ -78,12 +80,13 @@ async function scheduledIdsFor(item, allowed) {
 }
 
 function TimePickerModal({ visible, hour, minute, onChange, onClose }) {
+  const insets = useSafeAreaInsets();
   const COLORS = useColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent navigationBarTranslucent onRequestClose={onClose}>
       <OverlayDismiss style={styles.modalBackdrop} pin="bottom" onClose={onClose}>
-        <View style={styles.modalCard}>
+        <View style={[styles.modalCard, { paddingBottom: 28 + insets.bottom }]}>
           <Text style={styles.modalTitle}>¿A qué hora te avisamos?</Text>
           <Text style={styles.modalPreview}>{hour}:{minute}</Text>
           <View style={styles.wheels}>
@@ -287,11 +290,12 @@ export default function RemindersScreen({ navigation }) {
     <View style={styles.root}>
       {drawer}
       <Animated.View entering={enterDown(0, 360)} style={styles.header}>
-        <NavButtons onBack={goBack} onMenu={openDrawer} buttonStyle={styles.backBtn} size={24} color={COLORS.textSecondary} />
+        <NavButtons onBack={goBack} buttonStyle={styles.backBtn} size={24} color={COLORS.textSecondary} />
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Recordatorios</Text>
           <Text style={styles.headerSubtitle}>Actividades y pendientes</Text>
         </View>
+        <MenuButton onPress={openDrawer} buttonStyle={styles.backBtn} size={24} color={COLORS.textSecondary} />
       </Animated.View>
 
       <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
@@ -410,7 +414,7 @@ const createStyles = (COLORS) => StyleSheet.create({
     backgroundColor: COLORS.card,
     paddingHorizontal: 24,
     paddingBottom: 16,
-    paddingTop: 48,
+    paddingTop: headerTop(12),
     flexDirection: 'row',
     alignItems: 'center',
   },

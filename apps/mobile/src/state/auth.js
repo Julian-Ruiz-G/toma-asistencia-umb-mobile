@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
 import { clearPersistedSession, loadLocalProfile, loadPersistedSession, savePersistedSession } from '../utils/sessionStore';
+import { clearAllNotifications, setNotificationSession } from '../utils/localNotify';
 
 const AuthContext = createContext(null);
 
@@ -46,6 +47,14 @@ export function AuthProvider({ children }) {
       setReady(true);
     })();
   }, []);
+
+  // Las notificaciones solo existen con una sesión abierta. Al abrir la app sin sesión se limpian
+  // también las que hayan quedado programadas en el teléfono de una cuenta anterior.
+  useEffect(() => {
+    if (!ready) return;
+    if (authToken) setNotificationSession(true);
+    else clearAllNotifications().catch(() => {});
+  }, [ready, authToken]);
 
   const value = useMemo(() => ({
     ready,
@@ -99,6 +108,7 @@ export function AuthProvider({ children }) {
       setNotificationUnread(0);
       setClassesRevision(0);
       clearPersistedSession();
+      clearAllNotifications().catch(() => {});
     }
   }), [ready, authToken, role, email, fullName, studentCode, teacherCode, program, semester, phone, photoUri, acceptTerms, acceptPrivacy, mustChangePassword, notificationUnread, classesRevision]);
 

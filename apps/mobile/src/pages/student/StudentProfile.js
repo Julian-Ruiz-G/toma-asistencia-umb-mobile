@@ -43,7 +43,8 @@ import {
   saveLocalProfile,
   savePersistedSession,
 } from '../../utils/sessionStore';
-import { NavButtons, useStudentDrawer } from '../../components/RoleDrawer';
+import { NavButtons, useStudentDrawer, MenuButton } from '../../components/RoleDrawer';
+import { headerTop } from '../../ui/safeArea';
 
 export default function StudentProfile({ navigation, route }) {
   const COLORS = useColors();
@@ -247,7 +248,7 @@ export default function StudentProfile({ navigation, route }) {
     <View style={styles.root}>
       {drawer}
       <Animated.View entering={enterDown(0, 360)} style={styles.header}>
-        <NavButtons onBack={goBack} onMenu={openDrawer} buttonStyle={styles.backBtn} size={24} color={COLORS.textSecondary} />
+        <NavButtons onBack={goBack} buttonStyle={styles.backBtn} size={24} color={COLORS.textSecondary} />
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Mi Perfil</Text>
           <Text style={styles.headerSubtitle}>Información personal</Text>
@@ -255,6 +256,7 @@ export default function StudentProfile({ navigation, route }) {
         <Pressable onPress={() => setShowEdit(true)} style={styles.iconBtn}>
           <Edit3 size={20} color={COLORS.icon} />
         </Pressable>
+        <MenuButton onPress={openDrawer} buttonStyle={styles.backBtn} size={24} color={COLORS.textSecondary} />
       </Animated.View>
 
       <ScrollView contentContainerStyle={styles.body}>
@@ -522,7 +524,7 @@ const createStyles = (COLORS) => StyleSheet.create({
     backgroundColor: COLORS.card,
     paddingHorizontal: 24,
     paddingBottom: 16,
-    paddingTop: 48,
+    paddingTop: headerTop(12),
     flexDirection: 'row',
     alignItems: 'center',
     borderBottomWidth: 1,

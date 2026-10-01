@@ -8,6 +8,8 @@ import { COLORS } from '../../ui/theme';
 import { useColors } from '../../ui/ThemeContext';
 import { appAlert } from '../../ui/appNotice';
 import { AdminNavButtons, useAdminDrawer } from '../../components/AdminDrawer';
+import { MenuButton } from '../../components/RoleDrawer';
+import { headerTop } from '../../ui/safeArea';
 
 const GENERAL_PAYLOAD = 'UMB-ASISTENCIA|institucional';
 
@@ -68,11 +70,12 @@ export default function QRInstitucionalPage({ navigation }) {
     <View style={styles.root}>
       {drawer}
       <View style={styles.header}>
-        <AdminNavButtons onBack={goBack} onMenu={openDrawer} buttonStyle={styles.backBtn} size={20} color={COLORS.icon} />
+        <AdminNavButtons onBack={goBack} buttonStyle={styles.backBtn} size={20} color={COLORS.icon} />
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>QR Institucional</Text>
           <Text style={styles.headerSubtitle}>Genera códigos QR</Text>
         </View>
+        <MenuButton onPress={openDrawer} buttonStyle={styles.backBtn} size={20} color={COLORS.icon} />
       </View>
 
       <ScrollView contentContainerStyle={styles.body}>
@@ -171,7 +174,7 @@ export default function QRInstitucionalPage({ navigation }) {
 
 const createStyles = (COLORS) => StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.background },
-  header: { backgroundColor: COLORS.card, paddingTop: 48, paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: COLORS.border, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  header: { backgroundColor: COLORS.card, paddingTop: headerTop(12), paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: COLORS.border, flexDirection: 'row', alignItems: 'center', gap: 12 },
   backBtn: { padding: 8, borderRadius: 12, backgroundColor: COLORS.surface },
   headerTitle: { fontWeight: '900', color: COLORS.text, fontSize: 18 },
   headerSubtitle: { marginTop: 2, color: COLORS.muted, fontSize: 12 },

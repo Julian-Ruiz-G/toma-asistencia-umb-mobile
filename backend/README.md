@@ -13,7 +13,7 @@ API serverless (API Gateway + una Lambda en Python 3.12) para la app de asistenc
 ## Requisitos previos
 
 - Colección de Rekognition (`recoEstu` por defecto) y tabla DynamoDB (`face_recognition`) con PK `RekognitionId` (S), en la misma región del despliegue.
-- [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) configurado y [AWS SAM CLI](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-install.html). En Windows conviene Docker Desktop para `sam build --use-container` (Pillow).
+- [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) configurado y [AWS SAM CLI](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-install.html). En Windows conviene Docker Desktop para `sam build --use-container`.
 
 ## Configuración y secretos
 
@@ -36,9 +36,11 @@ Desde cualquier carpeta:
 powershell -ExecutionPolicy Bypass -File backend\deploy.ps1
 ```
 
-El script compila con `sam build --use-container`, comprueba que Pillow para Linux quedó en el build y despliega con `sam deploy --template-file .aws-sam\build\template.yaml`.
+El script compila con `sam build --use-container`, revisa que el template siga conectando la capa de Pillow y despliega con `sam deploy --template-file .aws-sam\build\template.yaml`.
 
-Si despliegas a mano, `sam deploy` debe usar **el template del build**, no `backend\template.yaml`. Con este último se sube `src\` sin dependencias: la Lambda queda sin Pillow y el reconocimiento de la foto de grupo no funciona (el backend responde `GroupRecognitionUnavailable` y no modifica la asistencia).
+**Pillow va en una capa de Lambda** (`PillowLayerArn` en `template.yaml`, capa `umb-pillow-py312`), compilada para Linux. Por eso la Lambda lo tiene aunque se despliegue con `backend\template.yaml` en vez del template del build. No lo agregues a `src/requirements.txt`: un build sin contenedor en Windows metería una versión que no carga en Lambda. Si faltara Pillow, el reconocimiento de la foto de grupo responde `GroupRecognitionUnavailable` y no modifica la asistencia.
+
+Despliegue manual equivalente:
 
 ```powershell
 sam deploy --template-file backend\.aws-sam\build\template.yaml --config-file backend\samconfig.toml

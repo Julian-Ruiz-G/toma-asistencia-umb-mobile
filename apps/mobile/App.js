@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -61,14 +61,31 @@ import AdminJustifications from './src/pages/admin/JustificacionesPage';
 
 const Stack = createNativeStackNavigator();
 
-function AppStack() {
+// El espacio de la barra inferior del sistema (rayita del iPhone, gestos o botones de Android)
+// se pinta con el color del borde de abajo de cada pantalla, para que no se vea una franja.
+function bottomBandColor(routeName, COLORS) {
+  switch (routeName) {
+    case 'Splash':
+      return COLORS.primary;
+    case 'Login':
+    case 'Register':
+    case 'TeacherFaceRecognitionScreen':
+      return COLORS.card;
+    case 'StudentQr':
+      return COLORS.scheme === 'dark' ? COLORS.card : COLORS.text;
+    default:
+      return COLORS.background;
+  }
+}
+
+function AppStack({ routeName }) {
   const insets = useSafeAreaInsets();
   const bottomPad = Math.max(insets.bottom, 0);
   const COLORS = useColors();
   const { resolved } = useAppTheme();
 
   return (
-    <View style={{ flex: 1, paddingBottom: bottomPad, backgroundColor: COLORS.background }}>
+    <View style={{ flex: 1, paddingBottom: bottomPad, backgroundColor: bottomBandColor(routeName, COLORS) }}>
       <StatusBar style={resolved === 'dark' ? 'light' : 'dark'} />
       <Stack.Navigator
         screenOptions={{
@@ -152,6 +169,11 @@ export default function App() {
 function ThemedApp() {
   const navRef = useRef(null);
   const { navigationTheme } = useAppTheme();
+  const [routeName, setRouteName] = useState('Splash');
+  const syncRoute = useCallback(() => {
+    const name = navRef.current?.getCurrentRoute?.()?.name;
+    if (name) setRouteName(name);
+  }, []);
 
   useEffect(() => {
     let unsub = () => {};
@@ -186,8 +208,8 @@ function ThemedApp() {
   return (
     <View style={{ flex: 1 }}>
       <AppNoticeHost />
-      <NavigationContainer ref={navRef} theme={navigationTheme}>
-        <AppStack />
+      <NavigationContainer ref={navRef} theme={navigationTheme} onReady={syncRoute} onStateChange={syncRoute}>
+        <AppStack routeName={routeName} />
       </NavigationContainer>
     </View>
   );

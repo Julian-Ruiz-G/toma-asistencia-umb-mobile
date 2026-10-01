@@ -25,6 +25,8 @@ import { prettyLabel } from '../../utils/adminDashboard';
 import { semesterTitle } from '../../components/AdminInsightDrill';
 import { gapsLabel, requestProfileCompletion, teacherGaps } from '../../utils/profileGaps';
 import { AdminNavButtons, useAdminDrawer } from '../../components/AdminDrawer';
+import { MenuButton } from '../../components/RoleDrawer';
+import { headerTop } from '../../ui/safeArea';
 
 const mockTeachers = [
   { id: '1', code: 'DOC001', firstName: 'Dr. Roberto', lastName: 'Martínez Vega', email: 'roberto.martinez@umb.edu.co', department: 'Ingeniería', specialization: 'Sistemas', status: 'active', subjectsCount: 4, biometricRegistered: true, lastAccess: '2024-01-15' },
@@ -173,11 +175,12 @@ export default function DocentesPage({ navigation, route }) {
       {drawer}
       <View style={styles.header}>
         <View style={styles.headerTop}>
-          <AdminNavButtons onBack={goBack} onMenu={openDrawer} buttonStyle={styles.backBtn} size={20} color={COLORS.icon} />
+          <AdminNavButtons onBack={goBack} buttonStyle={styles.backBtn} size={20} color={COLORS.icon} />
           <View>
             <Text style={styles.headerTitle}>Docentes</Text>
             <Text style={styles.headerSubtitle}>{teachers.length} registrados</Text>
           </View>
+          <MenuButton onPress={openDrawer} buttonStyle={styles.backBtn} size={20} color={COLORS.icon} />
         </View>
 
         <View style={styles.searchRow}>
@@ -587,7 +590,7 @@ export default function DocentesPage({ navigation, route }) {
 
 const createStyles = (COLORS) => StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.background },
-  header: { backgroundColor: COLORS.card, paddingTop: 48, paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  header: { backgroundColor: COLORS.card, paddingTop: headerTop(12), paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: COLORS.border },
   headerTop: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10 },
   backBtn: { padding: 8, borderRadius: 12, backgroundColor: COLORS.surface },
   headerTitle: { fontWeight: '900', color: COLORS.text, fontSize: 18 },

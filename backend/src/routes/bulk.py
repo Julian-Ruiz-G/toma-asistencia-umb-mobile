@@ -294,13 +294,18 @@ def _import_classes(rows):
             results.append(_result(line, False, 'error', 'No hay un docente con ese correo.', email=teacher_email))
             continue
 
+        class_id, id_error = _class_id_for(subject_code, group)
+        if id_error:
+            results.append(_result(line, False, 'error', id_error, email=teacher_email))
+            continue
+        group = _normalize_group(group)
+
         key = (_fold_key(class_name), _fold_key(group), teacher_email)
         if by_key.get(key):
             results.append(_result(line, True, 'skipped', 'Esa asignatura ya existe para ese docente y grupo.', email=teacher_email))
             continue
 
         schedule = _schedule_from_days(days, start_time, end_time)
-        class_id = uuid.uuid4().hex
         now = int(time.time())
         item = {
             'RekognitionId': {'S': f'CLASS#{class_id}'},
@@ -314,8 +319,7 @@ def _import_classes(rows):
             'TeacherEmail': {'S': teacher_email},
             'CreatedAt': {'N': str(now)},
         }
-        if subject_code:
-            item['SubjectCode'] = {'S': subject_code[:40]}
+        item['SubjectCode'] = {'S': subject_code}
         if period:
             item['Period'] = {'S': period[:40]}
         if schedule:
@@ -330,8 +334,11 @@ def _import_classes(rows):
                 ]
             }
         try:
-            dynamodb.put_item(TableName=DDB_TABLE, Item=item)
-        except Exception:
+            dynamodb.put_item(TableName=DDB_TABLE, Item=item, ConditionExpression='attribute_not_exists(RekognitionId)')
+        except Exception as exc:
+            if 'ConditionalCheckFailed' in str(exc):
+                results.append(_result(line, True, 'skipped', f'Ya existe una clase con el código {class_id}.', email=teacher_email))
+                continue
             logger.exception('DynamoDB put_item failed (bulk class)')
             results.append(_result(line, False, 'error', 'No se pudo guardar la asignatura.'))
             continue

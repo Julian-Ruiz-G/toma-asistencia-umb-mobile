@@ -19,7 +19,9 @@ import { useColors } from '../ui/ThemeContext';
 
 const SCREEN_W = Dimensions.get('window').width;
 const DRAWER_WIDTH = Math.min(256, Math.round(SCREEN_W * 0.68));
-const OPEN_EDGE = 28;
+// Franja del borde derecho desde la que se abre el panel deslizando hacia la izquierda.
+const OPEN_EDGE = 32;
+// El panel sale por la derecha: cerrado está desplazado +DRAWER_WIDTH, abierto en 0.
 
 function clamp(n, min, max) {
   return Math.min(max, Math.max(min, n));
@@ -39,8 +41,8 @@ export function SideDrawer({
   const COLORS = useColors();
   const styles = useMemo(() => makeStyles(COLORS), [COLORS]);
   const insets = useSafeAreaInsets();
-  const slide = useRef(new Animated.Value(visible ? 0 : -DRAWER_WIDTH)).current;
-  const startX = useRef(visible ? 0 : -DRAWER_WIDTH);
+  const slide = useRef(new Animated.Value(visible ? 0 : DRAWER_WIDTH)).current;
+  const startX = useRef(visible ? 0 : DRAWER_WIDTH);
   const visibleRef = useRef(visible);
   const onCloseRef = useRef(onClose);
   const onOpenRef = useRef(onOpen);
@@ -53,7 +55,7 @@ export function SideDrawer({
 
   settleCloseRef.current = (dx, vx) => {
     const current = startX.current + dx;
-    const shouldClose = current < -DRAWER_WIDTH * 0.22 || vx < -0.35;
+    const shouldClose = current > DRAWER_WIDTH * 0.22 || vx > 0.35;
     if (shouldClose) onCloseRef.current?.();
     else {
       Animated.timing(slide, { toValue: 0, duration: 180, useNativeDriver: true }).start();
@@ -68,10 +70,10 @@ export function SideDrawer({
       startX.current = 0;
       return undefined;
     }
-    Animated.timing(slide, { toValue: -DRAWER_WIDTH, duration: 200, useNativeDriver: true }).start(({ finished }) => {
+    Animated.timing(slide, { toValue: DRAWER_WIDTH, duration: 200, useNativeDriver: true }).start(({ finished }) => {
       if (finished) setMounted(false);
     });
-    startX.current = -DRAWER_WIDTH;
+    startX.current = DRAWER_WIDTH;
     return undefined;
   }, [slide, visible]);
 
@@ -88,14 +90,14 @@ export function SideDrawer({
     PanResponder.create({
       onMoveShouldSetPanResponderCapture: (_, g) => (
         !visibleRef.current
-        && g.dx > 8
+        && g.dx < -8
         && Math.abs(g.dx) > Math.abs(g.dy) * 0.6
       ),
       onPanResponderRelease: (_, g) => {
-        if (g.dx > 20 || g.vx > 0.2) onOpenRef.current?.();
+        if (g.dx < -20 || g.vx < -0.2) onOpenRef.current?.();
       },
       onPanResponderTerminate: (_, g) => {
-        if (g.dx > 20 || g.vx > 0.2) onOpenRef.current?.();
+        if (g.dx < -20 || g.vx < -0.2) onOpenRef.current?.();
       },
     })
   ).current;
@@ -107,16 +109,18 @@ export function SideDrawer({
         slide.stopAnimation((v) => { startX.current = v; });
       },
       onPanResponderMove: (_, g) => {
-        slide.setValue(clamp(startX.current + g.dx, -DRAWER_WIDTH, 0));
+        slide.setValue(clamp(startX.current + g.dx, 0, DRAWER_WIDTH));
       },
+      // Fuera del panel: tocar o deslizar lo cierra. Si se arrastra hacia la derecha,
+      // el panel sigue el dedo y decide al soltar según cuánto se movió.
       onPanResponderRelease: (_, g) => {
-        if (Math.abs(g.dx) < 12 && Math.abs(g.dy) < 12) {
-          onCloseRef.current?.();
+        if (g.dx > 12 && Math.abs(g.dx) > Math.abs(g.dy)) {
+          settleCloseRef.current(g.dx, g.vx);
           return;
         }
-        settleCloseRef.current(g.dx, g.vx);
+        onCloseRef.current?.();
       },
-      onPanResponderTerminate: (_, g) => settleCloseRef.current(g.dx, g.vx),
+      onPanResponderTerminate: () => onCloseRef.current?.(),
     })
   ).current;
 
@@ -124,14 +128,14 @@ export function SideDrawer({
     PanResponder.create({
       onMoveShouldSetPanResponderCapture: (_, g) => (
         visibleRef.current
-        && g.dx < -10
+        && g.dx > 10
         && Math.abs(g.dx) > Math.abs(g.dy)
       ),
       onPanResponderGrant: () => {
         slide.stopAnimation((v) => { startX.current = v; });
       },
       onPanResponderMove: (_, g) => {
-        slide.setValue(clamp(startX.current + g.dx, -DRAWER_WIDTH, 0));
+        slide.setValue(clamp(startX.current + g.dx, 0, DRAWER_WIDTH));
       },
       onPanResponderRelease: (_, g) => settleCloseRef.current(g.dx, g.vx),
       onPanResponderTerminate: (_, g) => settleCloseRef.current(g.dx, g.vx),
@@ -162,6 +166,7 @@ export function SideDrawer({
         transparent
         animationType="none"
         statusBarTranslucent
+        navigationBarTranslucent
         onRequestClose={onClose}
       >
         <View style={styles.modalRoot}>
@@ -235,12 +240,14 @@ function makeStyles(COLORS) {
   return StyleSheet.create({
     edge: {
       position: 'absolute',
-      left: 0,
+      right: 0,
       top: 0,
       bottom: 0,
       width: OPEN_EDGE,
       backgroundColor: 'rgba(0,0,0,0.01)',
-      zIndex: 8,
+      // Encima de todo: en Android las tarjetas con sombra (elevation) tapaban la franja.
+      zIndex: 1000,
+      elevation: 1000,
     },
     modalRoot: { flex: 1 },
     overlaySolid: {
@@ -253,7 +260,7 @@ function makeStyles(COLORS) {
     },
     panelHit: {
       position: 'absolute',
-      left: 0,
+      right: 0,
       top: 0,
       bottom: 0,
       width: DRAWER_WIDTH,
@@ -264,8 +271,8 @@ function makeStyles(COLORS) {
       width: DRAWER_WIDTH,
       height: '100%',
       backgroundColor: COLORS.card,
-      borderRightWidth: 1,
-      borderRightColor: COLORS.border,
+      borderLeftWidth: 1,
+      borderLeftColor: COLORS.border,
     },
     profile: {
       backgroundColor: COLORS.primary,

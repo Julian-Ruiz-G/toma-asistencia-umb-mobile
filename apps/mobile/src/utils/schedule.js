@@ -115,11 +115,12 @@ export function isClassInProgressNow(c) {
   });
 }
 
-export function classStatusMeta(c) {
+// `palette`: la del tema activo (useColors); sin ella se usa la clara.
+export function classStatusMeta(c, palette = COLORS) {
   if (isClassInProgressNow(c)) {
-    return { key: 'in_session', label: 'En curso', pillBg: COLORS.successSoft, pillBorder: COLORS.successBorder, pillText: COLORS.successStrong };
+    return { key: 'in_session', label: 'En curso', pillBg: palette.successSoft, pillBorder: palette.successBorder, pillText: palette.successStrong };
   }
-  return { key: 'off', label: 'Fuera de horario', pillBg: COLORS.surface, pillBorder: COLORS.border, pillText: COLORS.icon };
+  return { key: 'off', label: 'Fuera de horario', pillBg: palette.surface, pillBorder: palette.border, pillText: palette.icon };
 }
 
 export function formatScheduleFriendly(c) {

@@ -5,8 +5,7 @@ import Constants from 'expo-constants';
 
 import { useAppTheme, useColors } from '../ui/ThemeContext';
 import { useAuth } from '../state/auth';
-import { cancelReminderNotification, scheduleReminderNotification } from '../utils/localNotify';
-import { loadReminders, reminderOccurrences, saveReminders } from '../utils/remindersStore';
+import { rescheduleReminders } from '../utils/localNotify';
 import { appAlert } from '../ui/appNotice';
 import OverlayDismiss from './OverlayDismiss';
 
@@ -70,27 +69,7 @@ function NotificationsCard() {
       return;
     }
     if (next && result?.ok && email) {
-      try {
-        const list = await loadReminders(email);
-        const updated = [];
-        for (const item of list) {
-          await cancelReminderNotification(item.notificationIds || item.notificationId);
-          const ids = [];
-          for (const occ of reminderOccurrences(item)) {
-            const nid = await scheduleReminderNotification({
-              id: item.id,
-              title: item.title,
-              description: item.description,
-              when: occ.when,
-            });
-            if (nid) ids.push(nid);
-          }
-          updated.push({ ...item, notificationIds: ids, notificationId: ids[0] || null });
-        }
-        await saveReminders(email, updated);
-      } catch {
-        // ignore
-      }
+      await rescheduleReminders(email).catch(() => {});
     }
   };
 

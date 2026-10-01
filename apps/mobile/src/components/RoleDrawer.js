@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable } from 'react-native';
 import { StackActions } from '@react-navigation/native';
 import {
   ArrowLeft,
@@ -131,20 +131,31 @@ export function useStudentDrawer(navigation, currentRoute) {
 }
 
 /**
- * Botones de cabecera, siempre en el mismo orden y lado: volver y luego menú.
+ * Botón de volver de la cabecera (a la izquierda). El menú va a la derecha con MenuButton.
  * `buttonStyle`, `size` y `color` se toman del estilo de cada pantalla.
  */
-export function NavButtons({ onBack, onMenu, buttonStyle, size = 20, color }) {
+export function NavButtons({ onBack, buttonStyle, size = 20, color }) {
+  if (!onBack) return null;
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-      {onBack ? (
-        <Pressable onPress={onBack} style={buttonStyle} accessibilityRole="button" accessibilityLabel="Volver">
-          <ArrowLeft size={size} color={color} />
-        </Pressable>
-      ) : null}
-      <Pressable onPress={onMenu} style={buttonStyle} accessibilityRole="button" accessibilityLabel="Abrir menú">
-        <Menu size={size} color={color} />
-      </Pressable>
-    </View>
+    <Pressable onPress={onBack} style={buttonStyle} accessibilityRole="button" accessibilityLabel="Volver">
+      <ArrowLeft size={size} color={color} />
+    </Pressable>
+  );
+}
+
+/**
+ * Botón del menú lateral. Siempre es el último elemento de la cabecera y `marginLeft: 'auto'`
+ * lo empuja al extremo derecho, del mismo lado por donde se abre el panel.
+ */
+export function MenuButton({ onPress, buttonStyle, size = 20, color }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={[buttonStyle, { marginLeft: 'auto' }]}
+      accessibilityRole="button"
+      accessibilityLabel="Abrir menú"
+    >
+      <Menu size={size} color={color} />
+    </Pressable>
   );
 }

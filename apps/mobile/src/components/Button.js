@@ -48,7 +48,7 @@ export function Button({
         <ActivityIndicator
           color={
             variant === 'outline' || variant === 'ghost' ? COLORS.primary
-              : variant === 'secondary' ? COLORS.background
+              : variant === 'secondary' ? (COLORS.scheme === 'dark' ? COLORS.text : COLORS.background)
                 : COLORS.white
           }
         />
@@ -79,7 +79,7 @@ function makeStyles(COLORS) {
     elevation: 4,
   },
   secondary: {
-    backgroundColor: COLORS.text,
+    backgroundColor: COLORS.scheme === 'dark' ? COLORS.surface : COLORS.text,
     shadowColor: COLORS.black,
     shadowOpacity: 0.12,
     shadowRadius: 10,
@@ -100,7 +100,7 @@ function makeStyles(COLORS) {
   textBase: { fontWeight: '700', fontSize: 16 },
   textSolid: { color: COLORS.white },
   // El fondo de 'secondary' es COLORS.text: el texto usa el color opuesto para leerse en ambos temas.
-  textSecondary: { color: COLORS.background },
+  textSecondary: { color: COLORS.scheme === 'dark' ? COLORS.text : COLORS.background },
   textOutline: { color: COLORS.primary },
   textGhost: { color: COLORS.icon },
   });

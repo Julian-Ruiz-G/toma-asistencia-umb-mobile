@@ -24,6 +24,7 @@ import RequestConsentsModal from '../../components/RequestConsentsModal';
 import { useColors } from '../../ui/ThemeContext';
 import { useAuth } from '../../state/auth';
 import { fetchAdminDashboard } from '../../utils/adminDashboard';
+import { headerTop } from '../../ui/safeArea';
 
 export default function AdminDashboard({ navigation }) {
   const COLORS = useColors();
@@ -167,23 +168,24 @@ export default function AdminDashboard({ navigation }) {
         <View style={styles.header}>
           <View style={styles.headerRow}>
             <View style={styles.userRow}>
-              <Pressable onPress={openDrawer} style={styles.menuBtn} accessibilityLabel="Abrir menú">
-                <Menu size={22} color={COLORS.white} />
+              <Pressable
+                onPress={() => {
+                  logout();
+                  navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] });
+                }}
+                style={styles.logoutBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Cerrar sesión"
+              >
+                <LogOut size={18} color={COLORS.white} />
               </Pressable>
               <View>
                 <Text style={styles.headerTitle}>Tablero</Text>
                 <Text style={styles.headerSub}>Resumen institucional</Text>
               </View>
             </View>
-            <Pressable
-              onPress={() => {
-                logout();
-                navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] });
-              }}
-              style={styles.logoutBtn}
-              accessibilityLabel="Cerrar sesión"
-            >
-              <LogOut size={18} color={COLORS.white} />
+            <Pressable onPress={openDrawer} style={[styles.logoutBtn, { marginLeft: 'auto' }]} accessibilityRole="button" accessibilityLabel="Abrir menú">
+              <Menu size={22} color={COLORS.white} />
             </Pressable>
           </View>
         </View>
@@ -311,10 +313,9 @@ function Legend({ color, text, styles }) {
 const createStyles = (COLORS) => StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.background },
   scroll: { paddingBottom: 18 },
-  header: { backgroundColor: COLORS.primary, paddingTop: 54, paddingHorizontal: 24, paddingBottom: 18 },
+  header: { backgroundColor: COLORS.primary, paddingTop: headerTop(18), paddingHorizontal: 24, paddingBottom: 18 },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   userRow: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1, paddingRight: 12 },
-  menuBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
   headerTitle: { color: COLORS.white, fontSize: 20, fontWeight: '900' },
   headerSub: { marginTop: 2, color: 'rgba(255,255,255,0.72)', fontSize: 12, fontWeight: '700' },
   logoutBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },

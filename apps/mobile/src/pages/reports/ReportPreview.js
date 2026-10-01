@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState, useMemo } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { appAlert } from '../../ui/appNotice';
 import {
@@ -18,6 +19,7 @@ import { ATTENDANCE_REPORT_URL } from '../../config';
 import { useAuth } from '../../state/auth';
 import { exportAttendanceReport } from '../../utils/reportExport';
 import { Button } from '../../components/Button';
+import { headerTop } from '../../ui/safeArea';
 
 // Parsea el CSV del backend en filas/columnas
 function parseCsv(text) {
@@ -65,12 +67,12 @@ function splitHeaderAndTable(rows) {
   return { meta, columns, dataRows };
 }
 
-const STATUS_COLORS = {
+const makeStatusColors = (COLORS) => ({
   X_SI: { bg: COLORS.successBg, text: COLORS.success, border: COLORS.successBorder },   // asistencia
   X_NO: { bg: COLORS.dangerBg, text: COLORS.primary, border: COLORS.dangerBorder },   // inasistencia
   X_RET: { bg: COLORS.warningSoft, text: COLORS.warning, border: COLORS.warningBorder },  // retardo
   default: { bg: COLORS.surface, text: COLORS.textSecondary, border: COLORS.border },
-};
+});
 
 function metaLabel(raw) {
   const key = String(raw || '').replace(/_/g, ' ').trim();
@@ -78,19 +80,21 @@ function metaLabel(raw) {
   return key;
 }
 
-function getCellStyle(colLabel, value) {
+function getCellStyle(colLabel, value, statusColors) {
   const col = String(colLabel || '').toUpperCase().trim();
   const val = String(value || '').trim().toUpperCase();
-  if (col === 'SI' && val === 'X') return STATUS_COLORS.X_SI;
-  if (col === 'NO' && val === 'X') return STATUS_COLORS.X_NO;
-  if (col === 'RETARDO' && val === 'X') return STATUS_COLORS.X_RET;
+  if (col === 'SI' && val === 'X') return statusColors.X_SI;
+  if (col === 'NO' && val === 'X') return statusColors.X_NO;
+  if (col === 'RETARDO' && val === 'X') return statusColors.X_RET;
   return null;
 }
 
 export default function ReportPreview({ navigation, route }) {
+  const insets = useSafeAreaInsets();
   const COLORS = useColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const mp = useMemo(() => makeMp(COLORS), [COLORS]);
+  const statusColors = useMemo(() => makeStatusColors(COLORS), [COLORS]);
   const { authToken } = useAuth();
   const sessionId = String(route?.params?.sessionId || '').trim();
   const classId = String(route?.params?.classId || '').trim();
@@ -239,7 +243,7 @@ export default function ReportPreview({ navigation, route }) {
                     <View key={ri} style={[styles.tr, ri % 2 === 1 && styles.trAlt]}>
                       {columns.map((col, ci) => {
                         const val = String(row[ci] || '');
-                        const accent = getCellStyle(col, val);
+                        const accent = getCellStyle(col, val, statusColors);
                         return (
                           <View
                             key={ci}
@@ -330,9 +334,9 @@ export default function ReportPreview({ navigation, route }) {
       )}
 
       {/* ── Modal de previsualización por formato ── */}
-      <Modal visible={!!previewFormat} transparent animationType="slide" onRequestClose={() => setPreviewFormat(null)}>
+      <Modal visible={!!previewFormat} transparent animationType="slide" statusBarTranslucent navigationBarTranslucent onRequestClose={() => setPreviewFormat(null)}>
         <OverlayDismiss style={mp.overlay} pin="bottom" onClose={() => setPreviewFormat(null)}>
-          <View style={mp.sheet}>
+          <View style={[mp.sheet, { paddingBottom: insets.bottom }]}>
             <View style={mp.sheetHeader}>
               <Text style={mp.sheetTitle}>
                 Vista previa — {previewFormat === 'csv' ? 'CSV' : previewFormat === 'xlsx' ? 'Excel' : 'PDF'}
@@ -401,7 +405,7 @@ export default function ReportPreview({ navigation, route }) {
                         <View key={ri} style={[mp.xlsxTr, ri % 2 === 1 && { backgroundColor: COLORS.surface }]}>
                           {columns.slice(0, 8).map((col, ci) => {
                             const val = String(row[ci] || '');
-                            const bg = xCellBg(col, val);
+                            const bg = xCellBg(col, val, COLORS);
                             return (
                               <View key={ci} style={[mp.xlsxTd, { width: xColW(col) }, bg && { backgroundColor: bg }]}>
                                 <Text style={[mp.xlsxTdText, bg && { fontWeight: '700' }]} numberOfLines={1}>{val}</Text>
@@ -481,7 +485,7 @@ const createStyles = (COLORS) => StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.background },
   header: {
     backgroundColor: COLORS.card,
-    paddingTop: 48,
+    paddingTop: headerTop(12),
     paddingHorizontal: 16,
     paddingBottom: 14,
     flexDirection: 'row',
@@ -541,12 +545,12 @@ const createStyles = (COLORS) => StyleSheet.create({
     paddingHorizontal: 14, paddingTop: 12, paddingBottom: 8,
     borderBottomWidth: 1, borderBottomColor: COLORS.border,
   },
-  theadRow: { flexDirection: 'row', backgroundColor: COLORS.text },
+  theadRow: { flexDirection: 'row', backgroundColor: COLORS.scheme === 'dark' ? COLORS.surface : COLORS.text },
   th: {
     paddingVertical: 9, paddingHorizontal: 8,
     borderRightWidth: 1, borderRightColor: COLORS.textSecondary,
   },
-  thText: { fontSize: 10, color: COLORS.background, fontWeight: '900', textTransform: 'uppercase' },
+  thText: { fontSize: 10, color: COLORS.scheme === 'dark' ? COLORS.text : COLORS.background, fontWeight: '900', textTransform: 'uppercase' },
   tr: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: COLORS.border },
   trAlt: { backgroundColor: COLORS.background },
   td: {
@@ -609,7 +613,7 @@ function xColW(col) {
   if (c.includes('CÓDIGO') || c.includes('CODIGO')) return 100;
   return 76;
 }
-function xCellBg(col, val) {
+function xCellBg(col, val, COLORS) {
   const c = String(col).toUpperCase(); const v = String(val).toUpperCase();
   if (c === 'SI' && v === 'X') return COLORS.successBg;
   if (c === 'NO' && v === 'X') return COLORS.dangerBg;
@@ -646,8 +650,8 @@ const makeMp = (COLORS) => StyleSheet.create({
   xlsxHead: { flexDirection: 'row', backgroundColor: '#4472C4' },
   xlsxTh: { paddingVertical: 8, paddingHorizontal: 6, borderRightWidth: 1, borderRightColor: '#335C9E' },
   xlsxThText: { color: COLORS.white, fontSize: 10, fontWeight: '900' },
-  xlsxTr: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#D9D9D9', backgroundColor: COLORS.card },
-  xlsxTd: { paddingVertical: 6, paddingHorizontal: 6, borderRightWidth: 1, borderRightColor: '#D9D9D9' },
+  xlsxTr: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: COLORS.border, backgroundColor: COLORS.card },
+  xlsxTd: { paddingVertical: 6, paddingHorizontal: 6, borderRightWidth: 1, borderRightColor: COLORS.border },
   xlsxTdText: { fontSize: 10, color: '#212121' },
   xlsxMore: { padding: 8, color: COLORS.placeholder, fontSize: 10, textAlign: 'center', backgroundColor: COLORS.background },
   // PDF
@@ -658,9 +662,9 @@ const makeMp = (COLORS) => StyleSheet.create({
   pdfMetaRow: { flexDirection: 'row', gap: 6, paddingVertical: 2 },
   pdfMetaKey: { fontSize: 10, color: COLORS.muted, width: 110 },
   pdfMetaVal: { fontSize: 10, color: COLORS.text, fontWeight: '700', flex: 1 },
-  pdfThead: { flexDirection: 'row', backgroundColor: COLORS.text },
+  pdfThead: { flexDirection: 'row', backgroundColor: COLORS.scheme === 'dark' ? COLORS.surface : COLORS.text },
   pdfTh: { paddingVertical: 6, paddingHorizontal: 4, borderRightWidth: 1, borderRightColor: COLORS.textSecondary },
-  pdfThText: { fontSize: 9, color: COLORS.background, fontWeight: '900' },
+  pdfThText: { fontSize: 9, color: COLORS.scheme === 'dark' ? COLORS.text : COLORS.background, fontWeight: '900' },
   pdfTr: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: COLORS.border },
   pdfTd: { paddingVertical: 5, paddingHorizontal: 4, borderRightWidth: 1, borderRightColor: COLORS.border },
   pdfTdText: { fontSize: 9, color: COLORS.textSecondary },

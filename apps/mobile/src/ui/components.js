@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, TextInput, StyleSheet } from 'react-native';
 import { useColors } from './ThemeContext';
+import { headerTop } from './safeArea';
 
 function useUiStyles() {
   const COLORS = useColors();
@@ -71,7 +72,7 @@ function makeStyles(COLORS) {
   return StyleSheet.create({
     screen: { flex: 1, backgroundColor: COLORS.background },
     header: {
-      paddingTop: 54,
+      paddingTop: headerTop(18),
       paddingHorizontal: 16,
       paddingBottom: 12,
       flexDirection: 'row',

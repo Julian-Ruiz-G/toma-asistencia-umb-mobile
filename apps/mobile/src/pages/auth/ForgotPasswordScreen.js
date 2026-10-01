@@ -4,6 +4,7 @@ import { ArrowLeft, KeyRound } from 'lucide-react-native';
 
 import { Button } from '../../components/Button';
 import { useColors } from '../../ui/ThemeContext';
+import { headerTop } from '../../ui/safeArea';
 
 // La recuperación de cuentas la hace el administrador: asigna una contraseña temporal
 // desde el panel y la app obliga a cambiarla en el siguiente inicio de sesión.
@@ -59,7 +60,7 @@ const createStyles = (COLORS) => StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     paddingHorizontal: 16,
-    paddingTop: 48,
+    paddingTop: headerTop(12),
     paddingBottom: 16,
     backgroundColor: COLORS.card,
   },

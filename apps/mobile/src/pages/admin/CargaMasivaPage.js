@@ -19,6 +19,7 @@ import { useColors } from '../../ui/ThemeContext';
 import { ADMIN_BULK_IMPORT_URL } from '../../config';
 import { useAuth } from '../../state/auth';
 import { AdminNavButtons, useAdminDrawer } from '../../components/AdminDrawer';
+import { MenuButton } from '../../components/RoleDrawer';
 
 const KINDS = [
   {
@@ -30,8 +31,8 @@ const KINDS = [
   {
     id: 'asignaturas',
     label: 'Asignaturas',
-    hint: 'Crea la clase de un docente que ya exista. Los días van separados por |.',
-    template: 'nombre,grupo,inicio,fin,salon,docente,codigo,periodo,dias\nPrueba de asistencia,A,07:00,09:00,101,docente1@umb.edu.co,PRU101,2026-1,lunes|miercoles\n',
+    hint: 'Crea la clase de un docente que ya exista. El código es obligatorio con formato 123456-123; el ID de la clase queda código_grupo (ej. 123456-123_A1). Los días van separados por |.',
+    template: 'nombre,grupo,inicio,fin,salon,docente,codigo,periodo,dias\nPrueba de asistencia,A1,07:00,09:00,101,docente1@umb.edu.co,123456-123,2026-1,lunes|miercoles\n',
   },
   {
     id: 'estudiantes',
@@ -291,7 +292,7 @@ export default function CargaMasivaPage({ navigation }) {
     <View style={styles.root}>
       {drawer}
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 16) }]}>
-        <AdminNavButtons onBack={goBack} onMenu={openDrawer} buttonStyle={styles.backBtn} size={20} color={COLORS.icon} />
+        <AdminNavButtons onBack={goBack} buttonStyle={styles.backBtn} size={20} color={COLORS.icon} />
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Carga masiva</Text>
           <Text style={styles.headerSubtitle}>Importa un archivo CSV</Text>
@@ -299,6 +300,7 @@ export default function CargaMasivaPage({ navigation }) {
         <Pressable onPress={shareTemplate} style={styles.iconBtn}>
           <Download size={18} color={COLORS.icon} />
         </Pressable>
+        <MenuButton onPress={openDrawer} buttonStyle={styles.backBtn} size={20} color={COLORS.icon} />
       </View>
 
       <ScrollView contentContainerStyle={styles.body}>

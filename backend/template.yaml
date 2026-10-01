@@ -28,6 +28,10 @@ Parameters:
   MaxMatches:
     Type: Number
     Default: 5
+  PillowLayerArn:
+    Type: String
+    Default: arn:aws:lambda:us-east-2:906847091276:layer:umb-pillow-py312:1
+    Description: Capa con Pillow para Python 3.12 (Linux). La Lambda la necesita para recortar cada rostro de la foto de grupo; al venir en una capa funciona igual si se despliega con este template o con el del build.
   SesFromEmail:
     Type: String
     Default: ""
@@ -71,6 +75,8 @@ Resources:
       CodeUri: src/
       Handler: lambda_handler.lambda_handler
       Description: Recognize faces from uploaded image
+      Layers:
+        - !Ref PillowLayerArn
       Environment:
         Variables:
           REGION: !Ref AWS::Region

@@ -13,6 +13,7 @@ import { CLASS_DETAILS_URL } from '../../config';
 import { useAuth } from '../../state/auth';
 import { classStatusMeta, formatScheduleLines } from '../../utils/schedule';
 import { personDisplayName } from '../../utils/displayName';
+import { headerTop } from '../../ui/safeArea';
 
 export default function ClassDetails({ navigation, route }) {
   const COLORS = useColors();
@@ -53,7 +54,7 @@ export default function ClassDetails({ navigation, route }) {
   const c = details?.class || {};
   const students = Array.isArray(details?.students) ? details.students : [];
   const lines = useMemo(() => formatScheduleLines(c?.schedule || []), [c?.schedule]);
-  const status = classStatusMeta(c);
+  const status = classStatusMeta(c, COLORS);
   const classToken = c?.classToken || details?.classToken || details?.token || '';
   const title = c?.className || 'Clase';
 
@@ -182,7 +183,7 @@ const createStyles = (COLORS) => StyleSheet.create({
     backgroundColor: COLORS.card,
     paddingHorizontal: 24,
     paddingBottom: 16,
-    paddingTop: 48,
+    paddingTop: headerTop(12),
     flexDirection: 'row',
     alignItems: 'center',
   },

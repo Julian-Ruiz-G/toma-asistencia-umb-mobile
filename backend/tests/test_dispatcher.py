@@ -570,6 +570,133 @@ def test_group_photo_without_pillow_is_rejected_not_degraded():
         assert runtime._group_photo_unavailable(8, None)["statusCode"] == 503
 
 
+def _teacher_event(path, body):
+    import time as _time
+    import runtime
+
+    now = int(_time.time())
+    token = runtime._sign_token({"sub": "doc@umb.edu.co", "role": "teacher", "iat": now, "exp": now + 60})
+    return _event(path, body=body, headers={"Authorization": f"Bearer {token}"})
+
+
+_NEW_CLASS = {"className": "Álgebra", "group": "a1", "startTime": "07:00", "endTime": "09:00", "room": "B201"}
+
+
+def test_class_id_helper_format():
+    from runtime import _class_id_for
+
+    assert _class_id_for("123456-123", "a1") == ("123456-123_A1", "")
+    for code in ("12345-123", "123456123", "123456-12", "NT001", ""):
+        assert _class_id_for(code, "A1")[0] == "", code
+    assert _class_id_for("123456-123", "A 1")[0] == ""
+
+
+def test_create_class_uses_subject_code_and_group_as_id():
+    from routes import classes as class_routes
+    from unittest.mock import MagicMock, patch
+
+    ddb = MagicMock()
+    with patch.object(class_routes, "dynamodb", ddb):
+        resp = lambda_handler(_teacher_event("/Prod/create-class", {**_NEW_CLASS, "subjectCode": "123456-123"}), None)
+    assert resp["statusCode"] == 200, _body(resp)
+    assert _body(resp)["classId"] == "123456-123_A1"
+    call = ddb.put_item.call_args.kwargs
+    assert call["Item"]["RekognitionId"] == {"S": "CLASS#123456-123_A1"}
+    assert call["Item"]["Group"] == {"S": "A1"}
+    assert call["ConditionExpression"] == "attribute_not_exists(RekognitionId)"
+
+    with patch.object(class_routes, "dynamodb", MagicMock()):
+        bad = lambda_handler(_teacher_event("/Prod/create-class", {**_NEW_CLASS, "subjectCode": "NT001"}), None)
+    assert bad["statusCode"] == 400
+    assert _body(bad)["error"] == "InvalidClassCode"
+
+
+def test_create_class_rejects_duplicate_code():
+    from routes import classes as class_routes
+    from unittest.mock import MagicMock, patch
+
+    ddb = MagicMock()
+    ddb.put_item.side_effect = Exception("ConditionalCheckFailedException: exists")
+    with patch.object(class_routes, "dynamodb", ddb):
+        resp = lambda_handler(_teacher_event("/Prod/create-class", {**_NEW_CLASS, "subjectCode": "123456-123"}), None)
+    assert resp["statusCode"] == 409
+    assert _body(resp)["error"] == "ClassAlreadyExists"
+
+
+def test_update_class_keeps_code_and_group_of_new_ids():
+    from routes import classes as class_routes
+    from unittest.mock import MagicMock, patch
+
+    ddb = MagicMock()
+    ddb.get_item.return_value = {"Item": {
+        "ClassId": {"S": "123456-123_A1"}, "TeacherEmail": {"S": "doc@umb.edu.co"},
+        "SubjectCode": {"S": "123456-123"}, "Group": {"S": "A1"},
+    }}
+    with patch.object(class_routes, "dynamodb", ddb):
+        changed = lambda_handler(_teacher_event("/Prod/update-class", {
+            "classId": "123456-123_A1", "subjectCode": "123456-123", "group": "B2", "room": "B201"}), None)
+        same = lambda_handler(_teacher_event("/Prod/update-class", {
+            "classId": "123456-123_A1", "subjectCode": "123456-123", "group": "a1", "room": "C101"}), None)
+    assert changed["statusCode"] == 400
+    assert _body(changed)["error"] == "ClassCodeLocked"
+    assert same["statusCode"] == 200, _body(same)
+
+
+def test_notifications_never_look_like_accounts():
+    # Regresión: la notificación "Completa tus datos" se guardaba con Role=student y salía como un perfil vacío.
+    import runtime
+    from unittest.mock import MagicMock, patch
+
+    ddb = MagicMock()
+    ddb.get_item.return_value = {}
+    with patch.object(runtime, "dynamodb", ddb):
+        runtime._upsert_student_notification(
+            "ana@academia.umb.edu.co", "notif#adminreq#ana", "t", "m", "warning", 1, extra={"Role": "student"})
+    item = ddb.put_item.call_args.kwargs["Item"]
+    assert "Role" not in item and item["RecipientRole"] == {"S": "student"}
+
+    rows = [
+        {"RekognitionId": {"S": "face-1"}, "Role": {"S": "student"}, "Email": {"S": "ana@academia.umb.edu.co"}, "FullName": {"S": "Ana"}},
+        {"RekognitionId": {"S": "notif#adminreq#x"}, "Role": {"S": "student"}, "Type": {"S": "Notification"}},
+    ]
+    with patch.object(runtime, "dynamodb", _fake_table(rows)):
+        resp = lambda_handler(_admin_event("/Prod/admin-students", {}), None)
+    students = _body(resp)["students"]
+    assert [s["email"] for s in students] == ["ana@academia.umb.edu.co"]
+
+
+def test_profile_update_on_deleted_account_does_not_create_it():
+    import time as _time
+    import runtime
+    from routes import auth as auth_routes
+    from unittest.mock import MagicMock, patch
+
+    ddb = MagicMock()
+    ddb.update_item.side_effect = Exception("ConditionalCheckFailedException")
+    student = {"RekognitionId": {"S": "face-1"}, "Role": {"S": "student"}, "Email": {"S": "ana@academia.umb.edu.co"}}
+    now = int(_time.time())
+    token = runtime._sign_token({"sub": "ana@academia.umb.edu.co", "role": "student", "iat": now, "exp": now + 60})
+    event = _event("/Prod/update-my-profile", body={"fullName": "Ana", "program": "Derecho", "semester": "2", "phone": "300"},
+                   headers={"Authorization": f"Bearer {token}"})
+    with patch.object(auth_routes, "dynamodb", ddb), patch.object(auth_routes, "_scan_find_student_by_email", return_value=student), \
+            patch.object(auth_routes, "_account_for_session", return_value=student, create=True):
+        resp = lambda_handler(event, None)
+    assert ddb.update_item.call_args.kwargs["ConditionExpression"] == "attribute_exists(RekognitionId)"
+    assert resp["statusCode"] == 404
+
+
+def test_template_attaches_pillow_layer():
+    # Regresión: dos despliegues con template.yaml dejaron la Lambda sin Pillow y sin reconocimiento grupal.
+    template = (SRC.parent / "template.yaml").read_text(encoding="utf-8")
+    assert "PillowLayerArn:" in template
+    assert "Layers:
+        - !Ref PillowLayerArn" in template.replace("
+", "
+")
+    requirements = (SRC / "requirements.txt").read_text(encoding="utf-8")
+    assert not any(line.strip().lower().startswith("pillow") for line in requirements.splitlines())
+
+
 def test_captcha_pass_outlives_the_challenge():
     # Regresión: el reto vence a los 3 minutos y el registro fallaba mientras se tomaba la foto.
     import time as _time

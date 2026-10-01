@@ -203,11 +203,14 @@ def handle_set_consent(event, body):
         dynamodb.update_item(
             TableName=DDB_TABLE,
             Key={'RekognitionId': {'S': pk}},
+            ConditionExpression='attribute_exists(RekognitionId)',
             UpdateExpression='SET ' + ', '.join(parts),
             ExpressionAttributeNames=names,
             ExpressionAttributeValues=values,
         )
     except Exception as e:
+        if 'ConditionalCheckFailed' in str(e):
+            return _response(404, {'error': 'AccountNotFound', 'message': 'La cuenta ya no existe.'})
         logger.exception('DynamoDB update_item failed (set-consent)')
         return _response(500, {'error': 'DynamoDBUpdateFailed', 'details': str(e)})
 
@@ -269,11 +272,14 @@ def handle_update_my_profile(event, body):
         dynamodb.update_item(
             TableName=DDB_TABLE,
             Key={'RekognitionId': {'S': pk}},
+            ConditionExpression='attribute_exists(RekognitionId)',
             UpdateExpression='SET ' + ', '.join(parts),
             ExpressionAttributeNames=names,
             ExpressionAttributeValues=values,
         )
     except Exception as e:
+        if 'ConditionalCheckFailed' in str(e):
+            return _response(404, {'error': 'AccountNotFound', 'message': 'La cuenta ya no existe.'})
         logger.exception('DynamoDB update_item failed (update-my-profile)')
         return _response(500, {'error': 'DynamoDBUpdateFailed', 'details': str(e)})
 
@@ -631,6 +637,7 @@ def _apply_new_password(pk: str, new_password: str, clear_reset: bool = False):
     dynamodb.update_item(
         TableName=DDB_TABLE,
         Key={'RekognitionId': {'S': pk}},
+        ConditionExpression='attribute_exists(RekognitionId)',
         UpdateExpression=update,
         ExpressionAttributeValues=values,
     )
@@ -670,6 +677,8 @@ def handle_change_password(event, body):
     try:
         _apply_new_password(pk, new_password, clear_reset=True)
     except Exception as e:
+        if 'ConditionalCheckFailed' in str(e):
+            return _response(404, {'error': 'AccountNotFound', 'message': 'La cuenta ya no existe.'})
         logger.exception('DynamoDB update_item failed (change-password)')
         return _response(500, {'error': 'DynamoDBUpdateFailed', 'details': str(e)})
 

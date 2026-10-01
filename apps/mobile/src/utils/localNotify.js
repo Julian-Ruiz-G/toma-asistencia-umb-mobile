@@ -3,6 +3,7 @@ import { COLORS } from '../ui/theme';
 import Constants from 'expo-constants';
 import { requireOptionalNativeModule } from 'expo-modules-core';
 import { isDeviceNotificationsEnabled } from './appSettings';
+import { loadReminders, reminderOccurrences, saveReminders } from './remindersStore';
 
 export const REMINDER_CHANNEL = 'umb-reminders';
 
@@ -48,6 +49,20 @@ function loadApi() {
     const { addNotificationResponseReceivedListener } = require('expo-notifications/build/NotificationsEmitter');
     const permissions = require('expo-notifications/build/NotificationPermissions');
     const types = require('expo-notifications/build/Notifications.types');
+    let dismissAllNotificationsAsync = async () => {};
+    try {
+      dismissAllNotificationsAsync = require('expo-notifications/build/dismissAllNotificationsAsync').dismissAllNotificationsAsync
+        || dismissAllNotificationsAsync;
+    } catch {
+      // ignore
+    }
+    let setBadgeCountAsync = async () => false;
+    try {
+      setBadgeCountAsync = require('expo-notifications/build/setBadgeCountAsync').setBadgeCountAsync
+        || setBadgeCountAsync;
+    } catch {
+      // ignore
+    }
     let setNotificationChannelAsync = async () => null;
     try {
       setNotificationChannelAsync = require('expo-notifications/build/setNotificationChannelAsync').setNotificationChannelAsync;
@@ -58,6 +73,8 @@ function loadApi() {
       scheduleNotificationAsync,
       cancelScheduledNotificationAsync,
       cancelAllScheduledNotificationsAsync,
+      dismissAllNotificationsAsync,
+      setBadgeCountAsync,
       setNotificationHandler,
       addNotificationResponseReceivedListener,
       getPermissionsAsync: permissions.getPermissionsAsync,
@@ -71,8 +88,16 @@ function loadApi() {
   }
 }
 
+// Solo se muestran avisos con una sesión abierta (ver setNotificationSession).
+let sessionActive = false;
+
+export function setNotificationSession(active) {
+  sessionActive = !!active;
+  if (!sessionActive) seenServerIds = null;
+}
+
 function handlerOptions() {
-  const enabled = isDeviceNotificationsEnabled();
+  const enabled = isDeviceNotificationsEnabled() && sessionActive;
   return {
     shouldShowAlert: enabled,
     shouldShowBanner: enabled,
@@ -155,7 +180,7 @@ export async function applyDeviceNotificationPreference(enabled) {
 }
 
 export async function scheduleReminderNotification(reminder) {
-  if (!isDeviceNotificationsEnabled()) return null;
+  if (!isDeviceNotificationsEnabled() || !sessionActive) return null;
   const api = loadApi();
   if (!api) return null;
   const when = reminder?.when instanceof Date ? reminder.when : null;
@@ -195,6 +220,87 @@ export async function cancelReminderNotification(notificationId) {
       // ignore
     }
   }));
+}
+
+/**
+ * Al cerrar sesión: cancela lo programado (recordatorios, "clase por comenzar", alertas del
+ * docente), quita las notificaciones de la bandeja y el contador del ícono. Lo programado lo
+ * dispara el sistema aunque la app esté cerrada, por eso hay que cancelarlo aquí.
+ */
+export async function clearAllNotifications() {
+  setNotificationSession(false);
+  const api = loadApi();
+  if (!api) return;
+  await cancelAllScheduledNotifications();
+  try {
+    await api.dismissAllNotificationsAsync();
+  } catch {
+    // ignore
+  }
+  try {
+    await api.setBadgeCountAsync(0);
+  } catch {
+    // ignore
+  }
+}
+
+/** Vuelve a programar los recordatorios guardados de la cuenta (tras iniciar sesión o activar avisos). */
+export async function rescheduleReminders(email) {
+  if (!email) return;
+  const list = await loadReminders(email);
+  const updated = [];
+  for (const item of list) {
+    await cancelReminderNotification(item.notificationIds || item.notificationId);
+    const ids = [];
+    for (const occ of reminderOccurrences(item)) {
+      const nid = await scheduleReminderNotification({
+        id: item.id,
+        title: item.title,
+        description: item.description,
+        when: occ.when,
+      });
+      if (nid) ids.push(nid);
+    }
+    updated.push({ ...item, notificationIds: ids, notificationId: ids[0] || null });
+  }
+  await saveReminders(email, updated);
+}
+
+// Ids de notificaciones del servidor ya vistas en esta sesión (null = aún no se cargó la primera lista).
+let seenServerIds = null;
+
+/**
+ * Hace sonar en el teléfono las notificaciones nuevas del servidor (asistencia registrada,
+ * justificación revisada...). La primera lista de la sesión solo se marca como vista.
+ * Se puede llamar desde varias pantallas: cada id suena una sola vez.
+ */
+export async function announceServerNotifications(list) {
+  const items = Array.isArray(list) ? list : [];
+  if (seenServerIds === null) {
+    seenServerIds = new Set(items.map((n) => String(n?.id || '')));
+    return;
+  }
+  const fresh = items.filter((n) => n?.id && !n.read && !seenServerIds.has(String(n.id)));
+  fresh.forEach((n) => seenServerIds.add(String(n.id)));
+  if (!fresh.length || !sessionActive || !isDeviceNotificationsEnabled()) return;
+  const api = loadApi();
+  if (!api) return;
+  for (const n of fresh.slice(0, 3)) {
+    try {
+      await api.scheduleNotificationAsync({
+        content: {
+          title: n.title || 'Notificación',
+          body: n.message || '',
+          sound: true,
+          data: { type: 'server', id: String(n.id) },
+          ...(Platform.OS === 'android' ? { channelId: REMINDER_CHANNEL } : {}),
+        },
+        trigger: null,
+      });
+    } catch {
+      // ignore
+    }
+  }
 }
 
 export function subscribeNotificationResponses(onResponse) {

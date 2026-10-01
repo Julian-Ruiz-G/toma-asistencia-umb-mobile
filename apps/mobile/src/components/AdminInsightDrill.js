@@ -1,4 +1,5 @@
 import React from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ChevronRight, X } from 'lucide-react-native';
 
@@ -329,6 +330,7 @@ function sessionRow(s) {
 }
 
 export function DrillModal({ visible, model, colors, onClose, onNavigate }) {
+  const insets = useSafeAreaInsets();
   if (!model) return null;
   const go = (action) => {
     if (!action?.screen) return;
@@ -336,8 +338,8 @@ export function DrillModal({ visible, model, colors, onClose, onNavigate }) {
     onNavigate?.(action.screen, action.params || {});
   };
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.overlay}>
+    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent navigationBarTranslucent onRequestClose={onClose}>
+      <View style={[styles.overlay, { paddingTop: 12 + insets.top, paddingBottom: 12 + insets.bottom }]}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         <View style={[styles.sheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={styles.head}>

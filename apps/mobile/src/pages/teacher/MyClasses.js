@@ -11,7 +11,8 @@ import Animated, { enterDown, listEnter } from '../../ui/motion';
 import { MY_CLASSES_URL } from '../../config';
 import { useAuth } from '../../state/auth';
 import { classStatusMeta, formatScheduleFriendly } from '../../utils/schedule';
-import { NavButtons, useTeacherDrawer } from '../../components/RoleDrawer';
+import { NavButtons, useTeacherDrawer, MenuButton } from '../../components/RoleDrawer';
+import { headerTop } from '../../ui/safeArea';
 
 export default function MyClasses({ navigation }) {
   const COLORS = useColors();
@@ -53,16 +54,17 @@ export default function MyClasses({ navigation }) {
     <View style={styles.root}>
       {drawer}
       <Animated.View entering={enterDown(0, 360)} style={styles.header}>
-        <NavButtons onBack={goBack} onMenu={openDrawer} buttonStyle={styles.backBtn} size={24} color={COLORS.textSecondary} />
+        <NavButtons onBack={goBack} buttonStyle={styles.backBtn} size={24} color={COLORS.textSecondary} />
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Mis clases</Text>
           <Text style={styles.headerSubtitle}>{loading ? 'Actualizando…' : `${classes.length} curso${classes.length === 1 ? '' : 's'}`}</Text>
         </View>
+        <MenuButton onPress={openDrawer} buttonStyle={styles.backBtn} size={24} color={COLORS.textSecondary} />
       </Animated.View>
 
       <ScrollView contentContainerStyle={styles.body}>
         {classes.map((c, idx) => {
-          const status = classStatusMeta(c);
+          const status = classStatusMeta(c, COLORS);
           const schedule = formatScheduleFriendly(c);
           return (
             <Animated.View key={String(c?.classId || idx)} entering={listEnter(idx)}>
@@ -122,7 +124,7 @@ const createStyles = (COLORS) => StyleSheet.create({
     backgroundColor: COLORS.card,
     paddingHorizontal: 24,
     paddingBottom: 16,
-    paddingTop: 48,
+    paddingTop: headerTop(12),
     flexDirection: 'row',
     alignItems: 'center',
   },

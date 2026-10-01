@@ -9,6 +9,7 @@ import { useColors } from '../../ui/ThemeContext';
 import { CREATE_ATTENDANCE_QR_URL, MY_CLASSES_URL } from '../../config';
 import { useAuth } from '../../state/auth';
 import { alertAttendanceQrError } from '../../utils/attendanceQr';
+import { headerTop } from '../../ui/safeArea';
 
 export default function CreateSession({ navigation }) {
   const COLORS = useColors();
@@ -207,7 +208,7 @@ const createStyles = (COLORS) => StyleSheet.create({
     backgroundColor: COLORS.card,
     paddingHorizontal: 24,
     paddingBottom: 16,
-    paddingTop: 48,
+    paddingTop: headerTop(12),
     flexDirection: 'row',
     alignItems: 'center',
   },

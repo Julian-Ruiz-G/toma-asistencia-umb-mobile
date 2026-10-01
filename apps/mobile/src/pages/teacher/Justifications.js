@@ -9,7 +9,8 @@ import { useAuth } from '../../state/auth';
 import { appAlert } from '../../ui/appNotice';
 import { useColors } from '../../ui/ThemeContext';
 import { personDisplayName } from '../../utils/displayName';
-import { NavButtons, useTeacherDrawer } from '../../components/RoleDrawer';
+import { NavButtons, useTeacherDrawer, MenuButton } from '../../components/RoleDrawer';
+import { headerTop } from '../../ui/safeArea';
 
 const STATUS_LABEL = {
   enviada: 'En revisión',
@@ -106,13 +107,14 @@ export default function Justifications({ navigation, route }) {
     <View style={styles.root}>
       {drawer}
       <View style={styles.header}>
-        <NavButtons onBack={goBack} onMenu={openDrawer} buttonStyle={styles.backBtn} size={24} color={COLORS.textSecondary} />
+        <NavButtons onBack={goBack} buttonStyle={styles.backBtn} size={24} color={COLORS.textSecondary} />
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Justificaciones</Text>
           <Text style={styles.headerSubtitle} numberOfLines={1}>
             {loading ? 'Cargando…' : (className || 'Excusas de tus clases')}
           </Text>
         </View>
+        <MenuButton onPress={openDrawer} buttonStyle={styles.backBtn} size={24} color={COLORS.textSecondary} />
       </View>
       <ScrollView contentContainerStyle={styles.body}>
         {!loading && rows.length === 0 ? (
@@ -173,7 +175,7 @@ const createStyles = (COLORS) => StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     paddingHorizontal: 16,
-    paddingTop: 48,
+    paddingTop: headerTop(12),
     paddingBottom: 16,
     backgroundColor: COLORS.card,
   },

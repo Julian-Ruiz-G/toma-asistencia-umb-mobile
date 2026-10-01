@@ -25,6 +25,7 @@ import OverlayDismiss from '../../components/OverlayDismiss';
 import { Button } from '../../components/Button';
 import { COLORS } from '../../ui/theme';
 import { useColors } from '../../ui/ThemeContext';
+import { headerTop } from '../../ui/safeArea';
 
 export default function ManualCorrection({ navigation }) {
   const COLORS = useColors();
@@ -304,7 +305,7 @@ const createStyles = (COLORS) => StyleSheet.create({
     backgroundColor: COLORS.card,
     paddingHorizontal: 24,
     paddingBottom: 16,
-    paddingTop: 48,
+    paddingTop: headerTop(12),
     flexDirection: 'row',
     alignItems: 'center',
   },

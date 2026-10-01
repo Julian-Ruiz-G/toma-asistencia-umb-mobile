@@ -23,6 +23,8 @@ import { useColors } from '../../ui/ThemeContext';
 import { ADMIN_LOGS_URL } from '../../config';
 import { useAuth } from '../../state/auth';
 import { AdminNavButtons, useAdminDrawer } from '../../components/AdminDrawer';
+import { MenuButton } from '../../components/RoleDrawer';
+import { headerTop } from '../../ui/safeArea';
 
 const mockLogs = [
   { id: '1', timestamp: '2024-01-15 14:32:15', level: 'info', module: 'Auth', message: 'Usuario inició sesión', user: 'admin@umb.edu.co' },
@@ -132,7 +134,7 @@ export default function LogsPage({ navigation }) {
     <View style={styles.root}>
       {drawer}
       <View style={styles.header}>
-        <AdminNavButtons onBack={goBack} onMenu={openDrawer} buttonStyle={styles.backBtn} size={20} color={COLORS.icon} />
+        <AdminNavButtons onBack={goBack} buttonStyle={styles.backBtn} size={20} color={COLORS.icon} />
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Logs</Text>
           <Text style={styles.headerSubtitle}>Monitoreo del sistema</Text>
@@ -140,6 +142,7 @@ export default function LogsPage({ navigation }) {
         <Pressable onPress={() => {}} style={styles.iconBtn}>
           <Download size={18} color={COLORS.icon} />
         </Pressable>
+        <MenuButton onPress={openDrawer} buttonStyle={styles.backBtn} size={20} color={COLORS.icon} />
       </View>
 
       <ScrollView contentContainerStyle={styles.body}>
@@ -288,7 +291,7 @@ export default function LogsPage({ navigation }) {
 
 const createStyles = (COLORS) => StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.background },
-  header: { backgroundColor: COLORS.card, paddingTop: 48, paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: COLORS.border, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  header: { backgroundColor: COLORS.card, paddingTop: headerTop(12), paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: COLORS.border, flexDirection: 'row', alignItems: 'center', gap: 12 },
   backBtn: { padding: 8, borderRadius: 12, backgroundColor: COLORS.surface },
   iconBtn: { padding: 10, borderRadius: 14, backgroundColor: COLORS.background, borderWidth: 1, borderColor: COLORS.border },
   headerTitle: { fontWeight: '900', color: COLORS.text, fontSize: 18 },

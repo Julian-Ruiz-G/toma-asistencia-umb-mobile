@@ -11,6 +11,8 @@ import { useAuth } from '../../state/auth';
 import { personDisplayName } from '../../utils/displayName';
 import { fetchAdminDashboard, filterAttendanceRows, labelKey, lastNDayBuckets, prettyLabel, weekdayShort } from '../../utils/adminDashboard';
 import { AdminNavButtons, useAdminDrawer } from '../../components/AdminDrawer';
+import { MenuButton } from '../../components/RoleDrawer';
+import { headerTop } from '../../ui/safeArea';
 
 const SECTIONS = {
   students: {
@@ -45,7 +47,6 @@ export default function AdminInsight({ navigation, route }) {
   const [program, setProgram] = useState('');
   const [semester, setSemester] = useState('');
   const [load, setLoad] = useState('');
-  const [period, setPeriod] = useState('');
   const [attRange, setAttRange] = useState(String(route?.params?.range || 'week'));
   const [attCorte, setAttCorte] = useState(String(route?.params?.corte || '1'));
   const [selectedDay, setSelectedDay] = useState('');
@@ -97,10 +98,6 @@ export default function AdminInsight({ navigation, route }) {
     () => [{ id: '', label: 'Todos los semestres' }, ...uniqueOpts(students.map((s) => s.semester), 'sem.')],
     [students]
   );
-  const periodOptions = useMemo(
-    () => [{ id: '', label: 'Todos los cortes' }, ...uniqueOpts(teachers.flatMap((t) => t.periods), 'corte')],
-    [teachers]
-  );
 
   const rangedAttendance = useMemo(
     () => filterAttendanceRows(attendance, {
@@ -120,9 +117,8 @@ export default function AdminInsight({ navigation, route }) {
   const filteredTeachers = useMemo(() => teachers.filter((t) => {
     if (load === 'with' && t.subjectsCount <= 0) return false;
     if (load === 'without' && t.subjectsCount > 0) return false;
-    if (period && !(t.periods || []).some((p) => labelKey(p) === period)) return false;
     return true;
-  }), [teachers, load, period]);
+  }), [teachers, load]);
 
   // El buscador filtra los indicadores y gráficos de asistencia por estudiante o clase.
   const filteredAttendance = useMemo(() => {
@@ -148,7 +144,6 @@ export default function AdminInsight({ navigation, route }) {
         count: t.subjectsCount,
         email: t.email,
       })),
-    byPeriod: countLocal(filteredTeachers.flatMap((t) => t.periods || [])),
   }), [filteredTeachers]);
 
   const weekDays = useMemo(() => {
@@ -308,11 +303,12 @@ export default function AdminInsight({ navigation, route }) {
       {drawer}
       <View style={styles.header}>
         <View style={styles.headerTop}>
-          <AdminNavButtons onBack={handleBack} onMenu={openDrawer} buttonStyle={styles.backBtn} size={20} color={COLORS.white} />
+          <AdminNavButtons onBack={handleBack} buttonStyle={styles.backBtn} size={20} color={COLORS.white} />
           <View style={{ flex: 1 }}>
             <Text style={styles.headerTitle}>{meta.title}</Text>
             <Text style={styles.headerSubtitle}>{meta.subtitle}</Text>
           </View>
+          <MenuButton onPress={openDrawer} buttonStyle={styles.backBtn} size={20} color={COLORS.white} />
         </View>
         {section === 'attendance' ? (
           <View style={styles.searchWrap}>
@@ -410,14 +406,6 @@ export default function AdminInsight({ navigation, route }) {
                   emptyText="Ningún docente tiene clases aún."
                 />
               </Card>
-              {teacherCharts.byPeriod.length ? (
-                <Card colors={COLORS} title="Docentes por período académico">
-                  {periodOptions.length > 1 ? (
-                    <FilterChips colors={COLORS} options={periodOptions} value={period} onChange={setPeriod} />
-                  ) : null}
-                  <HBarChart items={teacherCharts.byPeriod} colors={COLORS} compact emptyText="Aún no hay docentes agrupados por período." />
-                </Card>
-              ) : null}
               <Pressable onPress={manage} style={styles.manageBtn}>
                 <Text style={styles.manageText}>Ir a gestión de docentes</Text>
               </Pressable>
@@ -740,7 +728,7 @@ const kpiStyles = StyleSheet.create({
 
 const createStyles = (COLORS) => StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.background },
-  header: { backgroundColor: COLORS.primary, paddingTop: 48, paddingHorizontal: 16, paddingBottom: 16 },
+  header: { backgroundColor: COLORS.primary, paddingTop: headerTop(12), paddingHorizontal: 16, paddingBottom: 16 },
   headerTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
   headerTitle: { color: COLORS.white, fontSize: 18, fontWeight: '900' },

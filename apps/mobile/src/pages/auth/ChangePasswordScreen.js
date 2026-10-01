@@ -11,6 +11,7 @@ import { appAlert } from '../../ui/appNotice';
 import { useColors } from '../../ui/ThemeContext';
 import { homeRouteForRole, passwordIssue } from '../../utils/passwordRules';
 import { loadPersistedSession } from '../../utils/sessionStore';
+import { headerTop } from '../../ui/safeArea';
 
 export default function ChangePasswordScreen({ navigation, route }) {
   const forced = route?.params?.forced === true;
@@ -167,7 +168,7 @@ const createStyles = (COLORS) => StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     paddingHorizontal: 16,
-    paddingTop: 48,
+    paddingTop: headerTop(12),
     paddingBottom: 16,
     backgroundColor: COLORS.card,
   },

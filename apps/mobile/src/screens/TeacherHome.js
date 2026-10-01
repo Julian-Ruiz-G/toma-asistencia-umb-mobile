@@ -42,6 +42,9 @@ import PrivacyPolicyModal from '../components/PrivacyPolicy';
 import { loadLocalProfile, loadPersistedSession, saveLocalProfile } from '../utils/sessionStore';
 import { loadTeacherAlerts, syncTeacherAlerts, teacherAlertIsDue } from '../utils/teacherAlerts';
 import { useTeacherDrawer } from '../components/RoleDrawer';
+import { headerTop } from '../ui/safeArea';
+import { announceServerNotifications } from '../utils/localNotify';
+import { useFocusPolling } from '../utils/useFocusPolling';
 
 function classCardMeta(c, idx) {
   return {
@@ -327,6 +330,7 @@ export default function TeacherHome({ navigation }) {
           const list = Array.isArray(json?.notifications) ? json.notifications : [];
           admin = list.find((n) => String(n?.action || '') === 'admin_request' && !n?.read) || null;
           serverUnread = list.filter((n) => !n?.read).length;
+          announceServerNotifications(list);
         }
       } catch {
         // ignore
@@ -342,6 +346,9 @@ export default function TeacherHome({ navigation }) {
     }
     setNotificationUnread(inAppNotifications ? serverUnread + localUnread : 0);
   };
+
+  // Revisa las notificaciones del servidor cada 20 s mientras el inicio está visible y al volver a la app.
+  useFocusPolling(loadAdminNotice, 20000);
 
   const openAdminNotice = () => {
     const notice = adminNotice;
@@ -428,8 +435,16 @@ export default function TeacherHome({ navigation }) {
         <Animated.View entering={enterDown(0, 400)} style={styles.header}>
           <View style={styles.headerRow}>
             <View style={styles.userRow}>
-              <Pressable onPress={openDrawer} style={styles.logoutBtn} accessibilityRole="button" accessibilityLabel="Abrir menú">
-                <Menu size={18} color={COLORS.white} />
+              <Pressable
+                onPress={() => {
+                  logout();
+                  navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] });
+                }}
+                style={styles.logoutBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Cerrar sesión"
+              >
+                <LogOut size={18} color={COLORS.white} />
               </Pressable>
               <Pressable onPress={() => navigation.navigate('TeacherProfile')} style={styles.avatarWrap}>
                 <Image
@@ -444,14 +459,8 @@ export default function TeacherHome({ navigation }) {
                 <Text style={styles.userName}>{personDisplayName(fullName, 'Docente')}</Text>
               </View>
             </View>
-            <Pressable
-              onPress={() => {
-                logout();
-                navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] });
-              }}
-              style={styles.logoutBtn}
-            >
-              <LogOut size={18} color={COLORS.white} />
+            <Pressable onPress={openDrawer} style={[styles.logoutBtn, { marginLeft: 'auto' }]} accessibilityRole="button" accessibilityLabel="Abrir menú">
+              <Menu size={18} color={COLORS.white} />
             </Pressable>
           </View>
 
@@ -548,7 +557,7 @@ export default function TeacherHome({ navigation }) {
             const title = c?.className || c?.subject || c?.name || 'Clase';
             const group = c?.group || c?.groupName || c?.grupo || '';
             const room = c?.room || c?.classroom || c?.aula || '';
-            const status = classStatusMeta(c);
+            const status = classStatusMeta(c, COLORS);
             const scheduleText = formatScheduleFriendly(c);
 
             return (
@@ -794,7 +803,7 @@ export default function TeacherHome({ navigation }) {
                 <Text style={styles.sheetEmpty}>{panelCopy?.empty}</Text>
               ) : panelClasses.map((c, idx) => {
                 const meta = classCardMeta(c, idx);
-                const status = classStatusMeta(c);
+                const status = classStatusMeta(c, COLORS);
                 const hours = scheduleHoursForYmd(getClassSchedule(c), todayYmd);
                 const todayHours = hours.startTime && hours.endTime ? `${hours.startTime} – ${hours.endTime}` : '';
                 const weekly = formatScheduleFriendly(c);
@@ -850,10 +859,10 @@ export default function TeacherHome({ navigation }) {
 const createStyles = (COLORS) => StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.background },
   scroll: { paddingBottom: 18 },
-  header: { backgroundColor: COLORS.primary, paddingTop: 54, paddingHorizontal: 24, paddingBottom: 18 },
+  header: { backgroundColor: COLORS.primary, paddingTop: headerTop(18), paddingHorizontal: 24, paddingBottom: 18 },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   userRow: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1, paddingRight: 12 },
-  avatarWrap: { width: 48, height: 48, borderRadius: 24, backgroundColor: COLORS.card, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  avatarWrap: { width: 48, height: 48, borderRadius: 24, backgroundColor: COLORS.white, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   avatar: { width: 40, height: 40 },
   avatarPhoto: { width: 48, height: 48 },
   userRole: { color: 'rgba(255,255,255,0.70)', fontSize: 12, fontWeight: '700' },

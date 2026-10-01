@@ -34,8 +34,12 @@ def handle_create_class(event, body):
     if not class_name or not group or not start_time or not end_time or not room:
         return _response(400, {'error': 'Missing fields: className, group, startTime, endTime, room', 'message': 'Indica el nombre, el grupo, el horario y el salón.'})
 
+    class_id, id_error = _class_id_for(subject_code, group)
+    if id_error:
+        return _response(400, {'error': 'InvalidClassCode', 'message': id_error})
+    group = _normalize_group(group)
+
     teacher_email = str(payload.get('sub') or '').strip().lower()
-    class_id = uuid.uuid4().hex
     pk = f"CLASS#{class_id}"
     now = int(time.time())
     item = {
@@ -44,6 +48,7 @@ def handle_create_class(event, body):
         'ClassId': {'S': class_id},
         'ClassName': {'S': class_name},
         'Group': {'S': group},
+        'SubjectCode': {'S': subject_code},
         'StartTime': {'S': start_time},
         'EndTime': {'S': end_time},
         'Room': {'S': room},
@@ -51,8 +56,6 @@ def handle_create_class(event, body):
         'CreatedAt': {'N': str(now)},
     }
 
-    if subject_code:
-        item['SubjectCode'] = {'S': subject_code}
     if period:
         item['Period'] = {'S': period}
     if schedule:
@@ -71,8 +74,14 @@ def handle_create_class(event, body):
         }
 
     try:
-        dynamodb.put_item(TableName=DDB_TABLE, Item=item)
+        # El ID sale del código y el grupo: no se sobrescribe una clase existente.
+        dynamodb.put_item(TableName=DDB_TABLE, Item=item, ConditionExpression='attribute_not_exists(RekognitionId)')
     except Exception as e:
+        if 'ConditionalCheckFailed' in str(e):
+            return _response(409, {
+                'error': 'ClassAlreadyExists',
+                'message': f'Ya existe una clase con el código {class_id}. Cambia el código de asignatura o el grupo.',
+            })
         logger.exception('DynamoDB put_item failed (create-class)')
         return _response(500, {'error': 'DynamoDBPutFailed', 'details': str(e)})
 
@@ -141,6 +150,18 @@ def handle_update_class(event, body):
     if class_teacher and class_teacher.strip().lower() != teacher_email:
         return _response(403, {'error': 'Forbidden', 'message': 'No puedes modificar esta clase'})
 
+    stored_code = (_ddb_s(class_item, 'SubjectCode') or '').strip()
+    stored_group = (_ddb_s(class_item, 'Group') or '').strip()
+    if CLASS_ID_RE.match(class_id):
+        # En las clases con ID 123456-123_A1, el código y el grupo son el ID: no se cambian.
+        if (subject_code and subject_code != stored_code) or (group and _normalize_group(group) != _normalize_group(stored_group)):
+            return _response(400, {
+                'error': 'ClassCodeLocked',
+                'message': 'El código de asignatura y el grupo forman el ID de la clase y no se pueden cambiar. Crea una clase nueva si hace falta.',
+            })
+    elif subject_code and subject_code != stored_code and not SUBJECT_CODE_RE.match(subject_code):
+        return _response(400, {'error': 'InvalidClassCode', 'message': SUBJECT_CODE_MESSAGE})
+
     # Actualizar datos de la clase
     update_expression = 'SET '
     expression_values = {}
@@ -208,6 +229,7 @@ def handle_update_class(event, body):
         dynamodb.update_item(
             TableName=DDB_TABLE,
             Key={'RekognitionId': {'S': f"CLASS#{class_id}"}},
+            ConditionExpression='attribute_exists(RekognitionId)',
             UpdateExpression=update_expression,
             ExpressionAttributeNames=expression_names,
             ExpressionAttributeValues=expression_values
@@ -215,6 +237,8 @@ def handle_update_class(event, body):
         logger.info(f'Class {class_id} updated successfully by teacher {teacher_email}')
         return _response(200, {'ok': True, 'message': 'Clase actualizada exitosamente'})
     except Exception as e:
+        if 'ConditionalCheckFailed' in str(e):
+            return _response(404, {'error': 'ClassNotFound', 'message': 'Clase no encontrada'})
         logger.exception(f'Error updating class {class_id}: {str(e)}')
         return _response(500, {'error': 'UpdateFailed', 'message': 'Error al actualizar la clase'})
 

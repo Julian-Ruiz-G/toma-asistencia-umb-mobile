@@ -15,6 +15,8 @@ import { useColors } from '../../ui/ThemeContext';
 import { ADMIN_LOGS_URL } from '../../config';
 import { useAuth } from '../../state/auth';
 import { AdminNavButtons, useAdminDrawer } from '../../components/AdminDrawer';
+import { MenuButton } from '../../components/RoleDrawer';
+import { headerTop } from '../../ui/safeArea';
 
 function classifyAction(action) {
   const value = String(action || '').toLowerCase();
@@ -118,7 +120,7 @@ export default function AuditoriaPage({ navigation }) {
     <View style={styles.root}>
       {drawer}
       <View style={styles.header}>
-        <AdminNavButtons onBack={goBack} onMenu={openDrawer} buttonStyle={styles.backBtn} size={20} color={COLORS.icon} />
+        <AdminNavButtons onBack={goBack} buttonStyle={styles.backBtn} size={20} color={COLORS.icon} />
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Auditoría</Text>
           <Text style={styles.headerSubtitle}>Registro de acciones</Text>
@@ -126,6 +128,7 @@ export default function AuditoriaPage({ navigation }) {
         <Pressable onPress={() => {}} style={styles.iconBtn}>
           <Download size={18} color={COLORS.icon} />
         </Pressable>
+        <MenuButton onPress={openDrawer} buttonStyle={styles.backBtn} size={20} color={COLORS.icon} />
       </View>
 
       <ScrollView contentContainerStyle={styles.body}>
@@ -257,7 +260,7 @@ export default function AuditoriaPage({ navigation }) {
 
 const createStyles = (COLORS) => StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.background },
-  header: { backgroundColor: COLORS.card, paddingTop: 48, paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: COLORS.border, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  header: { backgroundColor: COLORS.card, paddingTop: headerTop(12), paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: COLORS.border, flexDirection: 'row', alignItems: 'center', gap: 12 },
   backBtn: { padding: 8, borderRadius: 12, backgroundColor: COLORS.surface },
   iconBtn: { padding: 10, borderRadius: 14, backgroundColor: COLORS.background, borderWidth: 1, borderColor: COLORS.border },
   headerTitle: { fontWeight: '900', color: COLORS.text, fontSize: 18 },

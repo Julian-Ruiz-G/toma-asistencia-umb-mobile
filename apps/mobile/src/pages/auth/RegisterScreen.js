@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { appAlert } from '../../ui/appNotice';
 import {
   ArrowLeft,
@@ -21,6 +21,8 @@ import { REGISTER_STUDENT_URL, VALIDATE_REGISTER_PHOTO_URL } from '../../config'
 import TermsAndConditionsModal from '../../components/TermsAndConditions';
 import PrivacyPolicyModal from '../../components/PrivacyPolicy';
 import BiometricConsentModal from '../../components/BiometricConsent';
+import AppSwitch from '../../components/AppSwitch';
+import { headerTop } from '../../ui/safeArea';
 
 const SPECIAL_RE = /[!@#$%^&*(),.?":{}|<>]/;
 
@@ -508,7 +510,7 @@ export default function RegisterScreen({ navigation }) {
               Términos y Condiciones
             </Text>
           </Text>
-          <Switch
+          <AppSwitch
             value={!!formData.acceptTerms}
             onValueChange={(v) => {
               setFormData((p) => ({ ...p, acceptTerms: v }));
@@ -527,7 +529,7 @@ export default function RegisterScreen({ navigation }) {
               Política de Privacidad
             </Text>
           </Text>
-          <Switch
+          <AppSwitch
             value={!!formData.acceptPrivacy}
             onValueChange={(v) => {
               setFormData((p) => ({ ...p, acceptPrivacy: v }));
@@ -546,7 +548,7 @@ export default function RegisterScreen({ navigation }) {
               datos biométricos
             </Text>
           </Text>
-          <Switch
+          <AppSwitch
             value={!!formData.consentBiometric}
             onValueChange={(v) => {
               setFormData((p) => ({ ...p, consentBiometric: v }));
@@ -660,7 +662,7 @@ const createStyles = (COLORS) => StyleSheet.create({
     backgroundColor: COLORS.card,
     paddingHorizontal: 24,
     paddingBottom: 16,
-    paddingTop: 48,
+    paddingTop: headerTop(12),
     flexDirection: 'row',
     alignItems: 'center',
   },

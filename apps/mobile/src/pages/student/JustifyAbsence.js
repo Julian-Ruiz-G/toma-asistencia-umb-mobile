@@ -10,6 +10,7 @@ import { SUBMIT_JUSTIFICATION_URL } from '../../config';
 import { useAuth } from '../../state/auth';
 import { appAlert } from '../../ui/appNotice';
 import { useColors } from '../../ui/ThemeContext';
+import { headerTop } from '../../ui/safeArea';
 
 // Debe coincidir con MAX_JUSTIFICATION_BYTES del backend.
 const MAX_FILE_BYTES = 4 * 1024 * 1024;
@@ -206,7 +207,7 @@ const createStyles = (COLORS) => StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     paddingHorizontal: 16,
-    paddingTop: 48,
+    paddingTop: headerTop(12),
     paddingBottom: 16,
     backgroundColor: COLORS.card,
   },

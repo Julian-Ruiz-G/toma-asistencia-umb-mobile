@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Camera, CircleAlert, CircleCheck } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 
@@ -11,6 +11,9 @@ import { ADMIN_CREATE_STUDENT_URL, VALIDATE_REGISTER_PHOTO_URL } from '../../con
 import { useAuth } from '../../state/auth';
 import { passwordIssue } from '../../utils/passwordRules';
 import { AdminNavButtons, useAdminDrawer } from '../../components/AdminDrawer';
+import { MenuButton } from '../../components/RoleDrawer';
+import AppSwitch from '../../components/AppSwitch';
+import { headerTop } from '../../ui/safeArea';
 
 const EMPTY = { fullName: '', email: '', studentCode: '', password: '', consentBiometric: false };
 
@@ -156,11 +159,12 @@ export default function CrearEstudiantePage({ navigation }) {
     <View style={styles.root}>
       {drawer}
       <View style={styles.header}>
-        <AdminNavButtons onBack={goBack} onMenu={openDrawer} buttonStyle={styles.backBtn} size={20} color={COLORS.icon} />
+        <AdminNavButtons onBack={goBack} buttonStyle={styles.backBtn} size={20} color={COLORS.icon} />
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Nuevo estudiante</Text>
           <Text style={styles.headerSubtitle}>Cuenta y foto para el reconocimiento facial</Text>
         </View>
+        <MenuButton onPress={openDrawer} buttonStyle={styles.backBtn} size={20} color={COLORS.icon} />
       </View>
 
       <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
@@ -252,7 +256,7 @@ export default function CrearEstudiantePage({ navigation }) {
 
         <View style={[styles.card, styles.consentRow]}>
           <Text style={styles.consentText}>El estudiante autorizó el tratamiento de sus datos biométricos</Text>
-          <Switch value={!!draft.consentBiometric} onValueChange={setField('consentBiometric')} />
+          <AppSwitch value={!!draft.consentBiometric} onValueChange={setField('consentBiometric')} />
         </View>
 
         {formError ? (
@@ -274,7 +278,7 @@ const createStyles = (COLORS) => StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.background },
   header: {
     backgroundColor: COLORS.card,
-    paddingTop: 48,
+    paddingTop: headerTop(12),
     paddingHorizontal: 16,
     paddingBottom: 14,
     borderBottomWidth: 1,

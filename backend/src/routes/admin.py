@@ -24,7 +24,7 @@ def handle_admin_students(event, body):
         logger.exception('DynamoDB scan failed (admin-students)')
         return _response(500, {'error': 'DynamoDBScanFailed', 'details': str(e)})
 
-    items = items or []
+    items = _account_items(items)
     out = []
     for it in items:
         email = _ddb_s(it, 'Email') or None
@@ -122,12 +122,12 @@ def handle_admin_classes(event, body):
         enroll_items = _ddb_scan_all('#T = :t', {'#T': 'Type'}, {':t': {'S': 'Enrollment'}})
         session_items = _ddb_scan_all('#T = :t', {'#T': 'Type'}, {':t': {'S': 'AttendanceSession'}})
         attendance_items = _ddb_scan_all('#T = :t', {'#T': 'Type'}, {':t': {'S': 'Attendance'}})
-        teacher_items = _ddb_scan_all('#R = :r', {'#R': 'Role'}, {':r': {'S': 'teacher'}})
-        student_items = _ddb_scan_all(
+        teacher_items = _account_items(_ddb_scan_all('#R = :r', {'#R': 'Role'}, {':r': {'S': 'teacher'}}))
+        student_items = _account_items(_ddb_scan_all(
             '(#R = :r) OR (#T = :t)',
             {'#R': 'Role', '#T': 'Type'},
             {':r': {'S': 'student'}, ':t': {'S': 'Student'}},
-        )
+        ))
     except Exception as e:
         logger.exception('DynamoDB scan failed (admin-classes)')
         return _response(500, {'error': 'DynamoDBScanFailed', 'details': str(e)})
@@ -289,11 +289,14 @@ def handle_admin_update_student(event, body):
         dynamodb.update_item(
             TableName=DDB_TABLE,
             Key={'RekognitionId': {'S': pk}},
+            ConditionExpression='attribute_exists(RekognitionId)',
             UpdateExpression='SET ' + ', '.join(updates),
             ExpressionAttributeNames=names,
             ExpressionAttributeValues=vals,
         )
     except Exception as e:
+        if 'ConditionalCheckFailed' in str(e):
+            return _response(404, {'error': 'AccountNotFound', 'message': 'La cuenta ya no existe.'})
         logger.exception('DynamoDB update_item failed (admin-update-student)')
         return _response(500, {'error': 'DynamoDBUpdateFailed', 'details': str(e)})
 
@@ -370,7 +373,7 @@ def handle_admin_teachers(event, body):
             ExpressionAttributeNames={'#R': 'Role', '#T': 'Type'},
             ExpressionAttributeValues={':r': {'S': 'teacher'}, ':t': {'S': 'Teacher'}},
         )
-        teacher_users = (users_scan or {}).get('Items') or []
+        teacher_users = _account_items((users_scan or {}).get('Items'))
     except Exception as e:
         logger.exception('DynamoDB scan failed (admin-teachers users)')
         return _response(500, {'error': 'DynamoDBScanFailed', 'details': str(e)})
@@ -482,11 +485,14 @@ def handle_admin_update_teacher(event, body):
         dynamodb.update_item(
             TableName=DDB_TABLE,
             Key={'RekognitionId': {'S': pk}},
+            ConditionExpression='attribute_exists(RekognitionId)',
             UpdateExpression='SET ' + ', '.join(updates),
             ExpressionAttributeNames=names,
             ExpressionAttributeValues=vals,
         )
     except Exception as e:
+        if 'ConditionalCheckFailed' in str(e):
+            return _response(404, {'error': 'AccountNotFound', 'message': 'La cuenta ya no existe.'})
         logger.exception('DynamoDB update_item failed (admin-update-teacher)')
         return _response(500, {'error': 'DynamoDBUpdateFailed', 'details': str(e)})
 
@@ -923,16 +929,16 @@ def handle_admin_dashboard_stats(event, body):
     midnight_utc = int(now) - (t_local.tm_hour * 3600 + t_local.tm_min * 60 + t_local.tm_sec)
     semester_start_utc = midnight_utc - 120 * 24 * 60 * 60
 
-    student_items = _safe_scan(
+    student_items = _account_items(_safe_scan(
         '(#R = :r) OR (#T = :t)',
         {'#R': 'Role', '#T': 'Type'},
         {':r': {'S': 'student'}, ':t': {'S': 'Student'}},
-    )
-    teacher_items = _safe_scan(
+    ))
+    teacher_items = _account_items(_safe_scan(
         '(#R = :r) OR (#T = :t)',
         {'#R': 'Role', '#T': 'Type'},
         {':r': {'S': 'teacher'}, ':t': {'S': 'Teacher'}},
-    )
+    ))
     class_items = _safe_scan(
         '#T = :t',
         {'#T': 'Type'},
@@ -1283,7 +1289,7 @@ def _send_profile_request(email: str, role: str, missing: list, now: int) -> dic
             'Action': 'admin_request',
             'Open': open_to,
             'Missing': ','.join(keys),
-            'Role': role,
+            'RecipientRole': role,
         },
         keep_created=False,
     )
@@ -1294,10 +1300,10 @@ def _consent_users(role: str) -> list:
     """[(rol, item)] de estudiantes y/o docentes."""
     out = []
     if role in ('student', 'all'):
-        for it in _ddb_scan_all('#R = :r', {'#R': 'Role'}, {':r': {'S': 'student'}}):
+        for it in _account_items(_ddb_scan_all('#R = :r', {'#R': 'Role'}, {':r': {'S': 'student'}})):
             out.append(('student', it))
     if role in ('teacher', 'all'):
-        for it in _ddb_scan_all('#R = :r', {'#R': 'Role'}, {':r': {'S': 'teacher'}}):
+        for it in _account_items(_ddb_scan_all('#R = :r', {'#R': 'Role'}, {':r': {'S': 'teacher'}})):
             out.append(('teacher', it))
     return out
 

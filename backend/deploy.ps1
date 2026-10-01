@@ -1,9 +1,8 @@
 # Compila y despliega el backend.
 #   powershell -ExecutionPolicy Bypass -File backend\deploy.ps1
 #
-# Importante: `sam deploy` debe usar el template del build (.aws-sam\build\template.yaml).
-# Con backend\template.yaml se sube la carpeta src\ sin dependencias: la Lambda queda sin Pillow,
-# no puede recortar los rostros de la foto de grupo y el reconocimiento falla.
+# Pillow viene en la capa PillowLayerArn (template.yaml), así que la Lambda lo tiene aunque se
+# despliegue con backend\template.yaml. Este script despliega el template del build, que es lo habitual.
 $ErrorActionPreference = 'Stop'
 
 $root = $PSScriptRoot
@@ -16,11 +15,9 @@ sam build --use-container `
   --build-dir $buildDir
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-# Pillow debe ser la versión para Linux (.so); una de Windows (.pyd) tampoco carga en Lambda.
-$pil = Join-Path $buildDir 'FaceApiFunction\PIL'
-$linuxBinary = Get-ChildItem -Path $pil -Filter '_imaging*.so' -ErrorAction SilentlyContinue
-if (-not $linuxBinary) {
-  Write-Error 'El build no incluye Pillow para Linux. Revisa que Docker Desktop esté abierto y vuelve a ejecutar.'
+# El template compilado debe seguir usando la capa de Pillow.
+if (-not (Select-String -Path $builtTemplate -Pattern 'PillowLayerArn' -Quiet)) {
+  Write-Error 'El template no conecta la capa de Pillow (PillowLayerArn). Sin ella el reconocimiento de la foto de grupo falla.'
   exit 1
 }
 

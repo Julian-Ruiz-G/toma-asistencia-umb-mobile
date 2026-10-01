@@ -15,7 +15,8 @@ import { useColors } from '../../ui/ThemeContext';
 import Animated, { enterDown, listEnter } from '../../ui/motion';
 import { useAuth } from '../../state/auth';
 import { MY_CLASSES_URL } from '../../config';
-import { NavButtons, useTeacherDrawer } from '../../components/RoleDrawer';
+import { NavButtons, useTeacherDrawer, MenuButton } from '../../components/RoleDrawer';
+import { headerTop } from '../../ui/safeArea';
 
 export default function ReportsDashboard({ navigation }) {
   const COLORS = useColors();
@@ -132,7 +133,7 @@ export default function ReportsDashboard({ navigation }) {
     <View style={styles.root}>
       {drawer}
       <Animated.View entering={enterDown(0, 360)} style={styles.header}>
-        <NavButtons onBack={goBack} onMenu={openDrawer} buttonStyle={styles.backBtn} size={24} color={COLORS.textSecondary} />
+        <NavButtons onBack={goBack} buttonStyle={styles.backBtn} size={24} color={COLORS.textSecondary} />
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Reportes</Text>
           <Text style={styles.headerSubtitle}>Informes reales de tus clases</Text>
@@ -140,6 +141,7 @@ export default function ReportsDashboard({ navigation }) {
         <Pressable onPress={() => navigation.navigate('ReportHistory')} style={styles.iconBtn}>
           <History size={20} color={COLORS.icon} />
         </Pressable>
+        <MenuButton onPress={openDrawer} buttonStyle={styles.backBtn} size={24} color={COLORS.textSecondary} />
       </Animated.View>
 
       <ScrollView contentContainerStyle={styles.body}>
@@ -231,7 +233,7 @@ const createStyles = (COLORS) => StyleSheet.create({
     backgroundColor: COLORS.card,
     paddingHorizontal: 24,
     paddingBottom: 16,
-    paddingTop: 48,
+    paddingTop: headerTop(12),
     flexDirection: 'row',
     alignItems: 'center',
   },

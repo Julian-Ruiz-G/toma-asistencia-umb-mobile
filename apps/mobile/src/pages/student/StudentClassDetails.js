@@ -12,6 +12,7 @@ import { CLASS_DETAILS_URL } from '../../config';
 import { useAuth } from '../../state/auth';
 import { personDisplayName } from '../../utils/displayName';
 import { CLASS_COLOR_OPTIONS, hexToRgba, loadClassColor, resolveClassColor, saveClassColor } from '../../utils/classColors';
+import { headerTop } from '../../ui/safeArea';
 
 const DAY_LABEL = {
   MONDAY: 'Lunes',
@@ -244,7 +245,7 @@ const createStyles = (COLORS) => StyleSheet.create({
     backgroundColor: COLORS.card,
     paddingHorizontal: 24,
     paddingBottom: 16,
-    paddingTop: 48,
+    paddingTop: headerTop(12),
     flexDirection: 'row',
     alignItems: 'center',
   },

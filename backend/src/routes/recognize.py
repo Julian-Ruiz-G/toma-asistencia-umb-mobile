@@ -140,7 +140,16 @@ def handle_recognize_class(event, body):
             'studentCode': _ddb_s(it, 'StudentCode') or None,
         }
 
+    student_by_face_id = {}
+
+    def _student_for_face(face_id: str) -> dict | None:
+        if face_id not in student_by_face_id:
+            student_by_face_id[face_id] = _resolve_faceid_to_student(face_id)
+        found = student_by_face_id[face_id]
+        return dict(found) if found else None
+
     def _search_best_match(img_bytes: bytes) -> dict | None:
+        """Gana el candidato de mayor similitud que está matriculado en la clase (ver attendance)."""
         try:
             sresp = rekognition.search_faces_by_image(
                 CollectionId=COLLECTION,
@@ -151,21 +160,25 @@ def handle_recognize_class(event, body):
         except Exception:
             return None
 
-        matches = sresp.get('FaceMatches', []) or []
-        if not matches:
-            return None
-
-        best = sorted(matches, key=lambda m: float(m.get('Similarity') or 0.0), reverse=True)[0]
-        face = best.get('Face') or {}
-        face_id = face.get('FaceId')
-        if not face_id:
-            return None
-        conf = float(best.get('Similarity') or 0.0)
-        st = _resolve_faceid_to_student(str(face_id))
-        if not st:
-            return None
-        st['confidence'] = conf
-        return st
+        matches = sorted(
+            sresp.get('FaceMatches', []) or [],
+            key=lambda m: float(m.get('Similarity') or 0.0),
+            reverse=True,
+        )
+        best_any = None
+        for m in matches:
+            face_id = str((m.get('Face') or {}).get('FaceId') or '')
+            if not face_id:
+                continue
+            st = _student_for_face(face_id)
+            if not st:
+                continue
+            st['confidence'] = float(m.get('Similarity') or 0.0)
+            if best_any is None:
+                best_any = st
+            if (st.get('studentEmail') or '').strip().lower() in roster_by_email:
+                return st
+        return best_any
 
     if face_count and PIL_AVAILABLE and img is not None:
         for idx, fd in enumerate(face_details):

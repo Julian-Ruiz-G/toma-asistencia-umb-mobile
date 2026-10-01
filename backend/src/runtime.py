@@ -643,6 +643,7 @@ def _upgrade_password_hash(pk: str, password: str) -> None:
         dynamodb.update_item(
             TableName=DDB_TABLE,
             Key={'RekognitionId': {'S': pk}},
+            ConditionExpression='attribute_exists(RekognitionId)',
             UpdateExpression='SET PasswordSalt = :salt, PasswordHash = :hash',
             ExpressionAttributeValues={
                 ':salt': {'S': salt_hex},
@@ -868,7 +869,9 @@ def _upsert_student_notification(
     for key, val in extra.items():
         if val is None or val == '':
             continue
-        item[str(key)] = {'S': str(val)}
+        # "Role" identifica cuentas: si una notificación lo lleva, aparece como un perfil sin datos.
+        name = 'RecipientRole' if str(key) == 'Role' else str(key)
+        item[name] = {'S': str(val)}
 
     try:
         dynamodb.put_item(TableName=DDB_TABLE, Item=item)
@@ -1449,6 +1452,37 @@ def _group_photo_unavailable(face_count: int, img) -> dict | None:
                        'intenta de nuevo y, si se repite, avisa al administrador.',
         })
     return None
+
+
+# ID de clase: código de asignatura (6 dígitos, guion, 3 dígitos) + "_" + grupo. Ej: 123456-123_A1.
+SUBJECT_CODE_RE = re.compile(r'^\d{6}-\d{3}$')
+GROUP_RE = re.compile(r'^[A-Z0-9]{1,10}$')
+CLASS_ID_RE = re.compile(r'^\d{6}-\d{3}_[A-Z0-9]{1,10}$')
+SUBJECT_CODE_MESSAGE = 'El código de la asignatura debe tener el formato 123456-123 (6 dígitos, guion y 3 dígitos).'
+GROUP_MESSAGE = 'El grupo solo puede tener letras y números, sin espacios (ej. A1).'
+
+
+def _normalize_group(group) -> str:
+    return str(group or '').strip().upper()
+
+
+def _class_id_for(subject_code, group) -> tuple[str, str]:
+    """(class_id, '') si el código y el grupo son válidos; ('', mensaje) si no."""
+    code = str(subject_code or '').strip()
+    grp = _normalize_group(group)
+    if not SUBJECT_CODE_RE.match(code):
+        return '', SUBJECT_CODE_MESSAGE
+    if not GROUP_RE.match(grp):
+        return '', GROUP_MESSAGE
+    return f'{code}_{grp}', ''
+
+
+def _account_items(items) -> list:
+    """Solo cuentas reales: con correo y que no sean notificaciones u otros registros con Role."""
+    return [
+        it for it in (items or [])
+        if (_ddb_s(it, 'Email') or '').strip() and _ddb_s(it, 'Type') != 'Notification'
+    ]
 
 
 FACE_ALREADY_REGISTERED_MESSAGE = (

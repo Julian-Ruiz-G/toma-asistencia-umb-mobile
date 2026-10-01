@@ -29,6 +29,8 @@ import {
   saveLocalProfile,
 } from '../../utils/sessionStore';
 import { AdminNavButtons, useAdminDrawer } from '../../components/AdminDrawer';
+import { MenuButton } from '../../components/RoleDrawer';
+import { headerTop } from '../../ui/safeArea';
 
 export default function AdminProfile({ navigation }) {
   const COLORS = useColors();
@@ -81,11 +83,12 @@ export default function AdminProfile({ navigation }) {
     <View style={styles.root}>
       {drawer}
       <Animated.View entering={enterDown(0, 360)} style={styles.header}>
-        <AdminNavButtons onBack={goBack} onMenu={openDrawer} buttonStyle={styles.backBtn} size={24} color={COLORS.textSecondary} />
+        <AdminNavButtons onBack={goBack} buttonStyle={styles.backBtn} size={24} color={COLORS.textSecondary} />
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Mi Perfil</Text>
           <Text style={styles.headerSubtitle}>Información del administrador</Text>
         </View>
+        <MenuButton onPress={openDrawer} buttonStyle={styles.backBtn} size={24} color={COLORS.textSecondary} />
       </Animated.View>
 
       <ScrollView contentContainerStyle={styles.body}>
@@ -101,7 +104,7 @@ export default function AdminProfile({ navigation }) {
                   )}
                 </View>
                 <Pressable onPress={pickLocalPhoto} style={styles.cameraBtn}>
-                  <Camera size={16} color={COLORS.background} />
+                  <Camera size={16} color={COLORS.white} />
                 </Pressable>
               </View>
               <Text style={styles.profileName}>{displayName}</Text>
@@ -203,7 +206,7 @@ function createStyles(COLORS) {
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: COLORS.background },
     header: {
-      backgroundColor: COLORS.card, paddingHorizontal: 24, paddingBottom: 16, paddingTop: 48,
+      backgroundColor: COLORS.card, paddingHorizontal: 24, paddingBottom: 16, paddingTop: headerTop(12),
       flexDirection: 'row', alignItems: 'center',
       borderBottomWidth: 1, borderBottomColor: COLORS.border,
     },
@@ -220,7 +223,8 @@ function createStyles(COLORS) {
     photoImg: { width: 96, height: 96 },
     cameraBtn: {
       position: 'absolute', right: 0, bottom: 0, width: 32, height: 32, borderRadius: 16,
-      backgroundColor: COLORS.text, alignItems: 'center', justifyContent: 'center',
+      backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center',
+      borderWidth: 2, borderColor: COLORS.white,
     },
     profileName: { marginTop: 12, fontWeight: '900', fontSize: 20, color: COLORS.text },
     profileProgram: { marginTop: 4, color: COLORS.muted },

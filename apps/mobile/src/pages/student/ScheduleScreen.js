@@ -11,7 +11,8 @@ import Animated, { enterDown, listEnter } from '../../ui/motion';
 import { dateToDayKey, loadReminders, reminderDates } from '../../utils/remindersStore';
 import { todayScheduleKey } from '../../utils/schedule';
 import { loadClassColors, resolveClassColor } from '../../utils/classColors';
-import { NavButtons, useStudentDrawer } from '../../components/RoleDrawer';
+import { NavButtons, useStudentDrawer, MenuButton } from '../../components/RoleDrawer';
+import { headerTop } from '../../ui/safeArea';
 
 const DAY_ORDER = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
 const DAY_LABEL = {
@@ -206,7 +207,7 @@ export default function ScheduleScreen({ navigation }) {
     <View style={styles.root}>
       {drawer}
       <Animated.View entering={enterDown(0, 360)} style={styles.header}>
-        <NavButtons onBack={goBack} onMenu={openDrawer} buttonStyle={styles.backBtn} size={24} color={COLORS.textSecondary} />
+        <NavButtons onBack={goBack} buttonStyle={styles.backBtn} size={24} color={COLORS.textSecondary} />
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Horario</Text>
           <Text style={styles.headerSubtitle}>
@@ -218,6 +219,7 @@ export default function ScheduleScreen({ navigation }) {
         <Pressable onPress={load} style={styles.iconBtn}>
           <RefreshCw size={20} color={COLORS.icon} />
         </Pressable>
+        <MenuButton onPress={openDrawer} buttonStyle={styles.backBtn} size={24} color={COLORS.textSecondary} />
       </Animated.View>
 
       <Animated.View entering={enterDown(60)} style={styles.weekBar}>
@@ -318,7 +320,7 @@ const createStyles = (COLORS) => StyleSheet.create({
     backgroundColor: COLORS.card,
     paddingHorizontal: 24,
     paddingBottom: 12,
-    paddingTop: 48,
+    paddingTop: headerTop(12),
     flexDirection: 'row',
     alignItems: 'center',
   },

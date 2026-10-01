@@ -20,6 +20,7 @@ import { CLASS_DETAILS_URL, CREATE_ATTENDANCE_QR_URL, REGENERATE_CLASS_QR_URL } 
 import { useAuth } from '../../state/auth';
 import { alertAttendanceQrError } from '../../utils/attendanceQr';
 import { isClassInProgressNow as classIsInProgress } from '../../utils/schedule';
+import { headerTop } from '../../ui/safeArea';
 
 export default function ClassQRScreen({ navigation, route }) {
   const COLORS = useColors();
@@ -350,7 +351,7 @@ export default function ClassQRScreen({ navigation, route }) {
   // Fondo oscuro fijo en ambos temas: el texto de la cabecera es blanco.
   root: { flex: 1, backgroundColor: COLORS.scheme === 'dark' ? COLORS.background : COLORS.text },
   fullscreen: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 50 },
-  header: { paddingTop: 54, paddingHorizontal: 24, paddingBottom: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  header: { paddingTop: headerTop(18), paddingHorizontal: 24, paddingBottom: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   hBtn: { width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(255,255,255,0.10)', alignItems: 'center', justifyContent: 'center' },
   hTitle: { color: COLORS.white, fontWeight: '800' },
   sessionInfo: { paddingHorizontal: 24, paddingBottom: 8, alignItems: 'center' },

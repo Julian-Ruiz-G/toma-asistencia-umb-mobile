@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { appAlert } from '../../ui/appNotice';
 import {
@@ -55,6 +56,7 @@ const GROUPS = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10'].map(
 // ─── Componente desplegable genérico ─────────────────────────────────────────
 
 function PickerField({ label, value, options, onChange, placeholder = 'Seleccionar…' }) {
+  const insets = useSafeAreaInsets();
   const COLORS = useColors();
   const pf = useMemo(() => makePf(COLORS), [COLORS]);
   const [open, setOpen] = useState(false);
@@ -73,9 +75,9 @@ function PickerField({ label, value, options, onChange, placeholder = 'Seleccion
         <ChevronDown size={18} color={COLORS.muted} />
       </Pressable>
 
-      <Modal visible={open} transparent animationType="fade">
+      <Modal visible={open} transparent animationType="fade" statusBarTranslucent navigationBarTranslucent onRequestClose={() => setOpen(false)}>
         <OverlayDismiss style={pf.overlay} pin="bottom" onClose={() => setOpen(false)}>
-          <View style={pf.sheet}>
+          <View style={[pf.sheet, { paddingBottom: 32 + insets.bottom }]}>
             <View style={pf.sheetHeader}>
               <Text style={pf.sheetTitle}>{label || 'Seleccionar'}</Text>
               <Pressable onPress={() => setOpen(false)} style={pf.closeBtn}>
@@ -161,9 +163,31 @@ const makePf = (COLORS) => StyleSheet.create({
 
 // ─── Campo de texto simple ────────────────────────────────────────────────────
 import { TextInput } from 'react-native';
-import { NavButtons, useTeacherDrawer } from '../../components/RoleDrawer';
+import { NavButtons, useTeacherDrawer, MenuButton } from '../../components/RoleDrawer';
+import {
+  GROUP_MESSAGE,
+  SUBJECT_CODE_MESSAGE,
+  buildClassId,
+  formatSubjectCodeInput,
+  isFormattedClassId,
+  isValidGroup,
+  isValidSubjectCode,
+  normalizeGroupInput,
+} from '../../utils/classCode';
+import { headerTop } from '../../ui/safeArea';
 
-function TextField({ label, value, onChangeText, placeholder, autoCapitalize = 'sentences' }) {
+function TextField({
+  label,
+  value,
+  onChangeText,
+  placeholder,
+  autoCapitalize = 'sentences',
+  editable = true,
+  keyboardType,
+  maxLength,
+  hint,
+  hintColor,
+}) {
   const COLORS = useColors();
   const pf = useMemo(() => makePf(COLORS), [COLORS]);
   const tf = useMemo(() => makeTf(COLORS), [COLORS]);
@@ -176,8 +200,12 @@ function TextField({ label, value, onChangeText, placeholder, autoCapitalize = '
         placeholder={placeholder}
         placeholderTextColor={COLORS.placeholder}
         autoCapitalize={autoCapitalize}
-        style={tf.input}
+        editable={editable}
+        keyboardType={keyboardType}
+        maxLength={maxLength}
+        style={[tf.input, editable ? null : { backgroundColor: COLORS.surface, color: COLORS.muted }]}
       />
+      {hint ? <Text style={{ marginTop: 6, fontSize: 12, fontWeight: '700', color: hintColor || COLORS.muted }}>{hint}</Text> : null}
     </View>
   );
 }
@@ -298,6 +326,8 @@ export default function CreateClass({ navigation, route }) {
   const { authToken } = useAuth();
   const editClassId = route?.params?.classId ? String(route.params.classId) : '';
   const isEdit = Boolean(editClassId);
+  // En las clases con ID 123456-123_A1, el código y el grupo son el ID: no se editan.
+  const codeLocked = isEdit && isFormattedClassId(editClassId);
 
   const [className, setClassName] = useState('');
   const [subjectCode, setSubjectCode] = useState('');
@@ -356,7 +386,9 @@ export default function CreateClass({ navigation, route }) {
     if (!url) { appAlert('API no configurada', 'Revisa extra.apiUrl en app.json'); return; }
     if (!authToken) { appAlert('Sesión inválida', 'Vuelve a iniciar sesión.'); return; }
     if (!className.trim()) { appAlert('Faltan datos', 'Ingresa el nombre de la clase.'); return; }
+    if (!isEdit && !isValidSubjectCode(subjectCode)) { appAlert('Código de asignatura', SUBJECT_CODE_MESSAGE); return; }
     if (!group) { appAlert('Faltan datos', 'Selecciona el grupo.'); return; }
+    if (!isEdit && !isValidGroup(group)) { appAlert('Grupo', GROUP_MESSAGE); return; }
     if (!room.trim()) { appAlert('Faltan datos', 'Indica el salón de la clase.'); return; }
 
     // Validar bloques
@@ -385,7 +417,7 @@ export default function CreateClass({ navigation, route }) {
         body: JSON.stringify({
           ...(isEdit ? { classId: editClassId } : {}),
           className: className.trim(),
-          group: group.trim(),
+          group: normalizeGroupInput(group),
           room: room.trim(),
           startTime: derived.startTime,
           endTime: derived.endTime,
@@ -397,7 +429,7 @@ export default function CreateClass({ navigation, route }) {
       const text = await resp.text();
       let json;
       try { json = JSON.parse(text); } catch { json = null; }
-      if (!resp.ok) throw new Error((json?.error || json?.message || json?.details) ?? `HTTP ${resp.status}`);
+      if (!resp.ok) throw new Error((json?.message || json?.error || json?.details) ?? `HTTP ${resp.status}`);
 
       if (isEdit) {
         appAlert('Clase actualizada', 'Los cambios del curso ya están guardados.');
@@ -423,13 +455,14 @@ export default function CreateClass({ navigation, route }) {
       {drawer}
       {/* Header */}
       <View style={styles.header}>
-        <NavButtons onBack={goBack} onMenu={openDrawer} buttonStyle={styles.backBtn} size={24} color={COLORS.textSecondary} />
+        <NavButtons onBack={goBack} buttonStyle={styles.backBtn} size={24} color={COLORS.textSecondary} />
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>{isEdit ? 'Editar clase' : 'Crear clase'}</Text>
           <Text style={styles.headerSubtitle}>
             {isEdit ? 'Actualizar información del curso' : 'Configurar un nuevo curso'}
           </Text>
         </View>
+        <MenuButton onPress={openDrawer} buttonStyle={styles.backBtn} size={24} color={COLORS.textSecondary} />
       </View>
 
       <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
@@ -446,19 +479,39 @@ export default function CreateClass({ navigation, route }) {
           />
 
           <TextField
-            label="Código asignatura"
+            label="Código asignatura *"
             value={subjectCode}
-            onChangeText={setSubjectCode}
-            placeholder="Ej: 090201-152"
+            onChangeText={(t) => setSubjectCode(formatSubjectCodeInput(t))}
+            placeholder="Ej: 123456-123"
             autoCapitalize="none"
+            keyboardType="number-pad"
+            maxLength={10}
+            editable={!codeLocked}
+            hint={
+              codeLocked
+                ? 'El código y el grupo forman el ID de la clase y no se pueden cambiar.'
+                : subjectCode && !isValidSubjectCode(subjectCode)
+                  ? '6 dígitos, guion y 3 dígitos.'
+                  : ''
+            }
           />
 
           <TextField
             label="Grupo *"
             value={group}
-            onChangeText={setGroup}
-            placeholder="Ej: C1, A1, VIR, SIS1"
+            onChangeText={(t) => setGroup(normalizeGroupInput(t))}
+            placeholder="Ej: A1, C2, VIR2"
             autoCapitalize="characters"
+            maxLength={10}
+            editable={!codeLocked}
+            hint={
+              isEdit
+                ? (codeLocked ? `ID de la clase: ${editClassId}` : '')
+                : buildClassId(subjectCode, group)
+                  ? `ID de la clase: ${buildClassId(subjectCode, group)}`
+                  : 'El ID de la clase será código_grupo, por ejemplo 123456-123_A1.'
+            }
+            hintColor={!isEdit && buildClassId(subjectCode, group) ? COLORS.successStrong : undefined}
           />
 
           <TextField
@@ -522,7 +575,7 @@ const createStyles = (COLORS) => StyleSheet.create({
     backgroundColor: COLORS.card,
     paddingHorizontal: 24,
     paddingBottom: 16,
-    paddingTop: 48,
+    paddingTop: headerTop(12),
     flexDirection: 'row',
     alignItems: 'center',
     borderBottomWidth: 1,

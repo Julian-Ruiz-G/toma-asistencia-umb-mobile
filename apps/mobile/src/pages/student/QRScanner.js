@@ -22,6 +22,7 @@ import Animated, { enterDown } from '../../ui/motion';
 import { JOIN_CLASS_URL, MARK_ATTENDANCE_URL } from '../../config';
 import { useAuth } from '../../state/auth';
 import { formatActionDateTime, formatClockTime } from '../../utils/formatDateTime';
+import { headerTop } from '../../ui/safeArea';
 
 // Estados posibles del escaneo QR
 const ScanState = {
@@ -513,7 +514,7 @@ const createStyles = (COLORS) => StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 10,
-    paddingTop: 54,
+    paddingTop: headerTop(18),
     paddingHorizontal: 24,
     paddingBottom: 14,
     flexDirection: 'row',

@@ -5,7 +5,8 @@ import { Camera, Clock, QrCode, ShieldCheck, Users } from 'lucide-react-native';
 import { COLORS } from '../../ui/theme';
 import { useColors } from '../../ui/ThemeContext';
 import Animated, { enterDown } from '../../ui/motion';
-import { NavButtons, useTeacherDrawer } from '../../components/RoleDrawer';
+import { NavButtons, useTeacherDrawer, MenuButton } from '../../components/RoleDrawer';
+import { headerTop } from '../../ui/safeArea';
 
 const RULES = [
   'La foto y el QR de asistencia no se usan si hoy esa materia no está en el horario.',
@@ -48,11 +49,12 @@ export default function TeacherAttendanceGuide({ navigation }) {
     <View style={styles.root}>
       {drawer}
       <Animated.View entering={enterDown(0, 360)} style={styles.header}>
-        <NavButtons onBack={goBack} onMenu={openDrawer} buttonStyle={styles.backBtn} size={24} color={COLORS.textSecondary} />
+        <NavButtons onBack={goBack} buttonStyle={styles.backBtn} size={24} color={COLORS.textSecondary} />
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Cómo tomar asistencia</Text>
           <Text style={styles.headerSubtitle}>QR, foto y reglas del horario</Text>
         </View>
+        <MenuButton onPress={openDrawer} buttonStyle={styles.backBtn} size={24} color={COLORS.textSecondary} />
       </Animated.View>
 
       <ScrollView contentContainerStyle={styles.body}>
@@ -93,7 +95,7 @@ const createStyles = (COLORS) => StyleSheet.create({
     backgroundColor: COLORS.card,
     paddingHorizontal: 24,
     paddingBottom: 16,
-    paddingTop: 48,
+    paddingTop: headerTop(12),
     flexDirection: 'row',
     alignItems: 'center',
   },

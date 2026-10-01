@@ -8,6 +8,7 @@ import { Button } from '../../components/Button';
 import { CREATE_ATTENDANCE_QR_URL } from '../../config';
 import { useAuth } from '../../state/auth';
 import { useColors } from '../../ui/ThemeContext';
+import { headerTop } from '../../ui/safeArea';
 
 // El token del QR vence a los 90 s en el backend; se renueva antes para que una
 // captura compartida con alguien fuera del salón deje de servir enseguida.
@@ -144,7 +145,7 @@ const createStyles = (COLORS) => StyleSheet.create({
   // Fondo oscuro fijo en ambos temas: el texto de la cabecera es blanco.
   root: { flex: 1, backgroundColor: COLORS.scheme === 'dark' ? COLORS.background : COLORS.text },
   header: {
-    paddingTop: 54,
+    paddingTop: headerTop(18),
     paddingHorizontal: 24,
     paddingBottom: 14,
     flexDirection: 'row',

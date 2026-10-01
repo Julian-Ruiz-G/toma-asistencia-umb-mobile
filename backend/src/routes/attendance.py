@@ -630,30 +630,22 @@ def handle_confirm_attendance_photo(event, body):
         return unavailable
     present_set = set()
 
-    def _search_best_email(img_bytes: bytes) -> str | None:
-        try:
-            sresp = rekognition.search_faces_by_image(
-                CollectionId=COLLECTION,
-                Image={'Bytes': img_bytes},
-                FaceMatchThreshold=FACE_MATCH_THRESHOLD,
-                MaxFaces=MAX_MATCHES,
-            )
-        except Exception:
-            return None
+    email_by_face_id = {}
 
-        matches = sresp.get('FaceMatches', []) or []
-        if not matches:
-            return None
-
-        best = sorted(matches, key=lambda m: float(m.get('Similarity') or 0.0), reverse=True)[0]
-        face = best.get('Face') or {}
-        face_id = face.get('FaceId')
-        if not face_id:
-            return None
-        return _resolve_faceid_to_email(str(face_id))
+    def _email_for_face(face_id: str) -> str | None:
+        if face_id not in email_by_face_id:
+            email_by_face_id[face_id] = _resolve_faceid_to_email(face_id)
+        return email_by_face_id[face_id]
 
     def _search_best_email_with_score(img_bytes: bytes) -> dict | None:
-        """Igual que _search_best_email pero devuelve dict con email, score y face_id para logging."""
+        """Mejor coincidencia de un rostro, dando prioridad a los matriculados en la clase.
+
+        Rekognition busca en la colección de toda la universidad y devuelve hasta MAX_MATCHES
+        candidatos. Si el más parecido es de otra clase y el estudiante matriculado viene
+        en 2.º lugar, antes se descartaba el rostro y el estudiante quedaba como inasistencia.
+        Ahora gana el candidato de mayor similitud que sí está en el roster; si ninguno está,
+        se devuelve el mejor de todos solo para el log.
+        """
         try:
             sresp = rekognition.search_faces_by_image(
                 CollectionId=COLLECTION,
@@ -665,18 +657,28 @@ def handle_confirm_attendance_photo(event, body):
             logger.warning(f'search_faces_by_image excepcion: {e}')
             return None
 
-        matches = sresp.get('FaceMatches', []) or []
-        if not matches:
-            return None
-
-        best = sorted(matches, key=lambda m: float(m.get('Similarity') or 0.0), reverse=True)[0]
-        similarity = float(best.get('Similarity') or 0.0)
-        face = best.get('Face') or {}
-        face_id = face.get('FaceId')
-        if not face_id:
-            return None
-        email = _resolve_faceid_to_email(str(face_id))
-        return {'email': email, 'similarity': similarity, 'face_id': face_id, 'matches_count': len(matches)}
+        matches = sorted(
+            sresp.get('FaceMatches', []) or [],
+            key=lambda m: float(m.get('Similarity') or 0.0),
+            reverse=True,
+        )
+        best_any = None
+        for m in matches:
+            face_id = str((m.get('Face') or {}).get('FaceId') or '')
+            if not face_id:
+                continue
+            email = _email_for_face(face_id)
+            info = {
+                'email': email,
+                'similarity': float(m.get('Similarity') or 0.0),
+                'face_id': face_id,
+                'matches_count': len(matches),
+            }
+            if best_any is None:
+                best_any = info
+            if email and email in roster_by_email:
+                return info
+        return best_any
 
     logger.info(f'confirm-attendance-photo: rostros_detectados={face_count}, umbral={FACE_MATCH_THRESHOLD}')
 
@@ -1569,6 +1571,7 @@ def handle_mark_notifications_read(event, body):
             dynamodb.update_item(
                 TableName=DDB_TABLE,
                 Key={'RekognitionId': {'S': nid}},
+                ConditionExpression='attribute_exists(RekognitionId)',
                 UpdateExpression='SET #R = :t',
                 ExpressionAttributeNames={'#R': 'Read'},
                 ExpressionAttributeValues={':t': {'BOOL': True}},

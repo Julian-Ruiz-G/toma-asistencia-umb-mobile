@@ -23,6 +23,7 @@ import { useColors } from '../../ui/ThemeContext';
 import { useAuth } from '../../state/auth';
 import { CLASS_DETAILS_URL, MY_CLASSES_URL } from '../../config';
 import { colombiaDateLongFromYmd, colombiaWeekdayLongFromYmd, extractYmd } from '../../utils/formatDateTime';
+import { headerTop } from '../../ui/safeArea';
 
 export default function ReportHistory({ navigation }) {
   const COLORS = useColors();
@@ -170,7 +171,7 @@ export default function ReportHistory({ navigation }) {
         <ScrollView
           contentContainerStyle={styles.body}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} />
+            <RefreshControl tintColor={COLORS.primary} colors={[COLORS.primary]} progressBackgroundColor={COLORS.card} refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} />
           }
         >
           <View style={styles.searchWrap}>
@@ -228,7 +229,7 @@ const createStyles = (COLORS) => StyleSheet.create({
     backgroundColor: COLORS.card,
     paddingHorizontal: 24,
     paddingBottom: 16,
-    paddingTop: 48,
+    paddingTop: headerTop(12),
     flexDirection: 'row',
     alignItems: 'center',
   },

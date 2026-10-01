@@ -16,6 +16,7 @@ import { useAuth } from '../../state/auth';
 import { CLASS_DETAILS_URL } from '../../config';
 import { colombiaDateLongFromYmd, colombiaWeekdayLongFromYmd } from '../../utils/formatDateTime';
 import { resolveSessionYmd } from '../../utils/schedule';
+import { headerTop } from '../../ui/safeArea';
 
 function sortSessionsNewestFirst(rows) {
   const list = Array.isArray(rows) ? [...rows] : [];
@@ -195,7 +196,7 @@ export default function InformeSessionsList({ navigation, route }) {
           keyExtractor={(item) => String(item.sessionId)}
           renderItem={renderItem}
           contentContainerStyle={sessions.length === 0 ? styles.emptyList : styles.listPad}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          refreshControl={<RefreshControl tintColor={COLORS.primary} colors={[COLORS.primary]} progressBackgroundColor={COLORS.card} refreshing={refreshing} onRefresh={onRefresh} />}
           ListEmptyComponent={
             <View style={styles.emptyBox}>
               <View style={styles.emptyIcon}>
@@ -218,7 +219,7 @@ const createStyles = (COLORS) => StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.background },
   header: {
     backgroundColor: COLORS.card,
-    paddingTop: 48,
+    paddingTop: headerTop(12),
     paddingHorizontal: 20,
     paddingBottom: 16,
     flexDirection: 'row',

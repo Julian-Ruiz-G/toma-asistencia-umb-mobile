@@ -23,7 +23,9 @@ import {
   saveReminders,
 } from '../../utils/remindersStore';
 import { classSoonIsDue, loadClassSoon, saveClassSoon } from '../../utils/classSoon';
-import { NavButtons, useStudentDrawer } from '../../components/RoleDrawer';
+import { NavButtons, useStudentDrawer, MenuButton } from '../../components/RoleDrawer';
+import { headerTop } from '../../ui/safeArea';
+import { announceServerNotifications } from '../../utils/localNotify';
 
 function mapNotification(n, idx) {
   const raw = String(n?.type || 'info');
@@ -96,6 +98,7 @@ export default function Notifications({ navigation }) {
           throw new Error(msg);
         }
         const arr = Array.isArray(json?.notifications) ? json.notifications : [];
+        announceServerNotifications(arr);
         if (!cancelled) {
           const mapped = arr.map(mapNotification).map((n) => (
             locallyReadRef.current.has(n.id) ? { ...n, read: true } : n
@@ -362,7 +365,7 @@ export default function Notifications({ navigation }) {
     <View style={styles.root}>
       {drawer}
       <Animated.View entering={enterDown(0, 360)} style={styles.header}>
-        <NavButtons onBack={goBack} onMenu={openDrawer} buttonStyle={styles.backBtn} size={24} color={COLORS.textSecondary} />
+        <NavButtons onBack={goBack} buttonStyle={styles.backBtn} size={24} color={COLORS.textSecondary} />
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Notificaciones</Text>
           <Text style={styles.headerSubtitle}>
@@ -374,6 +377,7 @@ export default function Notifications({ navigation }) {
             <Text style={styles.headerActionText}>Marcar todas</Text>
           </Pressable>
         ) : null}
+        <MenuButton onPress={openDrawer} buttonStyle={styles.backBtn} size={24} color={COLORS.textSecondary} />
       </Animated.View>
 
       <ScrollView contentContainerStyle={styles.body}>
@@ -414,7 +418,7 @@ const createStyles = (COLORS) => StyleSheet.create({
     backgroundColor: COLORS.card,
     paddingHorizontal: 24,
     paddingBottom: 16,
-    paddingTop: 48,
+    paddingTop: headerTop(12),
     flexDirection: 'row',
     alignItems: 'center',
     borderBottomWidth: 1,

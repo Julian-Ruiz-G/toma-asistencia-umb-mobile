@@ -1,16 +1,34 @@
-import React from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import React, { useRef } from 'react';
+import { PanResponder, StyleSheet, View } from 'react-native';
 
+/**
+ * Fondo de las ventanas (avisos, formularios en Modal): tocar o deslizar fuera del contenido la cierra.
+ * Con un Pressable solo contaba el toque; un deslizamiento a veces se tomaba como cancelado.
+ */
 export default function OverlayDismiss({ onClose, children, style, pin = 'center' }) {
   const bottom = pin === 'bottom';
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
+  const pan = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => !!onCloseRef.current,
+      onMoveShouldSetPanResponder: () => !!onCloseRef.current,
+      onPanResponderTerminationRequest: () => false,
+      onPanResponderRelease: () => onCloseRef.current?.(),
+    })
+  ).current;
+
   return (
     <View style={[styles.root, style]}>
       {onClose ? (
-        <Pressable
+        <View
+          accessible
           accessibilityRole="button"
           accessibilityLabel="Cerrar"
-          onPress={onClose}
+          onAccessibilityTap={() => onCloseRef.current?.()}
           style={styles.hit}
+          {...pan.panHandlers}
         />
       ) : null}
       <View

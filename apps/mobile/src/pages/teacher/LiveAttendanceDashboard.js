@@ -22,6 +22,7 @@ import { useAuth } from '../../state/auth';
 import { alertClassHoursError } from '../../utils/attendanceQr';
 import { personDisplayName } from '../../utils/displayName';
 import { formatClockTime } from '../../utils/formatDateTime';
+import { headerTop } from '../../ui/safeArea';
 
 // Componente principal del dashboard de asistencia en vivo
 export default function LiveAttendanceDashboard({ navigation, route }) {
@@ -552,7 +553,7 @@ const createStyles = (COLORS) => StyleSheet.create({
     backgroundColor: COLORS.card,
     paddingHorizontal: 24,
     paddingBottom: 16,
-    paddingTop: 48,
+    paddingTop: headerTop(12),
     flexDirection: 'row',
     alignItems: 'center',
   },

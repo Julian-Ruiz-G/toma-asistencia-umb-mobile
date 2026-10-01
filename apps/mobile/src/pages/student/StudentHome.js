@@ -28,10 +28,13 @@ import { personDisplayName } from '../../utils/displayName';
 import { loadLocalProfile } from '../../utils/sessionStore';
 import { isStudentProfileComplete, studentProfileIncompleteMessage } from '../../utils/studentProfile';
 import { syncClassSoonNotifications } from '../../utils/classSoon';
+import { announceServerNotifications, rescheduleReminders } from '../../utils/localNotify';
+import { useFocusPolling } from '../../utils/useFocusPolling';
 import OverlayDismiss from '../../components/OverlayDismiss';
 import { classStatusMeta, formatScheduleFriendly } from '../../utils/schedule';
 import { hexToRgba, loadClassColors, resolveClassColor } from '../../utils/classColors';
 import { useStudentDrawer } from '../../components/RoleDrawer';
+import { headerTop } from '../../ui/safeArea';
 
 // Componente principal de la pantalla de inicio del estudiante
 export default function StudentHome({ navigation }) {
@@ -87,6 +90,8 @@ export default function StudentHome({ navigation }) {
         [];
       setClasses(arr);
       syncClassSoonNotifications(email, arr).catch(() => {});
+      // Tras iniciar sesión se reprograman los recordatorios propios (al cerrarla se cancelan).
+      rescheduleReminders(email).catch(() => {});
     } catch (e) {
       // Mostrar alerta en caso de error
       appAlert('Error', e?.message || String(e));
@@ -193,38 +198,36 @@ export default function StudentHome({ navigation }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authToken]);
 
-  useEffect(() => {
-    if (!authToken || !STUDENT_NOTIFICATIONS_URL) return undefined;
-    let cancelled = false;
-    const loadNotifs = async () => {
-      try {
-        const resp = await fetch(STUDENT_NOTIFICATIONS_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${authToken}`,
-          },
-          body: JSON.stringify({}),
-        });
-        const text = await resp.text();
-        let json;
-        try { json = JSON.parse(text); } catch { json = null; }
-        if (!cancelled && resp.ok) {
-          const arr = Array.isArray(json?.notifications) ? json.notifications : [];
-          const unread = Number.isFinite(Number(json?.unreadCount))
-            ? Number(json.unreadCount)
-            : arr.filter((n) => !n?.read).length;
-          setNotificationUnread(unread);
-        }
-      } catch {
-        // ignore
+  // Antes se pedían una sola vez al abrir la app: una asistencia confirmada con la foto no se veía
+  // hasta reiniciarla. Ahora se revisan cada 20 s mientras el inicio está visible y al volver a la app.
+  const loadNotifs = useCallback(async () => {
+    if (!authToken || !STUDENT_NOTIFICATIONS_URL) return;
+    try {
+      const resp = await fetch(STUDENT_NOTIFICATIONS_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({}),
+      });
+      const text = await resp.text();
+      let json;
+      try { json = JSON.parse(text); } catch { json = null; }
+      if (resp.ok) {
+        const arr = Array.isArray(json?.notifications) ? json.notifications : [];
+        const unread = Number.isFinite(Number(json?.unreadCount))
+          ? Number(json.unreadCount)
+          : arr.filter((n) => !n?.read).length;
+        setNotificationUnread(unread);
+        announceServerNotifications(arr);
       }
-    };
-    loadNotifs();
-    return () => {
-      cancelled = true;
-    };
-  }, [authToken]);
+    } catch {
+      // ignore
+    }
+  }, [authToken, setNotificationUnread]);
+
+  useFocusPolling(loadNotifs, 20000);
 
   useFocusEffect(
     useCallback(() => {
@@ -363,8 +366,16 @@ export default function StudentHome({ navigation }) {
         <Animated.View entering={enterDown(0, 400)} style={styles.header}>
           <View style={styles.headerRow}>
             <View style={styles.userRow}>
-              <Pressable onPress={openDrawer} style={styles.logoutBtn} accessibilityRole="button" accessibilityLabel="Abrir menú">
-                <Menu size={20} color={COLORS.white} />
+              <Pressable
+                onPress={() => {
+                  logout();
+                  navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] });
+                }}
+                style={styles.logoutBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Cerrar sesión"
+              >
+                <LogOut size={20} color={COLORS.white} />
               </Pressable>
               <Pressable onPress={() => navigation.navigate('StudentProfile')} style={styles.avatar}>
                 <Image
@@ -379,14 +390,8 @@ export default function StudentHome({ navigation }) {
               </View>
             </View>
 
-            <Pressable
-              onPress={() => {
-                logout();
-                navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] });
-              }}
-              style={styles.logoutBtn}
-            >
-              <LogOut size={20} color={COLORS.white} />
+            <Pressable onPress={openDrawer} style={[styles.logoutBtn, { marginLeft: 'auto' }]} accessibilityRole="button" accessibilityLabel="Abrir menú">
+              <Menu size={20} color={COLORS.white} />
             </Pressable>
           </View>
 
@@ -446,7 +451,7 @@ export default function StudentHome({ navigation }) {
               const room = c?.room || c?.classroom || c?.aula || '';
               const classId = c?.classId || c?.id;
               const classLine = [group ? `Grupo ${group}` : '', room ? `Aula ${room}` : ''].filter(Boolean).join(' · ');
-              const status = classStatusMeta(c);
+              const status = classStatusMeta(c, COLORS);
               const accent = resolveClassColor(classColors[String(classId || '')]);
               return (
                 <Animated.View
@@ -508,7 +513,7 @@ export default function StudentHome({ navigation }) {
                 const group = c?.group || c?.groupName || c?.grupo || '';
                 const room = c?.room || c?.classroom || c?.aula || '';
                 const classId = c?.classId || c?.id || String(idx);
-                const status = classStatusMeta(c);
+                const status = classStatusMeta(c, COLORS);
                 const schedule = formatScheduleFriendly(c);
                 const extra = [
                   group ? `Grupo ${group}` : '',
@@ -549,7 +554,7 @@ const createStyles = (COLORS) => StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.background },
   scroll: { paddingBottom: 24 },
   header: {
-    paddingTop: 48,
+    paddingTop: headerTop(12),
     paddingHorizontal: 24,
     paddingBottom: 24,
     backgroundColor: COLORS.primary,
@@ -560,7 +565,7 @@ const createStyles = (COLORS) => StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: COLORS.card,
+    backgroundColor: COLORS.white,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',

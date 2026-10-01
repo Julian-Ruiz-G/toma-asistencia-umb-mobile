@@ -13,12 +13,14 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Search } from 'lucide-react-native';
 
 import { AdminNavButtons, useAdminDrawer } from '../../components/AdminDrawer';
+import { MenuButton } from '../../components/RoleDrawer';
 import JustificationAttachment from '../../components/JustificationAttachment';
 import { LIST_JUSTIFICATIONS_URL } from '../../config';
 import { useAuth } from '../../state/auth';
 import { useColors } from '../../ui/ThemeContext';
 import { personDisplayName } from '../../utils/displayName';
 import { colombiaDateLongFromYmd, formatActionDateTime } from '../../utils/formatDateTime';
+import { headerTop } from '../../ui/safeArea';
 
 const STATUS = {
   enviada: { label: 'En revisión', tone: 'warning' },
@@ -106,18 +108,19 @@ export default function JustificacionesPage({ navigation }) {
     <View style={styles.root}>
       {drawer}
       <View style={styles.header}>
-        <AdminNavButtons onBack={goBack} onMenu={openDrawer} buttonStyle={styles.backBtn} size={20} color={COLORS.icon} />
+        <AdminNavButtons onBack={goBack} buttonStyle={styles.backBtn} size={20} color={COLORS.icon} />
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Justificaciones</Text>
           <Text style={styles.headerSubtitle}>
             {loading ? 'Cargando…' : `${counts.all} en total · ${counts.enviada || 0} en revisión`}
           </Text>
         </View>
+        <MenuButton onPress={openDrawer} buttonStyle={styles.backBtn} size={20} color={COLORS.icon} />
       </View>
 
       <ScrollView
         contentContainerStyle={styles.body}
-        refreshControl={<RefreshControl refreshing={loading && rows.length > 0} onRefresh={load} />}
+        refreshControl={<RefreshControl tintColor={COLORS.primary} colors={[COLORS.primary]} progressBackgroundColor={COLORS.card} refreshing={loading && rows.length > 0} onRefresh={load} />}
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.searchWrap}>
@@ -186,7 +189,7 @@ export default function JustificacionesPage({ navigation }) {
 
 const createStyles = (COLORS) => StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.background },
-  header: { backgroundColor: COLORS.card, paddingTop: 48, paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: COLORS.border, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  header: { backgroundColor: COLORS.card, paddingTop: headerTop(12), paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: COLORS.border, flexDirection: 'row', alignItems: 'center', gap: 12 },
   backBtn: { padding: 8, borderRadius: 12, backgroundColor: COLORS.surface },
   headerTitle: { fontWeight: '900', color: COLORS.text, fontSize: 18 },
   headerSubtitle: { marginTop: 2, color: COLORS.muted, fontSize: 12 },

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Animated, Easing, Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { appAlert } from '../../ui/appNotice';
 import * as ImagePicker from 'expo-image-picker';
@@ -19,6 +20,7 @@ import { useColors } from '../../ui/ThemeContext';
 import { CONFIRM_ATTENDANCE_PHOTO_URL } from '../../config';
 import { useAuth } from '../../state/auth';
 import { alertClassHoursError } from '../../utils/attendanceQr';
+import { headerTop } from '../../ui/safeArea';
 
 const REQUEST_TIMEOUT_MS = 90 * 1000;
 
@@ -57,6 +59,7 @@ function formatElapsed(seconds) {
 }
 
 export default function FaceRecognitionScreen({ navigation, route }) {
+  const insets = useSafeAreaInsets();
   const COLORS = useColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const { authToken } = useAuth();
@@ -412,11 +415,13 @@ export default function FaceRecognitionScreen({ navigation, route }) {
       <Modal
         visible={showSourcePicker}
         transparent
+        statusBarTranslucent
+        navigationBarTranslucent
         animationType="fade"
         onRequestClose={() => setShowSourcePicker(false)}
       >
         <Pressable style={styles.sourceBackdrop} onPress={() => setShowSourcePicker(false)}>
-          <Pressable style={styles.sourceCard} onPress={() => {}}>
+          <Pressable style={[styles.sourceCard, { paddingBottom: 30 + insets.bottom }]} onPress={() => {}}>
             <Text style={styles.sourceTitle}>Foto de asistencia</Text>
             <Text style={styles.sourceSub}>Toma una foto del aula o elige una desde la galería.</Text>
 
@@ -442,7 +447,7 @@ export default function FaceRecognitionScreen({ navigation, route }) {
 const createStyles = (COLORS) => StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.black },
   header: {
-    paddingTop: 54,
+    paddingTop: headerTop(18),
     paddingHorizontal: 20,
     paddingBottom: 14,
     flexDirection: 'row',

@@ -5,6 +5,7 @@ import { Card } from '../../components/Card';
 import { COLORS } from '../../ui/theme';
 import { useColors } from '../../ui/ThemeContext';
 import Animated, { PulseGlow, enterDown } from '../../ui/motion';
+import { headerTop } from '../../ui/safeArea';
 
 export default function WelcomeScreen({ navigation }) {
   const COLORS = useColors();
@@ -56,7 +57,7 @@ const createStyles = (COLORS) => StyleSheet.create({
     flex: 1,
     paddingHorizontal: 24,
     paddingBottom: 24,
-    paddingTop: 64,
+    paddingTop: headerTop(28),
   },
   hero: {
     flex: 1,

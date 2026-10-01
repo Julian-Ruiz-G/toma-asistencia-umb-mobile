@@ -1,5 +1,5 @@
 import React, { useCallback, useState, useMemo } from 'react';
-import { BackHandler, Image, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { BackHandler, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { appAlert } from '../../ui/appNotice';
 import { ArrowLeft, CircleAlert, KeyRound } from 'lucide-react-native';
 import { useFocusEffect } from '@react-navigation/native';
@@ -13,6 +13,8 @@ import { useColors } from '../../ui/ThemeContext';
 import Animated, { PulseGlow, enterDown } from '../../ui/motion';
 import { clearPersistedSession, loadLocalProfile, savePersistedSession } from '../../utils/sessionStore';
 import { homeRouteForRole } from '../../utils/passwordRules';
+import AppSwitch from '../../components/AppSwitch';
+import { headerTop } from '../../ui/safeArea';
 
 const CREDENTIALS_ERROR = 'Correo o contraseña incorrectos.';
 
@@ -252,7 +254,7 @@ export default function LoginScreen({ navigation }) {
 
           <View style={styles.rememberRow}>
             <View style={styles.rememberLeft}>
-              <Switch
+              <AppSwitch
                 value={!!formData.rememberSession}
                 onValueChange={(v) => setFormData((p) => ({ ...p, rememberSession: v }))}
               />
@@ -295,7 +297,7 @@ const createStyles = (COLORS) => StyleSheet.create({
     backgroundColor: COLORS.card,
     paddingHorizontal: 24,
     paddingBottom: 16,
-    paddingTop: 48,
+    paddingTop: headerTop(12),
     flexDirection: 'row',
     alignItems: 'center',
     borderBottomWidth: 1,
@@ -338,7 +340,7 @@ const createStyles = (COLORS) => StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: COLORS.card,
+    backgroundColor: COLORS.white,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: COLORS.black,
@@ -353,10 +355,10 @@ const createStyles = (COLORS) => StyleSheet.create({
   subtitle: { marginTop: 8, fontSize: 14, color: COLORS.muted, textAlign: 'center' },
   rememberRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 },
   rememberLeft: { flexDirection: 'row', alignItems: 'center' },
-  rememberText: { marginLeft: 10, fontSize: 14, color: COLORS.icon },
-  forgot: { fontSize: 14, color: COLORS.primary, fontWeight: '700' },
+  rememberText: { marginLeft: 10, fontSize: 14, fontWeight: '700', color: COLORS.text },
+  forgot: { fontSize: 14, color: COLORS.link, fontWeight: '700' },
   registerText: { marginTop: 16, textAlign: 'center', color: COLORS.muted },
-  registerLink: { color: COLORS.primary, fontWeight: '700' },
+  registerLink: { color: COLORS.link, fontWeight: '700' },
   footer: { paddingHorizontal: 24, paddingVertical: 14, backgroundColor: COLORS.card, borderTopWidth: 1, borderTopColor: COLORS.border },
   footerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
   footerText: { marginLeft: 8, fontSize: 12, color: COLORS.placeholder },

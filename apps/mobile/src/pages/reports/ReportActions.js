@@ -8,6 +8,7 @@ import { COLORS } from '../../ui/theme';
 import { useColors } from '../../ui/ThemeContext';
 import { useAuth } from '../../state/auth';
 import { exportAttendanceReport } from '../../utils/reportExport';
+import { headerTop } from '../../ui/safeArea';
 
 export default function ReportActions({ navigation, route }) {
   const COLORS = useColors();
@@ -115,7 +116,7 @@ export default function ReportActions({ navigation, route }) {
 
 const createStyles = (COLORS) => StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.background },
-  header: { backgroundColor: COLORS.card, paddingHorizontal: 24, paddingBottom: 16, paddingTop: 48, flexDirection: 'row', alignItems: 'center' },
+  header: { backgroundColor: COLORS.card, paddingHorizontal: 24, paddingBottom: 16, paddingTop: headerTop(12), flexDirection: 'row', alignItems: 'center' },
   backBtn: { padding: 8, marginLeft: -8, marginRight: 12, borderRadius: 999 },
   headerTitle: { fontSize: 20, fontWeight: '800', color: COLORS.text },
   headerSubtitle: { marginTop: 2, fontSize: 14, color: COLORS.muted },

@@ -1,2 +1,3 @@
-Pillow==10.3.0
+# Pillow viene en la capa PillowLayerArn (template.yaml), compilada para Linux.
+# No agregarlo aquí: un build sin contenedor en Windows metería una versión que no carga en Lambda.
 # boto3 is provided by the AWS Lambda runtime.

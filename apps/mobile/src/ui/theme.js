@@ -5,6 +5,8 @@ export const LIGHT = {
   primarySoft: '#FEF2F2',
   primaryBorder: '#FECACA',
   primaryMuted: '#991B1B',
+  // Texto rojo (enlaces) legible sobre el fondo de cada tema.
+  link: '#B91C1C',
 
   background: '#F5F6FA',
   surface: '#F3F4F6',
@@ -59,6 +61,7 @@ export const DARK = {
   primarySoft: '#3F1D1D',
   primaryBorder: '#7F1D1D',
   primaryMuted: '#FECACA',
+  link: '#F87171',
 
   background: '#0C0A09',
   surface: '#292524',

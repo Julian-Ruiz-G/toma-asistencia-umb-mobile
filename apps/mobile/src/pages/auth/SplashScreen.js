@@ -132,11 +132,11 @@ const createStyles = (COLORS) => StyleSheet.create({
   },
   progressFill: {
     height: '100%',
-    backgroundColor: COLORS.card,
+    backgroundColor: COLORS.white,
     borderRadius: 999,
   },
   dots: { marginTop: 24, flexDirection: 'row', justifyContent: 'center' },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.card, marginHorizontal: 6 },
+  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.white, marginHorizontal: 6 },
   version: {
     position: 'absolute',
     bottom: 32,

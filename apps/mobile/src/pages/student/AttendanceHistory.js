@@ -23,7 +23,7 @@ import Animated, { enterDown, listEnter } from '../../ui/motion';
 import { STUDENT_ATTENDANCE_HISTORY_URL } from '../../config';
 import { useAuth } from '../../state/auth';
 import { formatActionDateTime } from '../../utils/formatDateTime';
-import { NavButtons, useStudentDrawer } from '../../components/RoleDrawer';
+import { NavButtons, useStudentDrawer, MenuButton } from '../../components/RoleDrawer';
 
 export default function AttendanceHistory({ navigation, route }) {
   const COLORS = useColors();
@@ -143,11 +143,12 @@ export default function AttendanceHistory({ navigation, route }) {
     <View style={styles.root}>
       {drawer}
       <Animated.View entering={enterDown(0, 360)} style={styles.header}>
-        <NavButtons onBack={goBack} onMenu={openDrawer} buttonStyle={styles.backBtn} size={24} color={COLORS.textSecondary} />
+        <NavButtons onBack={goBack} buttonStyle={styles.backBtn} size={24} color={COLORS.textSecondary} />
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Historial</Text>
           <Text style={styles.headerSubtitle}>Registro de asistencias</Text>
         </View>
+        <MenuButton onPress={openDrawer} buttonStyle={styles.backBtn} size={24} color={COLORS.textSecondary} />
       </Animated.View>
 
       <ScrollView contentContainerStyle={styles.body}>

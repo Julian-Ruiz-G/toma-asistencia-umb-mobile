@@ -13,6 +13,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { CheckCircle, Clock, Search, Send } from 'lucide-react-native';
 
 import { AdminNavButtons, useAdminDrawer } from '../../components/AdminDrawer';
+import { MenuButton } from '../../components/RoleDrawer';
 import RequestConsentsModal from '../../components/RequestConsentsModal';
 import { ADMIN_CONSENTS_URL } from '../../config';
 import { useAuth } from '../../state/auth';
@@ -21,6 +22,7 @@ import { useColors } from '../../ui/ThemeContext';
 import { personDisplayName } from '../../utils/displayName';
 import { formatActionDateTime } from '../../utils/formatDateTime';
 import { requestProfileCompletion } from '../../utils/profileGaps';
+import { headerTop } from '../../ui/safeArea';
 
 const ROLE_FILTERS = [
   { key: 'all', label: 'Todos' },
@@ -137,7 +139,7 @@ export default function ConsentimientosPage({ navigation }) {
     <View style={styles.root}>
       {drawer}
       <View style={styles.header}>
-        <AdminNavButtons onBack={goBack} onMenu={openDrawer} buttonStyle={styles.backBtn} size={20} color={COLORS.icon} />
+        <AdminNavButtons onBack={goBack} buttonStyle={styles.backBtn} size={20} color={COLORS.icon} />
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Consentimientos</Text>
           <Text style={styles.headerSubtitle}>Estudiantes y docentes</Text>
@@ -149,11 +151,12 @@ export default function ConsentimientosPage({ navigation }) {
         >
           <Send size={18} color={COLORS.white} />
         </Pressable>
+        <MenuButton onPress={openDrawer} buttonStyle={styles.backBtn} size={20} color={COLORS.icon} />
       </View>
 
       <ScrollView
         contentContainerStyle={styles.body}
-        refreshControl={<RefreshControl refreshing={loading && rows.length > 0} onRefresh={load} />}
+        refreshControl={<RefreshControl tintColor={COLORS.primary} colors={[COLORS.primary]} progressBackgroundColor={COLORS.card} refreshing={loading && rows.length > 0} onRefresh={load} />}
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.statsRow}>
@@ -298,7 +301,7 @@ function Flag({ on, label, styles }) {
 
 const createStyles = (COLORS) => StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.background },
-  header: { backgroundColor: COLORS.card, paddingTop: 48, paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: COLORS.border, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  header: { backgroundColor: COLORS.card, paddingTop: headerTop(12), paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: COLORS.border, flexDirection: 'row', alignItems: 'center', gap: 12 },
   backBtn: { padding: 8, borderRadius: 12, backgroundColor: COLORS.surface },
   sendBtn: { width: 42, height: 42, borderRadius: 14, backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontWeight: '900', color: COLORS.text, fontSize: 18 },
