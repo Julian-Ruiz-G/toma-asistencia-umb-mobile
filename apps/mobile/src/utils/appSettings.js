@@ -6,6 +6,8 @@ export const DEFAULT_APP_SETTINGS = {
   theme: 'light',
   inAppNotifications: true,
   deviceNotifications: true,
+  // Orden de las clases del docente: 'schedule' (por horario) o 'alpha' (A–Z).
+  classSort: 'schedule',
 };
 
 let cache = { ...DEFAULT_APP_SETTINGS };
@@ -44,6 +46,7 @@ export async function loadAppSettings() {
   }
   cache.inAppNotifications = cache.inAppNotifications !== false;
   cache.deviceNotifications = cache.deviceNotifications !== false;
+  if (cache.classSort !== 'alpha') cache.classSort = 'schedule';
   return { ...cache };
 }
 

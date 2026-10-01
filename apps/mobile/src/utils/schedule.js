@@ -115,6 +115,51 @@ export function isClassInProgressNow(c) {
   });
 }
 
+const WEEK_ORDER = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
+
+/** Minutos que faltan para el próximo bloque de la clase (0 si está en curso; Infinity sin horario). */
+export function minutesUntilNextClass(c) {
+  if (isClassInProgressNow(c)) return 0;
+  const todayIdx = WEEK_ORDER.indexOf(todayScheduleKey());
+  const nowMin = colombiaNowMinutes();
+  let best = Infinity;
+  for (const s of getClassSchedule(c)) {
+    const dayIdx = WEEK_ORDER.indexOf(normalizeDay(s?.day || s?.dia));
+    const startMin = parseTimeToMinutes(s?.startTime || s?.start || s?.horaInicio);
+    if (dayIdx < 0 || startMin == null) continue;
+    let days = (dayIdx - todayIdx + 7) % 7;
+    if (days === 0 && startMin < nowMin) days = 7; // la de hoy ya pasó: cuenta la de la próxima semana
+    best = Math.min(best, days * 1440 + startMin - nowMin);
+  }
+  return best;
+}
+
+export const CLASS_SORT_OPTIONS = [
+  { id: 'schedule', label: 'Por horario' },
+  { id: 'alpha', label: 'A–Z' },
+];
+
+function classTitle(c) {
+  return String(c?.className || c?.subject || c?.name || '');
+}
+
+/**
+ * Orden de las listas de clases del docente. La clase en curso siempre va primero;
+ * después, 'schedule' = la próxima en la semana primero, 'alpha' = por nombre y grupo.
+ */
+export function sortClasses(list, mode = 'schedule') {
+  const byName = (a, b) => classTitle(a).localeCompare(classTitle(b), 'es', { sensitivity: 'base' })
+    || String(a?.group || '').localeCompare(String(b?.group || ''), 'es');
+  return [...(Array.isArray(list) ? list : [])]
+    .map((c) => ({ c, live: isClassInProgressNow(c), next: minutesUntilNextClass(c) }))
+    .sort((a, b) => {
+      if (a.live !== b.live) return a.live ? -1 : 1;
+      if (mode === 'schedule' && a.next !== b.next) return a.next - b.next;
+      return byName(a.c, b.c);
+    })
+    .map((x) => x.c);
+}
+
 // `palette`: la del tema activo (useColors); sin ella se usa la clara.
 export function classStatusMeta(c, palette = COLORS) {
   if (isClassInProgressNow(c)) {

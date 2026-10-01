@@ -34,6 +34,7 @@ import {
   isClassInProgressNow,
   isClassScheduledToday,
   scheduleHoursForYmd,
+  sortClasses,
 } from '../utils/schedule';
 import { colombiaDateLongFromYmd, colombiaNowMinutes, colombiaTodayYmd, colombiaWeekdayLongFromYmd } from '../utils/formatDateTime';
 import OverlayDismiss from '../components/OverlayDismiss';
@@ -45,6 +46,7 @@ import { useTeacherDrawer } from '../components/RoleDrawer';
 import { headerTop } from '../ui/safeArea';
 import { announceServerNotifications } from '../utils/localNotify';
 import { useFocusPolling } from '../utils/useFocusPolling';
+import ClassSortToggle, { useClassSort } from '../components/ClassSortToggle';
 
 function classCardMeta(c, idx) {
   return {
@@ -402,12 +404,16 @@ export default function TeacherHome({ navigation }) {
 
   const todayYmd = colombiaTodayYmd();
   const panelCopy = statsPanel ? STAT_PANELS[statsPanel] : null;
+  // Clase en curso siempre arriba; luego el orden que eligió el docente.
+  const [classSort, setClassSort] = useClassSort();
+  const sortedClasses = sortClasses(classes, classSort);
+
   const panelClasses = useMemo(() => {
-    if (statsPanel === 'today') return classes.filter((c) => isClassScheduledToday(c));
+    if (statsPanel === 'today') return sortClasses(classes.filter((c) => isClassScheduledToday(c)), classSort);
     if (statsPanel === 'live') return classes.filter((c) => isClassInProgressNow(c));
-    if (statsPanel === 'all') return classes;
+    if (statsPanel === 'all') return sortClasses(classes, classSort);
     return [];
-  }, [classes, statsPanel]);
+  }, [classes, statsPanel, classSort]);
 
   const panelSubtitle = useMemo(() => {
     if (statsPanel === 'today' || statsPanel === 'live') {
@@ -552,7 +558,11 @@ export default function TeacherHome({ navigation }) {
             </View>
           ) : null}
 
-          {classes.map((c, idx) => {
+          {!loadingClasses && classes.length > 1 ? (
+            <ClassSortToggle value={classSort} onChange={setClassSort} />
+          ) : null}
+
+          {sortedClasses.map((c, idx) => {
             const classId = c?.classId || c?.id || String(idx);
             const title = c?.className || c?.subject || c?.name || 'Clase';
             const group = c?.group || c?.groupName || c?.grupo || '';

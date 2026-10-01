@@ -10,9 +10,10 @@ import { useColors } from '../../ui/ThemeContext';
 import Animated, { enterDown, listEnter } from '../../ui/motion';
 import { MY_CLASSES_URL } from '../../config';
 import { useAuth } from '../../state/auth';
-import { classStatusMeta, formatScheduleFriendly } from '../../utils/schedule';
+import { classStatusMeta, formatScheduleFriendly, sortClasses } from '../../utils/schedule';
 import { NavButtons, useTeacherDrawer, MenuButton } from '../../components/RoleDrawer';
 import { headerTop } from '../../ui/safeArea';
+import ClassSortToggle, { useClassSort } from '../../components/ClassSortToggle';
 
 export default function MyClasses({ navigation }) {
   const COLORS = useColors();
@@ -49,6 +50,8 @@ export default function MyClasses({ navigation }) {
   }, [authToken]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
+  // Clase en curso siempre arriba; luego el orden que eligió el docente.
+  const [classSort, setClassSort] = useClassSort();
 
   return (
     <View style={styles.root}>
@@ -63,7 +66,12 @@ export default function MyClasses({ navigation }) {
       </Animated.View>
 
       <ScrollView contentContainerStyle={styles.body}>
-        {classes.map((c, idx) => {
+        {classes.length > 1 ? (
+          <View style={{ marginBottom: 12 }}>
+            <ClassSortToggle value={classSort} onChange={setClassSort} />
+          </View>
+        ) : null}
+        {sortClasses(classes, classSort).map((c, idx) => {
           const status = classStatusMeta(c, COLORS);
           const schedule = formatScheduleFriendly(c);
           return (
