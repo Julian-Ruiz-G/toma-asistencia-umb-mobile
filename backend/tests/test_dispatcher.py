@@ -689,12 +689,56 @@ def test_template_attaches_pillow_layer():
     # Regresión: dos despliegues con template.yaml dejaron la Lambda sin Pillow y sin reconocimiento grupal.
     template = (SRC.parent / "template.yaml").read_text(encoding="utf-8")
     assert "PillowLayerArn:" in template
-    assert "Layers:
-        - !Ref PillowLayerArn" in template.replace("
-", "
-")
+    assert "Layers:\n        - !Ref PillowLayerArn" in template.replace("\r\n", "\n")
     requirements = (SRC / "requirements.txt").read_text(encoding="utf-8")
     assert not any(line.strip().lower().startswith("pillow") for line in requirements.splitlines())
+
+
+def _run_enroll(body, rows, existing_enrollment=False):
+    import runtime
+    from routes import admin as admin_routes
+    from unittest.mock import patch
+
+    ddb = _fake_table(rows)
+    class_row = next((r for r in rows if r.get("Type", {}).get("S") == "Class"), None)
+    ddb.get_item.side_effect = lambda **kw: {"Item": class_row} if class_row and kw["Key"]["RekognitionId"]["S"] == "CLASS#123456-123_A1" else {}
+    if existing_enrollment:
+        ddb.put_item.side_effect = lambda **kw: (_ for _ in ()).throw(Exception("ConditionalCheckFailedException"))             if kw["Item"]["RekognitionId"]["S"].startswith("ENROLL#") else {}
+    with patch.object(runtime, "dynamodb", ddb), patch.object(admin_routes, "dynamodb", ddb):
+        resp = lambda_handler(_admin_event("/Prod/admin-enroll-student", body), None)
+    return resp, ddb
+
+
+_CLASS_ROW = {"RekognitionId": {"S": "CLASS#123456-123_A1"}, "Type": {"S": "Class"}, "ClassId": {"S": "123456-123_A1"},
+              "ClassName": {"S": "Álgebra"}, "TeacherEmail": {"S": "doc@umb.edu.co"}}
+_ANA = {"RekognitionId": {"S": "face-1"}, "Role": {"S": "student"}, "Email": {"S": "ana@academia.umb.edu.co"},
+        "FullName": {"S": "Ana Pérez"}, "StudentCode": {"S": "1030537604"}}
+
+
+def test_admin_enroll_student_requires_admin():
+    resp = lambda_handler(_event("/Prod/admin-enroll-student", body={"classId": "x", "studentEmail": "y"}), None)
+    assert resp["statusCode"] == 401
+
+
+def test_admin_enroll_student_creates_enrollment():
+    resp, ddb = _run_enroll({"classId": "123456-123_A1", "studentEmail": "ANA@academia.umb.edu.co"}, [_CLASS_ROW, _ANA])
+    assert resp["statusCode"] == 200, _body(resp)
+    enroll = next(c.kwargs for c in ddb.put_item.call_args_list if c.kwargs["Item"]["RekognitionId"]["S"].startswith("ENROLL#"))
+    assert enroll["Item"]["RekognitionId"] == {"S": "ENROLL#123456-123_A1#ana@academia.umb.edu.co"}
+    assert enroll["Item"]["TeacherEmail"] == {"S": "doc@umb.edu.co"}
+    assert enroll["Item"]["StudentCode"] == {"S": "1030537604"}
+    assert enroll["ConditionExpression"] == "attribute_not_exists(RekognitionId)"
+    assert _body(resp)["student"]["code"] == "1030537604"
+
+
+def test_admin_enroll_student_rejects_duplicates_and_unknowns():
+    dup, _ = _run_enroll({"classId": "123456-123_A1", "studentEmail": "ana@academia.umb.edu.co"}, [_CLASS_ROW, _ANA], existing_enrollment=True)
+    assert dup["statusCode"] == 409 and _body(dup)["error"] == "AlreadyEnrolled"
+    # _fake_table filtra solo por rol: sin estudiantes en la tabla el correo no existe.
+    missing, _ = _run_enroll({"classId": "123456-123_A1", "studentEmail": "nadie@academia.umb.edu.co"}, [_CLASS_ROW])
+    assert missing["statusCode"] == 404 and _body(missing)["error"] == "StudentNotFound"
+    no_class, _ = _run_enroll({"classId": "999999-999_Z9", "studentEmail": "ana@academia.umb.edu.co"}, [_CLASS_ROW, _ANA])
+    assert no_class["statusCode"] == 404 and _body(no_class)["error"] == "ClassNotFound"
 
 
 def test_captcha_pass_outlives_the_challenge():

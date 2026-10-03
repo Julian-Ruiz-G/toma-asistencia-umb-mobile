@@ -57,6 +57,8 @@ import AdminLogs from './src/pages/admin/LogsPage';
 import AdminAudit from './src/pages/admin/AuditoriaPage';
 import AdminConsents from './src/pages/admin/ConsentimientosPage';
 import AdminClasses from './src/pages/admin/ClasesPage';
+import AdminClassDetail from './src/pages/admin/ClaseDetallePage';
+import AdminClassAddStudents from './src/pages/admin/AgregarEstudiantesPage';
 import AdminJustifications from './src/pages/admin/JustificacionesPage';
 
 const Stack = createNativeStackNavigator();
@@ -148,6 +150,8 @@ function AppStack({ routeName }) {
           <Stack.Screen name="AdminAudit" component={AdminAudit} />
           <Stack.Screen name="AdminConsents" component={AdminConsents} />
           <Stack.Screen name="AdminClasses" component={AdminClasses} />
+          <Stack.Screen name="AdminClassDetail" component={AdminClassDetail} />
+          <Stack.Screen name="AdminClassAddStudents" component={AdminClassAddStudents} />
           <Stack.Screen name="AdminJustifications" component={AdminJustifications} />
         </Stack.Navigator>
     </View>

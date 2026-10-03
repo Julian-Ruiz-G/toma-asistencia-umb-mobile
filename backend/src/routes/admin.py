@@ -721,6 +721,85 @@ def handle_admin_create_teacher(event, body):
         'emailSent': email_sent,
     })
 
+def handle_admin_enroll_student(event, body):
+    """El admin inscribe en una clase a un estudiante que ya tiene cuenta (con rostro)."""
+    payload = _verify_token(_get_bearer_token(event))
+    if not payload or payload.get('role') != 'admin':
+        return _response(401, {'error': 'Unauthorized'})
+
+    admin_email = str(payload.get('sub') or '').strip().lower()
+    class_id = str(body.get('classId') or '').strip()
+    student_email = str(body.get('studentEmail') or body.get('email') or '').strip().lower()
+    if not class_id or not student_email:
+        return _response(400, {'error': 'MissingFields', 'message': 'Faltan la clase o el estudiante.'})
+
+    try:
+        class_item = (dynamodb.get_item(
+            TableName=DDB_TABLE,
+            Key={'RekognitionId': {'S': f'CLASS#{class_id}'}},
+        ) or {}).get('Item')
+    except Exception:
+        logger.exception('DynamoDB get_item failed (admin-enroll-student class)')
+        return _response(500, {'error': 'DynamoDBGetFailed'})
+    if not class_item:
+        return _response(404, {'error': 'ClassNotFound', 'message': 'La clase ya no existe.'})
+
+    student = _scan_find_student_by_email(student_email)
+    if not student:
+        return _response(404, {'error': 'StudentNotFound', 'message': 'No hay un estudiante registrado con ese correo.'})
+
+    now = int(time.time())
+    class_name = _ddb_s(class_item, 'ClassName') or class_id
+    student_name = _display_person_name(_ddb_s(student, 'FullName'))
+    student_code = (_ddb_s(student, 'StudentCode') or '').strip()
+    enroll_item = {
+        'RekognitionId': {'S': f'ENROLL#{class_id}#{student_email}'},
+        'Type': {'S': 'Enrollment'},
+        'ClassId': {'S': class_id},
+        'TeacherEmail': {'S': (_ddb_s(class_item, 'TeacherEmail') or '').strip().lower()},
+        'StudentEmail': {'S': student_email},
+        'JoinedAt': {'N': str(now)},
+        'AddedBy': {'S': admin_email},
+    }
+    if student_name:
+        enroll_item['StudentName'] = {'S': student_name}
+    if student_code:
+        enroll_item['StudentCode'] = {'S': student_code}
+
+    try:
+        dynamodb.put_item(TableName=DDB_TABLE, Item=enroll_item, ConditionExpression='attribute_not_exists(RekognitionId)')
+    except Exception as e:
+        if 'ConditionalCheckFailed' in str(e):
+            return _response(409, {'error': 'AlreadyEnrolled', 'message': 'El estudiante ya está en esta clase.'})
+        logger.exception('DynamoDB put_item failed (admin-enroll-student)')
+        return _response(500, {'error': 'DynamoDBPutFailed'})
+
+    _audit_log(admin_email, 'admin', 'admin-enroll-student', {'classId': class_id, 'studentEmail': student_email})
+    try:
+        _upsert_student_notification(
+            student_email,
+            f'NOTIF#enroll#{class_id}#{student_email}'.lower(),
+            'Nueva clase',
+            f'Te inscribieron en {class_name}.',
+            'info',
+            now,
+        )
+    except Exception:
+        logger.exception('admin enrollment notification failed')
+
+    return _response(200, {
+        'ok': True,
+        'classId': class_id,
+        'student': {
+            'email': student_email,
+            'name': student_name or None,
+            'code': student_code or None,
+            'program': _first_s(student, 'Program', 'Carrera', 'Career') or None,
+            'semester': _first_s(student, 'Semester', 'Semestre') or None,
+        },
+    })
+
+
 def handle_admin_create_student(event, body, image_bytes_fixed, img=None, width=None, height=None):
     """El admin crea la cuenta del estudiante y le toma la foto biométrica en persona."""
     payload = _verify_token(_get_bearer_token(event))

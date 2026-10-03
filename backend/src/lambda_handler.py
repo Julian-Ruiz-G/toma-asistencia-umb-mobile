@@ -36,6 +36,7 @@ from routes.admin import (
     handle_admin_consents,
     handle_admin_create_teacher,
     handle_admin_create_student,
+    handle_admin_enroll_student,
     handle_admin_dashboard_stats,
     handle_admin_request_profile,
 )
@@ -89,6 +90,7 @@ ROUTE_HANDLERS = [
     ("/admin-logs", handle_admin_logs),
     ("/admin-consents", handle_admin_consents),
     ("/admin-create-teacher", handle_admin_create_teacher),
+    ("/admin-enroll-student", handle_admin_enroll_student),
     ("/admin-bulk-import", handle_admin_bulk_import),
     ("/admin-dashboard-stats", handle_admin_dashboard_stats),
     ("/admin-request-profile", handle_admin_request_profile),

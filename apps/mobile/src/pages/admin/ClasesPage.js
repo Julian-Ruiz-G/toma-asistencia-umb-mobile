@@ -1,7 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Modal,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -11,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { BookOpen, Calendar, MapPin, Search, Users, X } from 'lucide-react-native';
+import { BookOpen, Search } from 'lucide-react-native';
 
 import { AdminNavButtons, useAdminDrawer } from '../../components/AdminDrawer';
 import { MenuButton } from '../../components/RoleDrawer';
@@ -21,11 +20,10 @@ import { ADMIN_CLASSES_URL } from '../../config';
 import { useAuth } from '../../state/auth';
 import { useColors } from '../../ui/ThemeContext';
 import { personDisplayName } from '../../utils/displayName';
-import { colombiaDateLongFromYmd } from '../../utils/formatDateTime';
 import { prettyLabel } from '../../utils/adminDashboard';
 import { FACULTIES, classProgramLabels, classTouchesProgram } from '../../utils/programs';
 import { sameSemester, semesterTitle } from '../../components/AdminInsightDrill';
-import { formatScheduleFriendly, formatScheduleLines } from '../../utils/schedule';
+import { formatScheduleFriendly } from '../../utils/schedule';
 import { headerTop } from '../../ui/safeArea';
 
 const FILTERS = [
@@ -54,7 +52,6 @@ export default function ClasesPage({ navigation, route }) {
   const [program, setProgram] = useState(String(route?.params?.program || ''));
   const [teacherEmail, setTeacherEmail] = useState(String(route?.params?.teacherEmail || ''));
   const [semester, setSemester] = useState(String(route?.params?.semester || ''));
-  const [selected, setSelected] = useState(null);
 
   const load = useCallback(async () => {
     if (!authToken || !ADMIN_CLASSES_URL) {
@@ -214,7 +211,7 @@ export default function ClasesPage({ navigation, route }) {
           const programs = classProgramLabels(c);
           const mixed = programs.length > 1;
           return (
-            <Pressable key={c.classId} onPress={() => setSelected(c)} style={styles.card}>
+            <Pressable key={c.classId} onPress={() => navigation.navigate('AdminClassDetail', { classId: c.classId })} style={styles.card}>
               <View style={styles.cardTop}>
                 <View style={styles.cardIcon}>
                   <BookOpen size={18} color={COLORS.primary} />
@@ -254,7 +251,6 @@ export default function ClasesPage({ navigation, route }) {
         })}
       </ScrollView>
 
-      <ClassDetailModal cls={selected} onClose={() => setSelected(null)} styles={styles} COLORS={COLORS} />
     </View>
   );
 }
@@ -268,93 +264,6 @@ function Metric({ label, value, styles, tone }) {
   );
 }
 
-function ClassDetailModal({ cls, onClose, styles, COLORS }) {
-  const lines = cls ? formatScheduleLines(cls.schedule) : [];
-  const att = cls?.attendance || {};
-  return (
-    <Modal visible={!!cls} animationType="slide" onRequestClose={onClose}>
-      {cls ? (
-        <View style={styles.root}>
-          <View style={styles.header}>
-            <Pressable onPress={onClose} style={styles.backBtn} accessibilityLabel="Cerrar">
-              <X size={20} color={COLORS.icon} />
-            </Pressable>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.headerTitle} numberOfLines={1}>{cls.className || 'Clase'}</Text>
-              <Text style={styles.headerSubtitle} numberOfLines={1}>
-                {[cls.group, cls.subjectCode, cls.period ? `Periodo ${cls.period}` : ''].filter(Boolean).join(' · ') || 'Detalle de la clase'}
-              </Text>
-            </View>
-          </View>
-          <ScrollView contentContainerStyle={styles.body}>
-            <View style={styles.detailCard}>
-              <Text style={styles.detailLabel}>Docente</Text>
-              <Text style={styles.detailValue}>{personDisplayName(cls.teacherName, cls.teacherEmail || 'Sin docente')}</Text>
-              {cls.teacherEmail ? <Text style={styles.meta}>{cls.teacherEmail}</Text> : null}
-
-              <View style={styles.detailRow}>
-                <Calendar size={16} color={COLORS.icon} />
-                <View style={{ flex: 1 }}>
-                  {lines.length
-                    ? lines.map((l) => <Text key={l} style={styles.detailText}>{l}</Text>)
-                    : <Text style={styles.detailText}>{cls.startTime ? `${cls.startTime} – ${cls.endTime || ''}` : 'Sin horario'}</Text>}
-                </View>
-              </View>
-              {cls.room ? (
-                <View style={styles.detailRow}>
-                  <MapPin size={16} color={COLORS.icon} />
-                  <Text style={styles.detailText}>Salón {cls.room}</Text>
-                </View>
-              ) : null}
-              <Text style={[styles.meta, { marginTop: 10 }]}>
-                {cls.lastSessionDate
-                  ? `Última sesión: ${colombiaDateLongFromYmd(cls.lastSessionDate)} · ${cls.sessionsCount} en total`
-                  : 'Todavía no se ha tomado asistencia.'}
-              </Text>
-            </View>
-
-            <View style={styles.detailCard}>
-              <Text style={styles.detailLabel}>Asistencia acumulada</Text>
-              {att.total ? (
-                <View style={styles.metricsRow}>
-                  <Metric label="Presentes" value={att.asistencia} styles={styles} tone={COLORS.successStrong} />
-                  <Metric label="Retardos" value={att.retardo} styles={styles} tone={COLORS.warningStrong} />
-                  <Metric label="Ausencias" value={att.inasistencia} styles={styles} tone={COLORS.dangerStrong} />
-                </View>
-              ) : (
-                <Text style={styles.detailText}>Sin registros todavía.</Text>
-              )}
-            </View>
-
-            <View style={styles.detailCard}>
-              <View style={styles.rosterHead}>
-                <Users size={16} color={COLORS.icon} />
-                <Text style={styles.detailLabel}>Estudiantes inscritos ({cls.studentsCount})</Text>
-              </View>
-              {classProgramLabels(cls).length > 1 ? (
-                <Text style={[styles.meta, { marginBottom: 8 }]}>
-                  Esta clase reúne {classProgramLabels(cls).length} carreras: {classProgramLabels(cls).join(', ')}.
-                </Text>
-              ) : null}
-              {(cls.students || []).length === 0 ? (
-                <Text style={styles.detailText}>Nadie se ha unido a esta clase.</Text>
-              ) : (
-                cls.students.map((s, i) => (
-                  <View key={s.email || i} style={[styles.studentRow, i > 0 ? styles.studentDivider : null]}>
-                    <Text style={styles.studentName}>{personDisplayName(s.name, s.email || 'Estudiante')}</Text>
-                    <Text style={styles.meta}>
-                      {[s.code, prettyLabel(s.program, ''), s.semester ? `Semestre ${String(s.semester).match(/\d+/)?.[0] || s.semester}` : '', s.email].filter(Boolean).join(' · ')}
-                    </Text>
-                  </View>
-                ))
-              )}
-            </View>
-          </ScrollView>
-        </View>
-      ) : null}
-    </Modal>
-  );
-}
 
 const createStyles = (COLORS) => StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.background },
@@ -385,13 +294,4 @@ const createStyles = (COLORS) => StyleSheet.create({
   metric: { flex: 1, backgroundColor: COLORS.surface, borderRadius: 10, paddingVertical: 8, alignItems: 'center' },
   metricValue: { fontWeight: '900', color: COLORS.text, fontSize: 16, fontVariant: ['tabular-nums'] },
   metricLabel: { marginTop: 2, color: COLORS.muted, fontSize: 11 },
-  detailCard: { backgroundColor: COLORS.card, borderRadius: 14, borderWidth: 1, borderColor: COLORS.border, padding: 14 },
-  detailLabel: { fontWeight: '900', color: COLORS.textSecondary, fontSize: 12 },
-  detailValue: { marginTop: 4, fontWeight: '900', color: COLORS.text, fontSize: 16 },
-  detailRow: { flexDirection: 'row', gap: 10, marginTop: 12, alignItems: 'flex-start' },
-  detailText: { color: COLORS.text, lineHeight: 20 },
-  rosterHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
-  studentRow: { paddingVertical: 8 },
-  studentDivider: { borderTopWidth: 1, borderTopColor: COLORS.border },
-  studentName: { fontWeight: '800', color: COLORS.text },
 });
