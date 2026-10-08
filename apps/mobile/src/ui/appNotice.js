@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { BlurView } from 'expo-blur';
 import {
   AlertTriangle,
   CalendarOff,
@@ -11,6 +12,7 @@ import {
 import { isInAppNotificationsEnabled } from '../utils/appSettings';
 import OverlayDismiss from '../components/OverlayDismiss';
 import { useColors } from './ThemeContext';
+import { prepareAppAlert, presentNotice } from './appNoticeModel.cjs';
 
 let showFn = null;
 
@@ -24,95 +26,16 @@ export function showAppNotice(notice) {
   return true;
 }
 
-function inferKind(title) {
-  const t = String(title || '').toLowerCase();
-  if (
-    t.includes('error') ||
-    t.includes('no se pudo') ||
-    t.includes('inválid') ||
-    t.includes('invalida') ||
-    t.includes('denegad') ||
-    t.includes('falló') ||
-    t.includes('fallo')
-  ) {
-    return 'error';
-  }
-  if (
-    t.includes('listo') ||
-    t.includes('cread') ||
-    t.includes('actualiz') ||
-    t.includes('eliminad') ||
-    t.includes('guardad') ||
-    t.includes('finaliz') ||
-    t.includes('cuenta creada')
-  ) {
-    return 'success';
-  }
-  if (
-    t.includes('permiso') ||
-    t.includes('falta') ||
-    t.includes('elige') ||
-    t.includes('pendiente') ||
-    t.includes('incompleto') ||
-    t.includes('obligator') ||
-    t.includes('sin ')
-  ) {
-    return 'warning';
-  }
-  if (t.includes('eliminar') || t.includes('confirmar')) return 'confirm';
-  return 'info';
-}
-
-function kickerFor(kind, explicit) {
-  if (explicit) return explicit;
-  if (kind === 'error') return 'Error';
-  if (kind === 'success') return 'Listo';
-  if (kind === 'warning') return 'Aviso';
-  if (kind === 'confirm') return 'Confirmar';
-  if (kind === 'offday' || kind === 'early' || kind === 'late') return 'Aviso de horario';
-  return 'Aviso';
-}
-
-function splitBody(message) {
-  const raw = String(message || '').trim();
-  if (!raw) return { subtitle: '', points: [] };
-  const parts = raw
-    .split(/\n+/)
-    .map((s) => s.replace(/^[•\-\u2022]\s*/, '').trim())
-    .filter(Boolean);
-  if (parts.length <= 1) return { subtitle: raw, points: [] };
-  return { subtitle: parts[0], points: parts.slice(1) };
-}
-
 /**
  * Drop-in de Alert.alert(title, message?, buttons?).
  * Mantiene onPress / style: 'cancel' | 'destructive'.
  */
 export function appAlert(title, message, buttons) {
-  const list = Array.isArray(buttons) ? buttons.filter(Boolean) : [];
-  const cancel = list.find((b) => b.style === 'cancel');
-  const destructive = list.find((b) => b.style === 'destructive');
-  const rest = list.filter((b) => b !== cancel);
-  const primary = destructive || rest[rest.length - 1] || { text: 'Entendido' };
-  const secondary = cancel || (rest.length > 1 && rest[0] !== primary ? rest[0] : null);
-
-  const kind = destructive || (cancel && rest.length) ? 'confirm' : inferKind(title);
-  if (!isInAppNotificationsEnabled() && kind !== 'error' && kind !== 'confirm') {
-    return false;
-  }
-  const body = splitBody(message);
-  const shown = showAppNotice({
-    kind,
-    kicker: kickerFor(kind),
-    title: String(title || 'Aviso'),
-    subtitle: body.subtitle,
-    points: body.points,
-    primaryLabel: primary.text || 'Entendido',
-    secondaryLabel: secondary?.text,
-    destructive: primary.style === 'destructive' || kind === 'error',
-    onPrimary: primary.onPress,
-    onSecondary: secondary?.onPress,
+  const notice = prepareAppAlert(title, message, buttons, {
+    notificationsEnabled: isInAppNotificationsEnabled(),
   });
+  if (!notice) return false;
+  const shown = showAppNotice(notice);
   if (!shown && typeof console !== 'undefined') {
     console.warn('[appAlert]', title, message);
   }
@@ -130,75 +53,97 @@ const ICONS = {
   info: Info,
 };
 
-export function AppNoticeHost() {
+export function AppNoticeHost({ blurTarget }) {
   const COLORS = useColors();
   const styles = makeNoticeStyles(COLORS);
   const [notice, setNotice] = useState(null);
-
+  const noticeRef = useRef(null);
+  noticeRef.current = notice;
+  bindAppNotice(setNotice);
   useEffect(() => {
     bindAppNotice(setNotice);
     return () => bindAppNotice(null);
   }, []);
 
   const close = (which) => {
-    const n = notice;
+    const n = noticeRef.current;
     setNotice(null);
     const fn = which === 'primary' ? n?.onPrimary : which === 'secondary' ? n?.onSecondary : null;
     if (typeof fn === 'function') setTimeout(fn, 40);
   };
 
-  const Icon = ICONS[notice?.kind] || Info;
-  const primaryLabel = notice?.primaryLabel || 'Entendido';
-  const secondaryLabel = notice?.secondaryLabel;
-  const points = notice?.points || [];
+  const shown = notice ? presentNotice(notice) : null;
+  const Icon = ICONS[shown?.kind] || Info;
+  const dismissWhich = shown?.secondaryLabel ? 'secondary' : 'primary';
 
   return (
     <Modal
-      visible={!!notice}
+      visible={!!shown}
       transparent
       animationType="fade"
-      onRequestClose={() => close(secondaryLabel ? 'secondary' : 'primary')}
+      statusBarTranslucent
+      navigationBarTranslucent
+      onRequestClose={() => close(dismissWhich)}
     >
-      <OverlayDismiss
-        style={styles.backdrop}
-        onClose={() => close(secondaryLabel ? 'secondary' : 'primary')}
-      >
-        <View style={styles.card}>
-          <Text style={styles.kicker}>{kickerFor(notice?.kind, notice?.kicker)}</Text>
-          <View style={styles.iconWrap}>
-            <Icon size={28} color={COLORS.primary} />
-          </View>
-          <Text style={styles.title}>{notice?.title}</Text>
-          {notice?.subtitle ? <Text style={styles.subtitle}>{notice.subtitle}</Text> : null}
-          {points.length ? (
-            <ScrollView style={styles.pointsScroll} contentContainerStyle={styles.points} nestedScrollEnabled>
-              {points.map((p) => (
-                <View key={p} style={styles.pointRow}>
-                  <View style={styles.dot} />
-                  <Text style={styles.point}>{p}</Text>
-                </View>
-              ))}
-            </ScrollView>
-          ) : null}
-          <Pressable onPress={() => close('primary')} style={styles.btn}>
-            <Text style={styles.btnText}>{primaryLabel}</Text>
-          </Pressable>
-          {secondaryLabel ? (
-            <Pressable onPress={() => close('secondary')} style={styles.btnGhost}>
-              <Text style={styles.btnGhostText}>{secondaryLabel}</Text>
+      {shown ? (
+      <View style={styles.layer}>
+        <BlurView
+          pointerEvents="none"
+          style={StyleSheet.absoluteFill}
+          intensity={80}
+          tint="dark"
+          blurMethod="dimezisBlurView"
+          blurReductionFactor={2}
+          blurTarget={blurTarget}
+        />
+        <View pointerEvents="none" style={styles.veil} />
+        <OverlayDismiss style={styles.backdrop} onClose={() => close(dismissWhich)}>
+          <View style={styles.card}>
+            <Text style={styles.kicker}>{shown.kicker}</Text>
+            <View style={styles.iconWrap}>
+              <Icon size={28} color={COLORS.primary} />
+            </View>
+            <Text style={styles.title}>{shown.title}</Text>
+            {shown.subtitle ? <Text style={styles.subtitle}>{shown.subtitle}</Text> : null}
+            {shown.points.length ? (
+              <ScrollView style={styles.pointsScroll} contentContainerStyle={styles.points} nestedScrollEnabled>
+                {shown.points.map((p) => (
+                  <View key={p} style={styles.pointRow}>
+                    <View style={styles.dot} />
+                    <Text style={styles.point}>{p}</Text>
+                  </View>
+                ))}
+              </ScrollView>
+            ) : null}
+            <Pressable
+              onPress={() => close('primary')}
+              style={[styles.btn, shown.destructive ? styles.btnDanger : null]}
+            >
+              <Text style={styles.btnText}>{shown.primaryLabel}</Text>
             </Pressable>
-          ) : null}
-        </View>
-      </OverlayDismiss>
+            {shown.secondaryLabel ? (
+              <Pressable onPress={() => close('secondary')} style={styles.btnGhost}>
+                <Text style={styles.btnGhostText}>{shown.secondaryLabel}</Text>
+              </Pressable>
+            ) : null}
+          </View>
+        </OverlayDismiss>
+      </View>
+      ) : null}
     </Modal>
   );
 }
 
 function makeNoticeStyles(COLORS) {
   return StyleSheet.create({
+    layer: { flex: 1 },
+    veil: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: 'rgba(15, 23, 42, 0.34)',
+    },
     backdrop: {
       flex: 1,
-      backgroundColor: COLORS.overlay,
+      backgroundColor: 'transparent',
     },
     card: {
       width: '100%',
@@ -244,6 +189,7 @@ function makeNoticeStyles(COLORS) {
       paddingVertical: 14,
       alignItems: 'center',
     },
+    btnDanger: { backgroundColor: COLORS.dangerStrong },
     btnText: { color: COLORS.white, fontWeight: '900', fontSize: 15 },
     btnGhost: {
       marginTop: 8,

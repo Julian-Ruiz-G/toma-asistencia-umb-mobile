@@ -1,60 +1,30 @@
-import React, { useRef } from 'react';
-import { PanResponder, StyleSheet, View } from 'react-native';
+import React from 'react';
+import { Pressable, StyleSheet } from 'react-native';
 
 /**
- * Fondo de las ventanas (avisos, formularios en Modal): tocar o deslizar fuera del contenido la cierra.
- * Con un Pressable solo contaba el toque; un deslizamiento a veces se tomaba como cancelado.
+ * Fondo de avisos y ventanas flotantes. Tocar fuera del contenido las cierra.
+ * El bloque interior reclama el toque para que botones y campos de adentro no cierren la ventana.
  */
 export default function OverlayDismiss({ onClose, children, style, pin = 'center' }) {
   const bottom = pin === 'bottom';
-  const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
-
-  const pan = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => !!onCloseRef.current,
-      onMoveShouldSetPanResponder: () => !!onCloseRef.current,
-      onPanResponderTerminationRequest: () => false,
-      onPanResponderRelease: () => onCloseRef.current?.(),
-    })
-  ).current;
 
   return (
-    <View style={[styles.root, style]}>
-      {onClose ? (
-        <View
-          accessible
-          accessibilityRole="button"
-          accessibilityLabel="Cerrar"
-          onAccessibilityTap={() => onCloseRef.current?.()}
-          style={styles.hit}
-          {...pan.panHandlers}
-        />
-      ) : null}
-      <View
-        pointerEvents="box-none"
-        style={[styles.content, bottom ? styles.contentBottom : styles.contentCenter]}
-      >
+    <Pressable
+      style={[styles.root, style, bottom ? styles.contentBottom : styles.contentCenter]}
+      onPress={onClose}
+      disabled={!onClose}
+      accessibilityRole={onClose ? 'button' : undefined}
+      accessibilityLabel={onClose ? 'Cerrar' : undefined}
+    >
+      <Pressable style={bottom ? styles.sheet : styles.dialog} onPress={() => {}}>
         {children}
-      </View>
-    </View>
+      </Pressable>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  hit: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.01)',
-  },
-  content: {
-    flex: 1,
-    width: '100%',
-  },
   contentCenter: {
     justifyContent: 'center',
     alignItems: 'center',
@@ -64,4 +34,6 @@ const styles = StyleSheet.create({
   contentBottom: {
     justifyContent: 'flex-end',
   },
+  dialog: { width: '100%', maxWidth: 360 },
+  sheet: { width: '100%' },
 });

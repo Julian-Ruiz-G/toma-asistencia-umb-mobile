@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { BlurTargetView } from 'expo-blur';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -172,6 +173,7 @@ export default function App() {
 
 function ThemedApp() {
   const navRef = useRef(null);
+  const blurTargetRef = useRef(null);
   const { navigationTheme } = useAppTheme();
   const [routeName, setRouteName] = useState('Splash');
   const syncRoute = useCallback(() => {
@@ -211,10 +213,12 @@ function ThemedApp() {
 
   return (
     <View style={{ flex: 1 }}>
-      <AppNoticeHost />
-      <NavigationContainer ref={navRef} theme={navigationTheme} onReady={syncRoute} onStateChange={syncRoute}>
-        <AppStack routeName={routeName} />
-      </NavigationContainer>
+      <BlurTargetView ref={blurTargetRef} style={{ flex: 1 }} collapsable={false}>
+        <NavigationContainer ref={navRef} theme={navigationTheme} onReady={syncRoute} onStateChange={syncRoute}>
+          <AppStack routeName={routeName} />
+        </NavigationContainer>
+      </BlurTargetView>
+      <AppNoticeHost blurTarget={blurTargetRef} />
     </View>
   );
 }

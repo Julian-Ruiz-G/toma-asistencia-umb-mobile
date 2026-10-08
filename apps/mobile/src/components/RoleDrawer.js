@@ -50,7 +50,7 @@ export const STUDENT_MENU = [
  * Entre secciones se reemplaza la pantalla actual, así "atrás" siempre vuelve al inicio del rol
  * y la pila no crece al navegar por el menú.
  */
-export function useRoleDrawer(navigation, currentRoute, { menu, homeRoute, roleLabel, fallbackName }) {
+export function useRoleDrawer(navigation, currentRoute, { menu, homeRoute, roleLabel, fallbackName, profileRoute }) {
   const { logout, fullName, email, photoUri, setPhotoUri } = useAuth();
   const [visible, setVisible] = useState(false);
 
@@ -102,6 +102,7 @@ export function useRoleDrawer(navigation, currentRoute, { menu, homeRoute, roleL
       roleLabel={roleLabel}
       name={personDisplayName(fullName, fallbackName)}
       items={items}
+      onProfile={profileRoute ? () => goTo(profileRoute) : undefined}
       onLogout={() => {
         logout();
         navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] });
@@ -118,6 +119,7 @@ export function useTeacherDrawer(navigation, currentRoute) {
     homeRoute: 'TeacherHome',
     roleLabel: 'Docente',
     fallbackName: 'Docente',
+    profileRoute: 'TeacherProfile',
   });
 }
 
@@ -127,6 +129,7 @@ export function useStudentDrawer(navigation, currentRoute) {
     homeRoute: 'StudentHome',
     roleLabel: 'Estudiante',
     fallbackName: 'Estudiante',
+    profileRoute: 'StudentProfile',
   });
 }
 

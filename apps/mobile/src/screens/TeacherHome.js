@@ -10,7 +10,6 @@ import {
   Clock,
   PlusCircle,
   FileSpreadsheet,
-  LogOut,
   Menu,
   QrCode,
   Settings,
@@ -95,7 +94,7 @@ export default function TeacherHome({ navigation }) {
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const { drawer, openDrawer } = useTeacherDrawer(navigation, 'TeacherHome');
   const { inAppNotifications } = useAppTheme();
-  const { logout, authToken, fullName, email, photoUri, setPhotoUri, notificationUnread, setNotificationUnread, acceptTerms, setAcceptTerms, acceptPrivacy, setAcceptPrivacy, persistSession } = useAuth();
+  const { authToken, fullName, email, photoUri, setPhotoUri, notificationUnread, setNotificationUnread, acceptTerms, setAcceptTerms, acceptPrivacy, setAcceptPrivacy, persistSession } = useAuth();
   const [classes, setClasses] = useState([]);
   const [loadingClasses, setLoadingClasses] = useState(false);
   const [statsPanel, setStatsPanel] = useState(null);
@@ -441,17 +440,6 @@ export default function TeacherHome({ navigation }) {
         <Animated.View entering={enterDown(0, 400)} style={styles.header}>
           <View style={styles.headerRow}>
             <View style={styles.userRow}>
-              <Pressable
-                onPress={() => {
-                  logout();
-                  navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] });
-                }}
-                style={styles.logoutBtn}
-                accessibilityRole="button"
-                accessibilityLabel="Cerrar sesión"
-              >
-                <LogOut size={18} color={COLORS.white} />
-              </Pressable>
               <Pressable onPress={() => navigation.navigate('TeacherProfile')} style={styles.avatarWrap}>
                 <Image
                   key={photoUri || 'default'}

@@ -7,7 +7,6 @@ import {
   CheckCircle2,
   ChevronRight,
   FileText,
-  LogOut,
   Menu,
   QrCode,
   ScanFace,
@@ -29,7 +28,7 @@ import { headerTop } from '../../ui/safeArea';
 export default function AdminDashboard({ navigation }) {
   const COLORS = useColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
-  const { authToken, logout } = useAuth();
+  const { authToken } = useAuth();
   const { drawer, openDrawer } = useAdminDrawer(navigation, 'AdminDashboard');
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
@@ -168,17 +167,6 @@ export default function AdminDashboard({ navigation }) {
         <View style={styles.header}>
           <View style={styles.headerRow}>
             <View style={styles.userRow}>
-              <Pressable
-                onPress={() => {
-                  logout();
-                  navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] });
-                }}
-                style={styles.logoutBtn}
-                accessibilityRole="button"
-                accessibilityLabel="Cerrar sesión"
-              >
-                <LogOut size={18} color={COLORS.white} />
-              </Pressable>
               <View>
                 <Text style={styles.headerTitle}>Tablero</Text>
                 <Text style={styles.headerSub}>Resumen institucional</Text>

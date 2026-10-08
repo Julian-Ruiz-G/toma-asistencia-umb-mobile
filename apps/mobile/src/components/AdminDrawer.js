@@ -36,6 +36,7 @@ export function useAdminDrawer(navigation, currentRoute) {
     homeRoute: 'AdminDashboard',
     roleLabel: 'Administrador',
     fallbackName: 'Administrador',
+    profileRoute: 'AdminProfile',
   });
 }
 

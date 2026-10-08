@@ -11,7 +11,6 @@ import {
   Calendar,
   ChevronRight,
   History,
-  LogOut,
   Menu,
   ScanLine,
   User,
@@ -43,7 +42,7 @@ export default function StudentHome({ navigation }) {
   const { drawer, openDrawer } = useStudentDrawer(navigation, 'StudentHome');
   const { inAppNotifications } = useAppTheme();
   // Obtener datos de autenticación desde el contexto
-  const { logout, authToken, fullName, email, program, semester, phone, setProgram, setSemester, setPhone, photoUri, setPhotoUri, notificationUnread, setNotificationUnread, classesRevision } = useAuth();
+  const { authToken, fullName, email, program, semester, phone, setProgram, setSemester, setPhone, photoUri, setPhotoUri, notificationUnread, setNotificationUnread, classesRevision } = useAuth();
   // Estados locales del componente
   const [classes, setClasses] = useState([]); // Lista de clases registradas
   const [loadingClasses, setLoadingClasses] = useState(false); // Estado de carga
@@ -366,17 +365,6 @@ export default function StudentHome({ navigation }) {
         <Animated.View entering={enterDown(0, 400)} style={styles.header}>
           <View style={styles.headerRow}>
             <View style={styles.userRow}>
-              <Pressable
-                onPress={() => {
-                  logout();
-                  navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] });
-                }}
-                style={styles.logoutBtn}
-                accessibilityRole="button"
-                accessibilityLabel="Cerrar sesión"
-              >
-                <LogOut size={20} color={COLORS.white} />
-              </Pressable>
               <Pressable onPress={() => navigation.navigate('StudentProfile')} style={styles.avatar}>
                 <Image
                   key={photoUri || 'default'}

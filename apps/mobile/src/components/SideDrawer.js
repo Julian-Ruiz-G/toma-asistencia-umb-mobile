@@ -13,7 +13,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { X, LogOut } from 'lucide-react-native';
+import { LogOut, X } from 'lucide-react-native';
 
 import { useColors } from '../ui/ThemeContext';
 
@@ -36,6 +36,7 @@ export function SideDrawer({
   roleLabel,
   name,
   items = [],
+  onProfile,
   onLogout,
 }) {
   const COLORS = useColors();
@@ -46,12 +47,16 @@ export function SideDrawer({
   const visibleRef = useRef(visible);
   const onCloseRef = useRef(onClose);
   const onOpenRef = useRef(onOpen);
+  const onProfileRef = useRef(onProfile);
+  const onLogoutRef = useRef(onLogout);
   const settleCloseRef = useRef(() => {});
   const [mounted, setMounted] = useState(visible);
 
   visibleRef.current = visible;
   onCloseRef.current = onClose;
   onOpenRef.current = onOpen;
+  onProfileRef.current = onProfile;
+  onLogoutRef.current = onLogout;
 
   settleCloseRef.current = (dx, vx) => {
     const current = startX.current + dx;
@@ -102,28 +107,6 @@ export function SideDrawer({
     })
   ).current;
 
-  const overlayPan = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onPanResponderGrant: () => {
-        slide.stopAnimation((v) => { startX.current = v; });
-      },
-      onPanResponderMove: (_, g) => {
-        slide.setValue(clamp(startX.current + g.dx, 0, DRAWER_WIDTH));
-      },
-      // Fuera del panel: tocar o deslizar lo cierra. Si se arrastra hacia la derecha,
-      // el panel sigue el dedo y decide al soltar según cuánto se movió.
-      onPanResponderRelease: (_, g) => {
-        if (g.dx > 12 && Math.abs(g.dx) > Math.abs(g.dy)) {
-          settleCloseRef.current(g.dx, g.vx);
-          return;
-        }
-        onCloseRef.current?.();
-      },
-      onPanResponderTerminate: () => onCloseRef.current?.(),
-    })
-  ).current;
-
   const closePan = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponderCapture: (_, g) => (
@@ -149,10 +132,17 @@ export function SideDrawer({
     if (typeof item?.onPress === 'function') item.onPress();
   };
 
-  const goLogout = () => {
+  const openProfile = () => {
+    if (typeof onProfileRef.current !== 'function') return;
     setMounted(false);
     onCloseRef.current?.();
-    if (typeof onLogout === 'function') onLogout();
+    onProfileRef.current();
+  };
+
+  const logout = () => {
+    setMounted(false);
+    onCloseRef.current?.();
+    onLogoutRef.current?.();
   };
 
   return (
@@ -171,7 +161,12 @@ export function SideDrawer({
       >
         <View style={styles.modalRoot}>
           <View style={styles.overlaySolid} />
-          <View collapsable={false} style={styles.overlayHit} {...overlayPan.panHandlers} />
+          <Pressable
+            style={styles.outside}
+            onPress={() => onCloseRef.current?.()}
+            accessibilityRole="button"
+            accessibilityLabel="Cerrar menú"
+          />
           <View style={styles.panelHit} {...closePan.panHandlers}>
             <Animated.View
               style={[
@@ -183,7 +178,13 @@ export function SideDrawer({
                 },
               ]}
             >
-              <View style={styles.profile}>
+              <Pressable
+                onPress={openProfile}
+                disabled={!onProfile}
+                style={styles.profile}
+                accessibilityRole="button"
+                accessibilityLabel="Ir al perfil"
+              >
                 <View style={styles.profileTop}>
                   <View style={styles.avatarWrap}>
                     <Image
@@ -193,13 +194,13 @@ export function SideDrawer({
                       resizeMode={photoUri ? 'cover' : 'contain'}
                     />
                   </View>
-                  <Pressable onPress={onClose} style={styles.closeBtn} hitSlop={8}>
+                  <Pressable onPress={onClose} style={styles.closeBtn} hitSlop={8} accessibilityLabel="Cerrar menú">
                     <X size={18} color={COLORS.white} />
                   </Pressable>
                 </View>
                 <Text style={styles.name}>{name}</Text>
                 <Text style={styles.role}>{roleLabel}</Text>
-              </View>
+              </Pressable>
 
               <ScrollView style={styles.menuScroll} contentContainerStyle={styles.menu} showsVerticalScrollIndicator={false}>
                 {items.map((item) => {
@@ -219,9 +220,8 @@ export function SideDrawer({
                   );
                 })}
               </ScrollView>
-
               {onLogout ? (
-                <Pressable onPress={goLogout} style={styles.logoutBtn}>
+                <Pressable onPress={logout} style={styles.logoutBtn} accessibilityRole="button" accessibilityLabel="Cerrar sesión">
                   <View style={styles.logoutIcon}>
                     <LogOut size={18} color={COLORS.dangerStrong} />
                   </View>
@@ -254,9 +254,13 @@ function makeStyles(COLORS) {
       ...StyleSheet.absoluteFillObject,
       backgroundColor: COLORS.overlay,
     },
-    overlayHit: {
-      ...StyleSheet.absoluteFillObject,
-      backgroundColor: 'rgba(0,0,0,0.01)',
+    outside: {
+      position: 'absolute',
+      left: 0,
+      top: 0,
+      bottom: 0,
+      width: SCREEN_W - DRAWER_WIDTH,
+      zIndex: 1,
     },
     panelHit: {
       position: 'absolute',
