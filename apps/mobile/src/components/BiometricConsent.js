@@ -72,9 +72,8 @@ Los datos biométricos se conservarán únicamente durante el tiempo necesario p
 
 ## Contacto
 
-- **Correo:** protecciondatos@umb.edu.co
-- **Dirección:** Calle 73 # 73-33, Bogotá D.C., Colombia
-- **Teléfono:** +57 601 668 3600
+- **Correo:** soporteasistenciaumb@gmail.com
+- **Dirección:** Avenida Circunvalar No. 60-00, Bogotá, Colombia
 
 ---
 

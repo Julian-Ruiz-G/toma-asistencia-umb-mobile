@@ -12,8 +12,8 @@ const TERMS_MARKDOWN = `
 - **Versión:** 1.0
 - **Fecha de vigencia:** 10 de agosto de 2026
 - **Responsable:** Universidad Manuela Beltrán
-- **Domicilio:** Bogotá D.C., Colombia
-- **Contacto:** soporte@umb.edu.co
+- **Domicilio:** Avenida Circunvalar No. 60-00, Bogotá, Colombia
+- **Contacto:** soporteasistenciaumb@gmail.com
 
 ## 1. Objeto
 
@@ -153,8 +153,8 @@ La aceptación de estos Términos es **independiente** de la autorización espec
 ## Contacto
 
 - **Responsable:** Universidad Manuela Beltrán
-- **Correo:** soporte@umb.edu.co
-- **Dirección:** Calle 73 # 73-33, Bogotá D.C., Colombia
+- **Correo:** soporteasistenciaumb@gmail.com
+- **Dirección:** Avenida Circunvalar No. 60-00, Bogotá, Colombia
 `;
 
 export default function TermsAndConditionsModal({ visible, onClose, onAccept, readOnly = false, blocking = false }) {

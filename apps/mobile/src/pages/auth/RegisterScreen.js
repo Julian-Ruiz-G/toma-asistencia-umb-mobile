@@ -113,6 +113,7 @@ export default function RegisterScreen({ navigation }) {
   const [showBiometricModal, setShowBiometricModal] = useState(false);
   const [captchaProof, setCaptchaProof] = useState(null);
   const [captchaKey, setCaptchaKey] = useState(0);
+  const [showPasswordRules, setShowPasswordRules] = useState(false);
 
   const pwRules = useMemo(() => passwordChecks(formData.password), [formData.password]);
   const passwordReady = pwRules.every((r) => r.ok);
@@ -382,6 +383,7 @@ export default function RegisterScreen({ navigation }) {
           }}
           error={errors.firstName}
           autoCapitalize="words"
+          onFocus={() => setShowPasswordRules(false)}
         />
 
         <View style={{ height: 14 }} />
@@ -396,6 +398,7 @@ export default function RegisterScreen({ navigation }) {
           }}
           error={errors.lastName}
           autoCapitalize="words"
+          onFocus={() => setShowPasswordRules(false)}
         />
 
         <View style={{ height: 14 }} />
@@ -411,6 +414,7 @@ export default function RegisterScreen({ navigation }) {
           error={errors.code}
           helperText="Código de 8 a 10 caracteres"
           autoCapitalize="none"
+          onFocus={() => setShowPasswordRules(false)}
         />
 
         <View style={{ height: 14 }} />
@@ -427,6 +431,7 @@ export default function RegisterScreen({ navigation }) {
           helperText="Debe ser tu correo institucional UMB (@academia.umb.edu.co)."
           autoCapitalize="none"
           keyboardType="email-address"
+          onFocus={() => setShowPasswordRules(false)}
         />
 
         <View style={{ height: 14 }} />
@@ -443,21 +448,25 @@ export default function RegisterScreen({ navigation }) {
           hideErrorText
           secureTextEntry
           autoCapitalize="none"
+          onFocus={() => setShowPasswordRules(true)}
+          onBlur={() => setShowPasswordRules(false)}
         />
 
-        <View style={styles.rulesCard}>
-          <Text style={styles.rulesTitle}>Tu contraseña debe cumplir:</Text>
-          {pwRules.map((rule) => (
-            <View key={rule.key} style={styles.ruleRow}>
-              <View style={[styles.ruleIcon, rule.ok ? styles.ruleIconOk : styles.ruleIconWait]}>
-                {rule.ok ? <Check size={12} color={COLORS.white} strokeWidth={3} /> : <X size={12} color={COLORS.placeholder} strokeWidth={3} />}
+        {showPasswordRules ? (
+          <View style={styles.rulesCard}>
+            <Text style={styles.rulesTitle}>Tu contraseña debe cumplir:</Text>
+            {pwRules.map((rule) => (
+              <View key={rule.key} style={styles.ruleRow}>
+                <View style={[styles.ruleIcon, rule.ok ? styles.ruleIconOk : styles.ruleIconWait]}>
+                  {rule.ok ? <Check size={12} color={COLORS.white} strokeWidth={3} /> : <X size={12} color={COLORS.placeholder} strokeWidth={3} />}
+                </View>
+                <Text style={[styles.ruleText, rule.ok ? styles.ruleTextOk : styles.ruleTextWait]}>
+                  {rule.label}
+                </Text>
               </View>
-              <Text style={[styles.ruleText, rule.ok ? styles.ruleTextOk : styles.ruleTextWait]}>
-                {rule.label}
-              </Text>
-            </View>
-          ))}
-        </View>
+            ))}
+          </View>
+        ) : null}
 
         <View style={{ height: 14 }} />
 
@@ -473,6 +482,7 @@ export default function RegisterScreen({ navigation }) {
           hideErrorText={!!formData.confirmPassword}
           secureTextEntry
           autoCapitalize="none"
+          onFocus={() => setShowPasswordRules(false)}
         />
         {formData.confirmPassword ? (
           <View style={[styles.matchRow, passwordsMatch ? styles.matchOk : styles.matchBad]}>
@@ -749,7 +759,7 @@ const createStyles = (COLORS) => StyleSheet.create({
   checkLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
   checkLabelText: { color: COLORS.textSecondary, fontWeight: '700' },
   consentText: { flex: 1, color: COLORS.textSecondary, fontSize: 14, lineHeight: 20 },
-  consentLink: { color: COLORS.primary, fontWeight: '800' },
+  consentLink: { color: COLORS.primary, fontWeight: '800', textDecorationLine: 'underline' },
   biometricLink: {
     color: COLORS.primary,
     fontWeight: '800',

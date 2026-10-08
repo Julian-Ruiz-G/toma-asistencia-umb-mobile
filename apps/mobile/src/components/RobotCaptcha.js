@@ -87,7 +87,8 @@ export default function RobotCaptcha({ checked, onChange, error }) {
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
   const [challenge, setChallenge] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [open, setOpen] = useState(false);
   const [fails, setFails] = useState(0);
   const [lockUntil, setLockUntil] = useState(0);
   const [locked, setLocked] = useState(false);
@@ -142,11 +143,13 @@ export default function RobotCaptcha({ checked, onChange, error }) {
     }
   }, [applyChallenge]);
 
-  useEffect(() => {
-    loadChallenge();
-    return () => clearTimers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  useEffect(() => () => clearTimers(), []);
+
+  const openChallenge = () => {
+    if (checked || locked) return;
+    setOpen(true);
+    if (!challenge && !loading) loadChallenge();
+  };
 
   useEffect(() => {
     if (!lockUntil) {
@@ -221,6 +224,7 @@ export default function RobotCaptcha({ checked, onChange, error }) {
       }
     }
     setFeedback('');
+    setOpen(false);
     onChangeRef.current(true, { token: proofToken, answer: n });
   };
 
@@ -231,9 +235,17 @@ export default function RobotCaptcha({ checked, onChange, error }) {
     [error, checked]
   );
 
+  const expanded = open && !checked;
+
   return (
     <View style={boxStyle}>
-      <View style={styles.topRow}>
+      <Pressable
+        onPress={openChallenge}
+        disabled={checked || locked}
+        style={styles.topRow}
+        accessibilityRole="button"
+        accessibilityLabel="No soy un robot"
+      >
         <View style={[styles.checkbox, checked ? styles.checkboxOn : null]}>
           {checked ? <Check size={16} color={COLORS.white} strokeWidth={3} /> : null}
         </View>
@@ -244,19 +256,27 @@ export default function RobotCaptcha({ checked, onChange, error }) {
               ? 'Verificación completada'
               : locked
                 ? `Bloqueado ${lockLeft}s`
-                : ready
-                  ? 'Elige la respuesta correcta'
-                  : 'Lee la pregunta…'}
+                : expanded
+                  ? (ready ? 'Elige la respuesta correcta' : 'Lee la pregunta…')
+                  : 'Obligatorio. Toca para responder'}
           </Text>
         </View>
-        <Pressable onPress={() => !locked && loadChallenge()} hitSlop={8} style={styles.refresh} disabled={locked}>
-          {loading ? <ActivityIndicator size="small" /> : <RefreshCw size={16} color={COLORS.muted} />}
-        </Pressable>
-      </View>
+      </Pressable>
 
-      {!checked && challenge && !loading ? (
+      {expanded && loading ? (
+        <View style={styles.loadingRow}>
+          <ActivityIndicator size="small" color={COLORS.primary} />
+        </View>
+      ) : null}
+
+      {expanded && challenge && !loading ? (
         <View style={styles.challenge}>
-          <Text style={styles.prompt}>{challenge.prompt}</Text>
+          <View style={styles.promptRow}>
+            <Text style={[styles.prompt, styles.promptFlex]}>{challenge.prompt}</Text>
+            <Pressable onPress={() => !locked && loadChallenge()} hitSlop={8} style={styles.refresh} disabled={locked}>
+              <RefreshCw size={16} color={COLORS.muted} />
+            </Pressable>
+          </View>
           {feedback ? <Text style={styles.feedback}>{feedback}</Text> : null}
           <View style={styles.options}>
             {(challenge.options || []).map((n, idx) => (
@@ -301,7 +321,10 @@ const createStyles = (COLORS) => StyleSheet.create({
   title: { fontWeight: '800', color: COLORS.text, fontSize: 14 },
   hint: { marginTop: 2, color: COLORS.muted, fontSize: 12 },
   refresh: { padding: 6 },
+  loadingRow: { marginTop: 12, alignItems: 'flex-start' },
   challenge: { marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: COLORS.border },
+  promptRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: 8 },
+  promptFlex: { flex: 1, marginBottom: 0 },
   prompt: { fontWeight: '800', color: COLORS.textSecondary, marginBottom: 8, lineHeight: 20 },
   feedback: { color: COLORS.danger, fontWeight: '700', fontSize: 12, marginBottom: 8 },
   options: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },

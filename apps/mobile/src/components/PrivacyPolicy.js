@@ -12,8 +12,8 @@ const PRIVACY_MARKDOWN = `
 - **Versión:** 1.0
 - **Fecha de vigencia:** 10 de agosto de 2026
 - **Responsable del tratamiento:** Universidad Manuela Beltrán
-- **Correo de protección de datos:** protecciondatos@umb.edu.co
-- **Domicilio:** Bogotá D.C., Colombia
+- **Correo de protección de datos:** soporteasistenciaumb@gmail.com
+- **Domicilio:** Avenida Circunvalar No. 60-00, Bogotá, Colombia
 
 ## 1. Introducción
 
@@ -25,9 +25,8 @@ Esta política se desarrolla de conformidad con el régimen colombiano de protec
 
 - **Nombre o razón social:** Universidad Manuela Beltrán
 - **NIT:** 860.007.375-9
-- **Dirección:** Calle 73 # 73-33, Bogotá D.C., Colombia
-- **Correo electrónico:** protecciondatos@umb.edu.co
-- **Teléfono:** +57 601 668 3600
+- **Dirección:** Avenida Circunvalar No. 60-00, Bogotá, Colombia
+- **Correo electrónico:** soporteasistenciaumb@gmail.com
 
 ## 3. Datos personales tratados
 
@@ -153,7 +152,7 @@ Cuando exista una alternativa razonable y técnicamente disponible, el sistema d
 
 Los titulares podrán presentar consultas o reclamos mediante:
 
-- **Correo electrónico:** protecciondatos@umb.edu.co
+- **Correo electrónico:** soporteasistenciaumb@gmail.com
 
 Las solicitudes deberán permitir identificar al titular y especificar claramente lo pedido. El responsable dará respuesta dentro de los términos establecidos por la legislación colombiana.
 
@@ -279,9 +278,8 @@ La presente Política entra en vigencia a partir del **10 de agosto de 2026** y 
 Para ejercer derechos, consultas o reclamos:
 
 - **Responsable:** Universidad Manuela Beltrán
-- **Correo:** protecciondatos@umb.edu.co
-- **Dirección:** Calle 73 # 73-33, Bogotá D.C., Colombia
-- **Teléfono:** +57 601 668 3600
+- **Correo:** soporteasistenciaumb@gmail.com
+- **Dirección:** Avenida Circunvalar No. 60-00, Bogotá, Colombia
 
 ---
 
