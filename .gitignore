@@ -31,6 +31,14 @@ secrets.json
 *.pem
 *.key
 
+# Documentos de la tesis y pruebas de seguridad locales
+Documentos/
+pruebas de seguridad/
+
+# En el repositorio queda el GIF del recorrido, no la grabación suelta
+demo/*.mp4
+demo/*.json
+
 # Tooling
 .metro-health-check*
 expo-env.d.ts

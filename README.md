@@ -2,6 +2,17 @@
 
 Aplicación móvil para el control de asistencia en la Universidad Manuela Beltrán. Los estudiantes marcan presencia con código QR y reconocimiento facial; docentes y administradores gestionan clases, sesiones, reportes y usuarios. Cliente en Expo / React Native; API serverless en AWS (API Gateway, Lambda, DynamoDB y Rekognition).
 
+## Recorrido
+
+<p align="center">
+  <strong>Estudiante, docente y administrador</strong><br><br>
+  <img src="demo/Toma_Asistencia_tres_perfiles.gif" alt="Recorrido de Toma Asistencia UMB en el emulador" width="320">
+</p>
+
+Recorrido real en el emulador Android, de unos cuatro minutos. En cada perfil se inicia sesión, se abre el menú y se recorren sus secciones.
+
+Los nombres, los códigos y los correos de los estudiantes, y la contraseña del inicio de sesión, están pixelados.
+
 ## Características
 
 - Autenticación por roles (estudiante, docente, administrador) con JWT
