@@ -9,7 +9,7 @@ Aplicación móvil para el control de asistencia en la Universidad Manuela Beltr
   <img src="demo/Toma_Asistencia_tres_perfiles.gif" alt="Recorrido de Toma Asistencia UMB en el emulador" width="320">
 </p>
 
-Recorrido real en el emulador Android, de unos cuatro minutos. En cada perfil se inicia sesión, se abre el menú y se recorren sus secciones.
+Recorrido real de la aplicación, de unos cuatro minutos. En cada perfil se inicia sesión, se abre el menú y se recorren sus secciones.
 
 Los nombres, los códigos y los correos de los estudiantes, y la contraseña del inicio de sesión, están pixelados.
 
